@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-main: #121212;
+    --bg-surface: #181818;
+    --bg-card: #1e1e1e;
+    --accent-yellow: #f2b705;
+    --accent-nude: #d9b48f;
+    --border-dark: #262626;
+  }
+
+  body {
+    background-color: #121212;
+    color: #e5e5e5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+}
+
+/* Custom Tactile Neumorphic Utilities */
+.neu-flat {
+  background: #181818;
+  box-shadow: 6px 6px 16px rgba(0, 0, 0, 0.7), -4px -4px 12px rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.neu-card {
+  background: #1a1a1a;
+  box-shadow: 8px 8px 20px rgba(0, 0, 0, 0.75), -5px -5px 15px rgba(255, 255, 255, 0.035);
+  border: 1px solid #282828;
+}
+
+.neu-sunken {
+  background: #141414;
+  box-shadow: inset 4px 4px 10px rgba(0, 0, 0, 0.85), inset -3px -3px 8px rgba(255, 255, 255, 0.03);
+  border: 1px solid #222222;
+}
+
+.neu-btn {
+  background: #1b1b1b;
+  box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.65), -3px -3px 8px rgba(255, 255, 255, 0.04);
+  border: 1px solid #2a2a2a;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.neu-btn:hover {
+  background: #202020;
+  border-color: #333333;
+  transform: translateY(-1px);
+}
+
+.neu-btn:active, .neu-btn-active {
+  background: #141414 !important;
+  box-shadow: inset 3px 3px 8px rgba(0, 0, 0, 0.85), inset -2px -2px 6px rgba(255, 255, 255, 0.03) !important;
+  border-color: #222222 !important;
+  transform: translateY(0);
+}
+
+.neu-btn-accent {
+  background: #f2b705;
+  color: #121212;
+  box-shadow: 0 4px 14px rgba(242, 183, 5, 0.35), inset 1px 1px 2px rgba(255, 255, 255, 0.4);
+  border: 1px solid #e0a700;
+  font-weight: 700;
+  transition: all 0.15s ease;
+}
+
+.neu-btn-accent:hover {
+  background: #ffc21c;
+  box-shadow: 0 6px 18px rgba(242, 183, 5, 0.45);
+  transform: translateY(-1px);
+}
+
+.neu-btn-accent:active {
+  background: #d9a300;
+  box-shadow: inset 2px 2px 6px rgba(0, 0, 0, 0.4);
+  transform: translateY(0);
+}
+
+/* Custom Pill Switch */
+.neu-pill-track {
+  background: #131313;
+  box-shadow: inset 3px 3px 7px rgba(0, 0, 0, 0.85), inset -2px -2px 5px rgba(255, 255, 255, 0.03);
+  border: 1px solid #242424;
+}
+
+/* Subtle Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #121212;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a3a;
+}

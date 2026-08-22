@@ -1,0 +1,6 @@
+{
+  "name": "Smart Launcher Admin Dashboard",
+  "description": "Painel administrativo deep dark mode com estética neumorfista minimalista para automação de prospecção, conexão WhatsApp e treinamento IA.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
