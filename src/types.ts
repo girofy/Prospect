@@ -1,16 +1,53 @@
-export type TabType = 'dashboard' | 'whatsapp' | 'training' | 'integrations' | 'history';
+export type TabType = 'home' | 'leads' | 'whatsapp' | 'ai' | 'cadence' | 'sheets' | 'analytics';
 
 export type OpenerType = 'Bom Dia' | 'Boa Tarde' | 'Boa Noite';
 
-export interface DispatchItem {
+export type LeadStatus = 
+  | 'novo' 
+  | 'disparado' 
+  | 'respondeu' 
+  | 'em_conversa' 
+  | 'reuniao_marcada' 
+  | 'esfriou' 
+  | 'bloqueado';
+
+export type ContactRole = 'decisor' | 'atendente_recepcao';
+
+export interface ChatMessage {
+  id: string;
+  from: 'bot' | 'lead' | 'operator';
+  text: string;
+  time: string;
+  isAudio?: boolean;
+  status?: 'sent' | 'received' | 'pending_approval';
+  riskLevel?: 'low' | 'high';
+  aiReasoning?: string;
+}
+
+export interface LeadDossier {
+  summary: string;
+  painPoints: string[];
+  suggestedApproach: string;
+  researchedAt: string;
+}
+
+export interface Lead {
   id: string;
   phone: string;
-  name?: string;
-  status: 'pending' | 'sending' | 'sent' | 'failed';
-  opener: OpenerType;
-  timestamp: string;
-  channel: 'whatsapp';
-  responseReceived?: boolean;
+  name: string;
+  company: string;
+  niche: string;
+  role: ContactRole;
+  status: LeadStatus;
+  optOutDetected: boolean;
+  optOutReason?: string;
+  lastOpenerUsed?: OpenerType;
+  lastInteractionTime: string;
+  followUpDays: number;
+  dossier: LeadDossier | null;
+  messages: ChatMessage[];
+  pendingAiProposal?: string;
+  notes?: string;
 }
 
 export interface KnowledgeBook {
@@ -29,10 +66,71 @@ export interface SystemPromptConfig {
   prompt: string;
   presetName: string;
   temperature: number;
-  tone: 'formal' | 'consultivo' | 'direto' | 'amigavel';
+  tone: 'consultivo' | 'direto' | 'desafiador' | 'parceiro_recepcao';
   maxTokens: number;
   includeAudioNoteTrigger: boolean;
   safetyCooldownSeconds: number;
+}
+
+export interface WhatsAppCloudApiConfig {
+  phoneNumberId: string;
+  wabaId: string;
+  accessToken: string;
+  connectedNumber: string;
+  verifiedName: string;
+  qualityRating: 'GREEN' | 'YELLOW' | 'RED' | 'UNKNOWN';
+}
+
+export interface WhatsAppSessionState {
+  connected: boolean;
+  pairingStatus: 'disconnected' | 'connecting' | 'connected';
+  gatewayType: 'meta_cloud_api' | 'custom_webhook';
+  config: WhatsAppCloudApiConfig;
+  lastTestStatus?: 'success' | 'error';
+  lastTestMessage?: string;
+  lastActive: string;
+}
+
+export interface HealthScoreSignals {
+  undeliveredCount: number;
+  blockedCount: number;
+  spamReports: number;
+  totalSent: number;
+  totalReplies: number;
+  healthScore: number; // 0 - 100
+  protectionModeActive: boolean;
+  safeDailyLimit: number;
+  baseDailyLimit: number;
+}
+
+export interface SectorRule {
+  id: string;
+  niche: string;
+  rule: string;
+  bestTime: string;
+  avoidDays: string[];
+}
+
+export interface ExperienceMemory {
+  openerStats: Record<OpenerType, { sent: number; replies: number }>;
+  successfulPhrases: string[];
+  ignoredPhrases: string[];
+  sectorRules: SectorRule[];
+  operatorApprovalCount: number;
+  operatorEditCount: number;
+  autonomyLevel: number; // 0 - 100%
+}
+
+export interface GoogleSheetsLog {
+  id: string;
+  timestamp: string;
+  leadId: string;
+  phone: string;
+  company: string;
+  type: 'chat' | 'audio' | 'ai_reply' | 'opt_out' | 'meeting';
+  direction: 'in' | 'out';
+  content: string;
+  status: 'sent' | 'received' | 'logged';
 }
 
 export interface GoogleIntegrationSettings {
@@ -47,23 +145,4 @@ export interface GoogleIntegrationSettings {
   businessHoursEnd: string;
   syncedEventsCount: number;
   lastSyncTimestamp: string;
-}
-
-export interface WhatsAppSessionState {
-  connected: boolean;
-  pairingStatus: 'idle' | 'generating_qr' | 'awaiting_scan' | 'connected' | 'error';
-  qrCodeSeed: string;
-  deviceName: string;
-  batteryLevel: number;
-  networkLatencyMs: number;
-  connectedNumber: string;
-  lastActive: string;
-}
-
-export interface DispatchLimitStats {
-  dailyLimit: number;
-  sentToday: number;
-  queuedToday: number;
-  repliesToday: number;
-  conversionRate: number;
 }
