@@ -1692,12 +1692,12 @@ Gere a resposta ideal para enviar no WhatsApp (máximo 2 a 3 frases curtas, tom 
                 <div className="bg-black p-2.5 rounded-xl border border-zinc-800 flex items-center justify-between gap-2">
                   <div>
                     <span className="text-[9px] text-zinc-500 block uppercase">2. Verificar Token (Verify Token):</span>
-                    <span className="text-white select-all block">prospectfy_webhook_token</span>
+                    <span className="text-white select-all block">impossivel2008</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => {
-                      navigator.clipboard.writeText('prospectfy_webhook_token');
+                      navigator.clipboard.writeText('impossivel2008');
                       showToast('Verify Token copiado!');
                     }}
                     className="p-2 bg-zinc-900 hover:bg-zinc-800 rounded-lg text-white text-[10px] font-sans font-bold flex items-center gap-1 shrink-0"

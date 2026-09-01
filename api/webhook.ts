@@ -31,6 +31,7 @@ export default async function handler(req: any, res: any) {
     }
 
     const VALID_TOKENS = [
+      'impossivel2008',
       'prospectfy_webhook_token',
       'girofy_secret_123',
       'prospectfy',
@@ -38,7 +39,7 @@ export default async function handler(req: any, res: any) {
     ].filter(Boolean);
 
     // Se a Meta solicitou subscrição e enviou um token válido (ou qualquer token padrão configurado)
-    if (mode === 'subscribe' && (VALID_TOKENS.includes(token) || !token || token === 'prospectfy_webhook_token')) {
+    if (mode === 'subscribe' && (VALID_TOKENS.includes(token) || !token || token === 'impossivel2008' || token === 'prospectfy_webhook_token')) {
       console.log('[Meta Webhook] Verificação concluída com sucesso. Challenge:', challenge);
       res.setHeader('Content-Type', 'text/plain');
       return res.status(200).send(challenge || 'OK');
@@ -50,8 +51,8 @@ export default async function handler(req: any, res: any) {
         status: 'active',
         service: 'Prospectfy WhatsApp Cloud API Webhook',
         endpoint: '/api/webhook',
-        default_verify_token: 'prospectfy_webhook_token',
-        documentation: 'Utilize esta URL e o token "prospectfy_webhook_token" no painel de desenvolvedor da Meta.',
+        default_verify_token: 'impossivel2008',
+        documentation: 'Utilize esta URL e o token "impossivel2008" no painel de desenvolvedor da Meta.',
       });
     }
 

@@ -23,8 +23,8 @@ const metaWebhookPlugin = (): Plugin => ({
       const challenge = parsedUrl.searchParams.get('hub.challenge');
 
       if (req.method === 'GET') {
-        const VALID_TOKENS = ['prospectfy_webhook_token', 'girofy_secret_123', 'prospectfy'];
-        if (mode === 'subscribe' && (VALID_TOKENS.includes(token || '') || !token || token === 'prospectfy_webhook_token')) {
+        const VALID_TOKENS = ['impossivel2008', 'prospectfy_webhook_token', 'girofy_secret_123', 'prospectfy'];
+        if (mode === 'subscribe' && (VALID_TOKENS.includes(token || '') || !token || token === 'impossivel2008' || token === 'prospectfy_webhook_token')) {
           res.statusCode = 200;
           res.setHeader('Content-Type', 'text/plain');
           res.end(challenge || 'OK');
@@ -38,7 +38,7 @@ const metaWebhookPlugin = (): Plugin => ({
             status: 'active',
             service: 'Prospectfy WhatsApp Cloud API Webhook',
             endpoint: '/api/webhook',
-            default_verify_token: 'prospectfy_webhook_token'
+            default_verify_token: 'impossivel2008'
           }));
           return;
         }
