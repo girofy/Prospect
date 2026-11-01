@@ -7,9 +7,13 @@ export type LeadStatus =
   | 'disparado' 
   | 'respondeu' 
   | 'em_conversa' 
+  | 'qualificado'
   | 'reuniao_marcada' 
+  | 'aguardando_humano'
   | 'esfriou' 
   | 'bloqueado';
+
+export type AgentState = 'ai_active' | 'human_takeover' | 'paused';
 
 export type ContactRole = 'decisor' | 'atendente_recepcao';
 
@@ -39,6 +43,7 @@ export interface Lead {
   niche: string;
   role: ContactRole;
   status: LeadStatus;
+  agentState?: AgentState;
   optOutDetected: boolean;
   optOutReason?: string;
   lastOpenerUsed?: OpenerType;
@@ -72,6 +77,14 @@ export interface SystemPromptConfig {
   safetyCooldownSeconds: number;
 }
 
+export interface EvolutionApiConfig {
+  baseUrl: string;
+  instanceName: string;
+  apiKey: string;
+  connectedNumber?: string;
+  profileName?: string;
+}
+
 export interface WhatsAppCloudApiConfig {
   phoneNumberId: string;
   wabaId: string;
@@ -84,8 +97,11 @@ export interface WhatsAppCloudApiConfig {
 export interface WhatsAppSessionState {
   connected: boolean;
   pairingStatus: 'disconnected' | 'connecting' | 'connected';
-  gatewayType: 'meta_cloud_api' | 'custom_webhook';
+  gatewayType: 'evolution_api' | 'meta_cloud_api' | 'custom_webhook';
   config: WhatsAppCloudApiConfig;
+  evolutionConfig?: EvolutionApiConfig;
+  qrCodeBase64?: string;
+  pairingCode?: string;
   lastTestStatus?: 'success' | 'error';
   lastTestMessage?: string;
   lastActive: string;

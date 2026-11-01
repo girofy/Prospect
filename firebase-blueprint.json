@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "1.0.0",
+  "entities": {
+    "contacts": {
+      "description": "Contatos e leads que interagem com o WhatsApp oficial da Girofy",
+      "properties": {
+        "phone": { "type": "string", "description": "Número do contato no padrão E.164" },
+        "name": { "type": "string", "description": "Nome do contato ou razão social" },
+        "company": { "type": "string", "description": "Nome da empresa do contato" },
+        "role": { "type": "string", "description": "Papel do contato: decisor ou atendente" },
+        "status": { "type": "string", "description": "Status comercial: novo, em_conversa, qualificado, reuniao_marcada, aguardando_humano, bloqueado" },
+        "agentState": { "type": "string", "description": "Estado do agente: ai_active, human_takeover ou paused" },
+        "optOutDetected": { "type": "boolean", "description": "Flag de solicitação de opt-out LGPD" },
+        "lastInteractionAt": { "type": "string", "description": "Timestamp ISO da última interação" },
+        "createdAt": { "type": "string", "description": "Timestamp ISO de criação" }
+      },
+      "required": ["phone", "name", "status", "agentState", "optOutDetected"]
+    },
+    "messages": {
+      "description": "Histórico completo de mensagens recebidas e enviadas pelo WhatsApp Cloud API",
+      "properties": {
+        "id": { "type": "string", "description": "Identificador único da mensagem" },
+        "contactPhone": { "type": "string", "description": "Telefone do contato vinculado" },
+        "from": { "type": "string", "description": "Origem da mensagem: lead, bot ou operator" },
+        "text": { "type": "string", "description": "Conteúdo textual da mensagem" },
+        "type": { "type": "string", "description": "Tipo de mídia: text, audio, image, document" },
+        "timestamp": { "type": "string", "description": "Timestamp ISO da mensagem" },
+        "metaMessageId": { "type": "string", "description": "ID oficial retornado pela Graph API da Meta" },
+        "status": { "type": "string", "description": "Status de entrega da mensagem" }
+      },
+      "required": ["id", "contactPhone", "from", "text", "type", "timestamp"]
+    },
+    "audit_logs": {
+      "description": "Registro de eventos de auditoria, segurança e conformidade",
+      "properties": {
+        "id": { "type": "string", "description": "Identificador do log" },
+        "timestamp": { "type": "string", "description": "Timestamp ISO do evento" },
+        "type": { "type": "string", "description": "Tipo do evento" },
+        "phone": { "type": "string", "description": "Telefone relacionado, se houver" },
+        "summary": { "type": "string", "description": "Descrição sucinta do evento técnico" }
+      },
+      "required": ["id", "timestamp", "type", "summary"]
+    },
+    "data_deletion_requests": {
+      "description": "Solicitações de exclusão de dados conforme a LGPD e requisitos da Meta",
+      "properties": {
+        "id": { "type": "string", "description": "Identificador da solicitação" },
+        "confirmationCode": { "type": "string", "description": "Código de rastreamento da solicitação" },
+        "identifier": { "type": "string", "description": "Telefone ou e-mail do titular" },
+        "status": { "type": "string", "description": "Status: pending ou completed" },
+        "requestedAt": { "type": "string", "description": "Data e hora do pedido" },
+        "completedAt": { "type": "string", "description": "Data e hora da exclusão efetiva" }
+      },
+      "required": ["id", "confirmationCode", "identifier", "status", "requestedAt"]
+    }
+  }
+}
