@@ -9,6 +9,9 @@ import messagesHandler from './api/messages';
 import statusHandler from './api/whatsapp-status';
 import dataDeletionHandler from './api/data-deletion';
 import auditLogsHandler from './api/audit-logs';
+import configHandler from './api/config';
+import pairingHandler from './api/pairing';
+import campaignHandler from './api/campaign';
 
 function adaptHandler(handler: (req: any, res: any) => Promise<any> | any) {
   return async (req: any, res: any) => {
@@ -73,6 +76,9 @@ const apiDevServerPlugin = (): Plugin => ({
       '/api/whatsapp-status': adaptHandler(statusHandler),
       '/api/data-deletion': adaptHandler(dataDeletionHandler),
       '/api/audit-logs': adaptHandler(auditLogsHandler),
+      '/api/config': adaptHandler(configHandler),
+      '/api/pairing': adaptHandler(pairingHandler),
+      '/api/campaign': adaptHandler(campaignHandler),
     };
 
     // Use a single top-level interceptor for all /api/* routes

@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { db } from './db';
 
 // Configuration constants from confirmed project context
 export const AUTHORIZED_BUSINESS_NUMBER = '557488126578';
@@ -7,10 +8,11 @@ export const DEFAULT_APP_ID = '1572840733789529';
 export const DEFAULT_BUSINESS_ID = '1232106109979142';
 
 export function getMetaConfig() {
-  const token = process.env.META_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || '';
-  const phoneNumberId = process.env.META_PHONE_NUMBER_ID || process.env.PHONE_NUMBER_ID || DEFAULT_PHONE_NUMBER_ID;
-  const appSecret = process.env.META_APP_SECRET || '';
-  const verifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN || process.env.WEBHOOK_VERIFY_TOKEN || 'impossivel2008';
+  const dynamicConfig = db.getConfigSync();
+  const token = dynamicConfig.metaAccessToken || process.env.META_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || '';
+  const phoneNumberId = dynamicConfig.metaPhoneNumberId || process.env.META_PHONE_NUMBER_ID || process.env.PHONE_NUMBER_ID || DEFAULT_PHONE_NUMBER_ID;
+  const appSecret = dynamicConfig.metaAppSecret || process.env.META_APP_SECRET || '';
+  const verifyToken = dynamicConfig.webhookVerifyToken || process.env.META_WEBHOOK_VERIFY_TOKEN || process.env.WEBHOOK_VERIFY_TOKEN || 'impossivel2008';
 
   return {
     token: token.trim().replace(/^Bearer\s+/i, ''),
@@ -18,6 +20,7 @@ export function getMetaConfig() {
     appSecret: appSecret.trim(),
     verifyToken: verifyToken.trim(),
     isConfigured: Boolean(token.trim()),
+    autoReplyEnabled: dynamicConfig.autoReplyEnabled !== false,
   };
 }
 

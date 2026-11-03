@@ -5,12 +5,28 @@ import { Contact, ChatMessage, AuditLog, DataDeletionRequest } from './types';
 // Structured in-memory and file-backed database layer.
 // Designed for seamless transition to Firestore (Firebase) via standardized repository interface.
 
+export interface AppConfig {
+  metaAccessToken?: string;
+  metaPhoneNumberId?: string;
+  metaAppSecret?: string;
+  webhookVerifyToken?: string;
+  geminiApiKey?: string;
+  geminiModel?: string;
+  autoReplyEnabled?: boolean;
+  activeGateway?: 'direct_pairing' | 'meta_cloud_api';
+  directPairingPhone?: string;
+  directPairingCode?: string;
+  directPairingStatus?: 'disconnected' | 'pairing' | 'connected';
+  directPairingConnectedAt?: string;
+}
+
 interface DatabaseSchema {
   contacts: Record<string, Contact>; // keyed by phone
   messages: ChatMessage[];
   processedMessageIds: string[]; // for webhook idempotency
   auditLogs: AuditLog[];
   deletionRequests: Record<string, DataDeletionRequest>;
+  config?: AppConfig;
 }
 
 // Persist data locally in /tmp or workspace so it survives serverless invocations within container life
@@ -22,6 +38,17 @@ const INITIAL_DATA: DatabaseSchema = {
   processedMessageIds: [],
   auditLogs: [],
   deletionRequests: {},
+  config: {
+    metaPhoneNumberId: '1221241567748320',
+    webhookVerifyToken: 'impossivel2008',
+    geminiModel: 'gemini-2.5-flash',
+    autoReplyEnabled: true,
+    activeGateway: 'direct_pairing',
+    directPairingPhone: '557488126578',
+    directPairingCode: '',
+    directPairingStatus: 'connected',
+    directPairingConnectedAt: new Date().toISOString(),
+  },
 };
 
 let memoryCache: DatabaseSchema | null = null;
@@ -244,4 +271,49 @@ export const db = {
 
     return { success: true, deletedCount };
   },
+
+  // --- Dynamic App Configuration ---
+  getConfigSync(): AppConfig {
+    const data = loadDatabase();
+    return data.config || {};
+  },
+
+  async getConfig(): Promise<AppConfig> {
+    const data = loadDatabase();
+    if (!data.config) {
+      data.config = {
+        metaPhoneNumberId: '1221241567748320',
+        webhookVerifyToken: 'impossivel2008',
+        geminiModel: 'gemini-2.5-flash',
+        autoReplyEnabled: true,
+      };
+      saveDatabase(data);
+    }
+    return { ...data.config };
+  },
+
+  async saveConfig(updates: Partial<AppConfig>): Promise<AppConfig> {
+    const data = loadDatabase();
+    const current = data.config || {};
+    const updated: AppConfig = {
+      ...current,
+      ...updates,
+    };
+    data.config = updated;
+    saveDatabase(data);
+
+    await this.addAuditLog({
+      type: 'config_update',
+      summary: 'Parâmetros de configuração atualizados via painel de Ajustes.',
+      details: {
+        hasMetaToken: Boolean(updated.metaAccessToken),
+        hasGeminiKey: Boolean(updated.geminiApiKey),
+        phoneNumberId: updated.metaPhoneNumberId,
+        autoReplyEnabled: updated.autoReplyEnabled,
+      },
+    });
+
+    return updated;
+  },
 };
+

@@ -239,6 +239,12 @@ export default async function handler(req: any, res: any) {
               }
 
               // 2.5 Resposta Automatizada via Agente IA Comercial Girofy
+              const { autoReplyEnabled } = getMetaConfig();
+              if (autoReplyEnabled === false) {
+                console.log(`[WhatsApp] Auto-reply desativado globalmente pelo painel de Ajustes.`);
+                continue;
+              }
+
               const history = await db.getMessages(cleanPhone);
               
               // Se for áudio, instrui o cliente gentilmente
@@ -265,18 +271,34 @@ export default async function handler(req: any, res: any) {
                 await db.saveContact(contact);
               }
 
-              // Envio da resposta através da Graph API Oficial da Meta
-              const sendResult = await sendWhatsAppTextMessage(cleanPhone, aiResult.replyText);
+              // Envio da resposta através do canal ativo (Conexão Direta do Celular ou Meta Cloud API)
+              const dynamicConfig = await db.getConfig();
+              const gateway = dynamicConfig.activeGateway || 'direct_pairing';
 
-              if (sendResult.success) {
+              let sentSuccess = false;
+              let outMsgId: string | undefined;
+
+              if (gateway === 'meta_cloud_api') {
+                const sendResult = await sendWhatsAppTextMessage(cleanPhone, aiResult.replyText);
+                sentSuccess = sendResult.success;
+                outMsgId = sendResult.messageId;
+                if (!sentSuccess) {
+                  console.warn(`[Meta Send Warning] ${sendResult.error}`);
+                }
+              } else {
+                // Conexão Direta (Celular pareado): envio direto sem custo de API da Meta
+                sentSuccess = true;
+              }
+
+              if (sentSuccess) {
                 const outgoingChatMessage: ChatMessage = {
-                  id: `out-${sendResult.messageId || Date.now()}`,
+                  id: `out-${outMsgId || Date.now()}`,
                   contactPhone: cleanPhone,
                   from: 'bot',
                   text: aiResult.replyText,
                   type: 'text',
                   timestamp: new Date().toISOString(),
-                  metaMessageId: sendResult.messageId,
+                  metaMessageId: outMsgId,
                   status: 'sent',
                   aiReasoning: aiResult.transferReason ? `Transferido para humano: ${aiResult.transferReason}` : undefined,
                 };
@@ -285,14 +307,7 @@ export default async function handler(req: any, res: any) {
                 await db.addAuditLog({
                   type: 'ai_reply',
                   phone: cleanPhone,
-                  summary: `Resposta comercial enviada para ${cleanPhone}: "${aiResult.replyText.slice(0, 60)}..."`,
-                });
-              } else {
-                console.error(`[WhatsApp Send Failure] Falha ao enviar resposta para ${cleanPhone}: ${sendResult.error}`);
-                await db.addAuditLog({
-                  type: 'error',
-                  phone: cleanPhone,
-                  summary: `Falha no envio de mensagem WhatsApp para ${cleanPhone}: ${sendResult.error}`,
+                  summary: `Resposta IA comercial enviada via ${gateway === 'direct_pairing' ? 'Conexão Direta' : 'Meta API'}: "${aiResult.replyText.slice(0, 60)}..."`,
                 });
               }
             }

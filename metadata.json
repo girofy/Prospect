@@ -1,6 +1,6 @@
 {
-  "name": "Smart Launcher Admin Dashboard",
-  "description": "Painel administrativo deep dark mode com estética neumorfista minimalista para automação de prospecção, conexão WhatsApp e treinamento IA.",
+  "name": "Prospectfy",
+  "description": "Painel de comando comercial B2B e automação WhatsApp Cloud API da Girofy Tecnologia.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
