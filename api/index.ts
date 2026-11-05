@@ -36,7 +36,8 @@ export default async function handler(req: any, res: any) {
   }
 
   const rawUrl = req.url || '/api';
-  const urlPath = rawUrl.split('?')[0];
+  const pathname = rawUrl.split('?')[0];
+  const urlPath = pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
 
   // Route dispatching
   const routeHandler = handlers[urlPath];
@@ -47,7 +48,7 @@ export default async function handler(req: any, res: any) {
 
   // Prefix matching if exact match not found (e.g. /api/contacts/...)
   for (const [route, fn] of Object.entries(handlers)) {
-    if (urlPath.startsWith(route)) {
+    if (urlPath === route || urlPath.startsWith(`${route}/`)) {
       return fn(req, res);
     }
   }

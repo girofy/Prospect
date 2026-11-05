@@ -276,7 +276,8 @@ export default function App() {
   const fetchConfig = useCallback(async () => {
     try {
       const res = await fetch('/api/config');
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
         setConfig(data);
         if (data.metaPhoneNumberId && !inputPhoneId) {
@@ -296,13 +297,16 @@ export default function App() {
     setIsLoadingContacts(true);
     try {
       const res = await fetch('/api/contacts');
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
         const list: Contact[] = Array.isArray(data) ? data : (data.contacts || []);
         setContacts(list);
         if (list.length > 0 && !selectedPhone) {
           setSelectedPhone(list[0].phone);
         }
+      } else if (!res.ok) {
+        console.warn('[Contacts Fetch Error] Response status:', res.status);
       }
     } catch (err) {
       console.error('[Contacts Fetch Error]:', err);
@@ -317,7 +321,8 @@ export default function App() {
     setIsLoadingMessages(true);
     try {
       const res = await fetch(`/api/messages?phone=${encodeURIComponent(phone)}`);
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
         const list: ChatMessage[] = Array.isArray(data) ? data : (data.messages || []);
         setMessages(list);
@@ -334,7 +339,8 @@ export default function App() {
     setTestingStatus(true);
     try {
       const res = await fetch('/api/whatsapp-status');
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
         setWhatsappStatus(data);
       }
@@ -349,7 +355,8 @@ export default function App() {
   const fetchAuditLogs = useCallback(async () => {
     try {
       const res = await fetch('/api/audit-logs');
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
         const list: AuditLog[] = Array.isArray(data) ? data : (data.logs || []);
         setAuditLogs(list);
@@ -363,7 +370,8 @@ export default function App() {
   const fetchPairingStatus = useCallback(async () => {
     try {
       const res = await fetch('/api/pairing');
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
         setPairingData(data);
       }
@@ -386,7 +394,8 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
         setPairingData(prev => ({
           ...prev,
@@ -418,7 +427,8 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'confirm_paired', phoneNumber: pairingData.phoneNumber })
       });
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
         setPairingData(prev => ({
           ...prev,
