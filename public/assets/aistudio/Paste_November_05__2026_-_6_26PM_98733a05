@@ -1,0 +1,450 @@
+2026-11-05T21:21:43.130536439Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:43     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:43.433103505Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:43     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:43.783835975Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:43     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:44.185530487Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:44     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:44.637651568Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:44     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:45.139379138Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:45     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:45.641430397Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:45     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:46.143554857Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:46     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:46.645625846Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:46     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:47.147939801Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:47     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:47.649916247Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:47     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:48.15093484Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:48     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:48.65222767Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:48     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:49.165851193Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:49     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:49.657727001Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:49     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:50.16303018Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:50     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:50.663599281Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:50     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:51.165095086Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:51     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:51.666005667Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:51     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:52.166573638Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:52     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:52.672123093Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:52     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:53.170313966Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:53     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:53.672010306Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:53     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:54.172452095Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:54     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:54.674131574Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:54     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:55.174799779Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:55     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:55.675845192Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:55     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:56.177212964Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:56     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:56.678901203Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:56     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:57.182964101Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:57     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:57.684310352Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:57     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:58.186112984Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:58     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:58.690547321Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:58     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:59.194316211Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:59     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:21:59.696201916Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:21:59     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:00.19808986Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:00     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:00.698768885Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:00     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:01.200344161Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:01     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:01.704224525Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:01     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:02.205022422Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:02     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:02.705579144Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:02     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:03.207896168Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:03     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:03.708626164Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:03     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:04.210595961Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:04     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:04.712330101Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:04     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:05.21399849Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:05     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:05.714689315Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:05     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:06.216223009Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:06     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:06.718123884Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:06     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:07.21926234Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:07     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:07.722547018Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:07     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:08.223848018Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:08     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:08.724617315Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:08     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:09.226364135Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:09     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:09.728113186Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:09     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:10.229346454Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:10     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:10.729851825Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:10     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:11.230594501Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:11     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:11.731438149Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:11     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:12.233117328Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:12     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:12.733879435Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:12     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:13.23500629Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:13     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:13.73753572Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:13     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:14.247156555Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:14     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:14.744973139Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:14     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:15.245770356Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:15     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:15.746664416Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:15     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:16.23138916Z ==> New primary port detected: 8080. Restarting deploy to update network configuration...
+2026-11-05T21:22:16.248361935Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:16     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:16.406429487Z ==> Docs on specifying a port: https://render.com/docs/web-services#port-binding
+2026-11-05T21:22:16.750455165Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:16     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:17.252255887Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:17     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:17.753769772Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:17     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:18.255242656Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:18     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:18.757296694Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:18     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:19.259634299Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:19     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:19.761519083Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:19     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:20.264164826Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:20     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:20.767186198Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:20     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:21.266978861Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:21     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:21.767479301Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:21     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:22.269229922Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:22     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:22.77090714Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:22     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:23.271707478Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:23     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:23.773357876Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:23     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:24.275324642Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:24     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:24.777093413Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:24     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:25.277734577Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:25     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:25.778456032Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:25     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:26.280153462Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:26     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:26.782765604Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:26     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:27.283371926Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:27     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:27.785374333Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:27     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:28.286872378Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:28     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:28.787633654Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:28     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:29.288470652Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:29     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:29.789787683Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:29     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:30.734013097Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:30     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:31.234180219Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:31     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:31.838173962Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:31     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:32.339289697Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:32     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:32.842188836Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:32     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:32.996633136Z Deploying migrations for postgresql
+2026-11-05T21:22:32.996667487Z Database URL: 
+2026-11-05T21:22:33.343838414Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:33     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:33.844662973Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:33     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:34.346243699Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:34     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:34.478482764Z 
+2026-11-05T21:22:34.478506895Z > evolution-api@2.2.0 db:deploy
+2026-11-05T21:22:34.478510515Z > node runWithProvider.js "rm -rf ./prisma/migrations && cp -r ./prisma/DATABASE_PROVIDER-migrations ./prisma/migrations && npx prisma migrate deploy --schema ./prisma/DATABASE_PROVIDER-schema.prisma"
+2026-11-05T21:22:34.478513845Z 
+2026-11-05T21:22:34.847857436Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:34     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:35.348471599Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:35     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:35.8502221Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:35     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:36.351819507Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:36     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:36.852509721Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:36     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:37.354377455Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:37     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:37.856504325Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:37     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:38.358192304Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:38     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:38.85974822Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:38     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:39.362011253Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:39     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:39.864119282Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:39     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:40.366018506Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:40     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:40.866610369Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:40     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:41.368318338Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:41     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:41.870078499Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:41     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:42.370539398Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:42     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:42.872382581Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:42     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:43.374307456Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:43     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:43.876250211Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:43     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:44.377634803Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:44     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:44.879017834Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:44     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:45.078832576Z Environment variables loaded from .env
+2026-11-05T21:22:45.080223014Z Prisma schema loaded from prisma/postgresql-schema.prisma
+2026-11-05T21:22:45.28423103Z Datasource "db": PostgreSQL database "evolution_db_ner8", schema "public" at "dpg-dbmf3l3m8hqs73f9nsd0-a"
+2026-11-05T21:22:45.379561155Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:45     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:45.881407198Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:45     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:46.080436295Z 
+2026-11-05T21:22:46.080461785Z 48 migrations found in prisma/migrations
+2026-11-05T21:22:46.080467035Z 
+2026-11-05T21:22:46.30520749Z 
+2026-11-05T21:22:46.305231551Z No pending migrations to apply.
+2026-11-05T21:22:46.383008835Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:46     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:46.687787177Z Migration succeeded
+2026-11-05T21:22:46.886035008Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:46     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:47.390344551Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:47     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:47.892382939Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:47     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:47.98750327Z 
+2026-11-05T21:22:47.987527221Z > evolution-api@2.2.0 db:generate
+2026-11-05T21:22:47.987532631Z > node runWithProvider.js "npx prisma generate --schema ./prisma/DATABASE_PROVIDER-schema.prisma"
+2026-11-05T21:22:47.987536281Z 
+2026-11-05T21:22:48.394670233Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:48     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:48.896230229Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:48     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:49.397771774Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:49     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:49.898686264Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:49     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:50.399723967Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:50     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:50.900510624Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:50     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:51.402096611Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:51     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:51.902556459Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:51     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:52.404297369Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:52     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:52.906088551Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:52     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:53.407404931Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:53     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:53.909697045Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:53     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:54.410485312Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:54     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:54.912116929Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:54     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:55.413850369Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:55     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:55.914508333Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:55     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:56.416196142Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:56     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:56.917914502Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:56     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:57.381918992Z Environment variables loaded from .env
+2026-11-05T21:22:57.384973026Z Prisma schema loaded from prisma/postgresql-schema.prisma
+2026-11-05T21:22:57.418430542Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:57     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:57.920147492Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:57     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:58.421586044Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:58     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:58.923357315Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:58     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:59.425120796Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:59     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:22:59.925900273Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:22:59     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:00.426564837Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:00     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:00.928314857Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:00     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:01.430041767Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:01     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:01.930527236Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:01     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:02.431827016Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:02     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:02.932861259Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:02     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:03.433735038Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:03     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:03.935197631Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:03     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:04.437726441Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:04     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:04.939125783Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:04     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:05.439315365Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:05     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:05.94085792Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:05     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:06.443535103Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:06     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:06.942579797Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:06     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:07.444378819Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:07     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:07.946268083Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:07     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:08.448769421Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:08     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:08.950393849Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:08     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:09.45340261Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:09     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:09.955247793Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:09     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:10.458124031Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:10     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:10.958839706Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:10     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:11.459569281Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:11     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:11.960988383Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:11     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:12.461609626Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:12     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:12.962423443Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:12     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:13.463956188Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:13     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:13.964582671Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:13     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:14.179622339Z 
+2026-11-05T21:23:14.179656379Z ✔ Generated Prisma Client (v5.21.1) to ./node_modules/@prisma/client in 7.60s
+2026-11-05T21:23:14.179660909Z 
+2026-11-05T21:23:14.179664849Z Start by importing your Prisma Client (See: http://pris.ly/d/importing-client)
+2026-11-05T21:23:14.17966853Z 
+2026-11-05T21:23:14.17967273Z Tip: Curious about the SQL queries Prisma ORM generates? Optimize helps you enhance your visibility: https://pris.ly/tip-2-optimize
+2026-11-05T21:23:14.17967629Z 
+2026-11-05T21:23:14.46624399Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:14     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:14.967521038Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:14     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:15.080885213Z Prisma generate succeeded
+2026-11-05T21:23:15.469378071Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:15     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:15.97144774Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:15     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:16.473660251Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:16     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:16.975239037Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:16     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:17.187472439Z 
+2026-11-05T21:23:17.18749612Z > evolution-api@2.2.0 start:prod
+2026-11-05T21:23:17.18750163Z > node dist/main
+2026-11-05T21:23:17.1875057Z 
+2026-11-05T21:23:17.477156592Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:17     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:17.691099644Z ==> Detected a new open port HTTP:8080
+2026-11-05T21:23:17.97880649Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:17     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:18.480755215Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:18     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:18.981596253Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:18     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:19.483301252Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:19     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:19.985098154Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:19     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:20.485734847Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:20     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:20.987311083Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:20     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:21.489449932Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:21     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:21.991362477Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:21     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:22.493732482Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:22     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:22.995261187Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:22     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:23.498233017Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:23     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:24.001587007Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:23     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:24.50300668Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:24     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:25.007284762Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:25     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:25.508364556Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:25     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:26.011165162Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:26     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:26.510623856Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:26     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:27.011688969Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:27     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:27.513939643Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:27     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:28.01476441Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:28     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:28.515553707Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:28     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:29.017379689Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:29     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:29.078859852Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:28     VERBOSE   [CacheEngine]  [string]  RedisCache initialized for groups 
+2026-11-05T21:23:29.183641683Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:29     VERBOSE   [CacheService]  [string]  cacheservice created using cache engine: jt 
+2026-11-05T21:23:29.518912114Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:29     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:30.0196565Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:30     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:30.521193915Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:30     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:30.583133662Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:30     VERBOSE   [CacheEngine]  [string]  RedisCache initialized for instance 
+2026-11-05T21:23:30.583221695Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:30     VERBOSE   [CacheService]  [string]  cacheservice created using cache engine: jt 
+2026-11-05T21:23:30.583236785Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:30     VERBOSE   [CacheEngine]  [string]  RedisCache initialized for baileys 
+2026-11-05T21:23:30.583244215Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:30     VERBOSE   [CacheService]  [string]  cacheservice created using cache engine: jt 
+2026-11-05T21:23:30.685835806Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:30     INFO   [WA MODULE]  [string]  Module - ON 
+2026-11-05T21:23:31.022949145Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:31     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:31.524033279Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:31     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:32.024916218Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:32     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:32.526147915Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:32     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:33.027338042Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:33     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:33.529100562Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:33     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:34.029659924Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:34     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:34.532392608Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:34     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:35.040390242Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:35     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:35.383435617Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:35     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:35.542311876Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:35     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:36.044352913Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:36     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:36.282167088Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:36     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:36.483977647Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:36     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:36.545880318Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:36     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:36.678074734Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:36     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:36.878064733Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:36     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:36.8808999Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:36     INFO   [PrismaRepository]  [string]  Repository:Prisma - ON 
+2026-11-05T21:23:36.887497241Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:36     LOG   [SERVER]  [string]  HTTP - ON: 8080 
+2026-11-05T21:23:37.052125589Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:37     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:37.080309463Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:37     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:37.3324276Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:37     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:37.550456245Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:37     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:37.634439234Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:37     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:37.986747455Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:37     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:38.051889247Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:38     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:38.388590794Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:38     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:38.552588562Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:38     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:38.840687069Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:38     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:39.054227379Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:39     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:39.342936038Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:39     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:39.55601571Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:39     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:39.843647595Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:39     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:40.05692319Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:40     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:40.345533282Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:40     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:40.557930822Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:40     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:40.847463298Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:40     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:41.058621506Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:41     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:41.349418804Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:41     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:41.559564486Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:41     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:41.879622914Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:41     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:42.060603269Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:42     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:42.37940098Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:42     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:42.562265307Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:42     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:42.882063276Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:42     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:43.067166075Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:43     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:43.383480908Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:43     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:43.566182148Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:43     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:43.885063224Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:43     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:44.068940503Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:44     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:44.385906929Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:44     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:44.569688478Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:44     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:44.887047964Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:44     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:45.070613928Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:45     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:45.388004772Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:45     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:45.572273986Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:45     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:45.892473758Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:45     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:46.074015106Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:46     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:46.392627375Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:46     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:46.574519685Z [Evolution API]    v2.2.0  182   -  Thu Nov 05 2026 18:23:46     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:46.894413156Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:46     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:47.250967268Z npm error path /evolution
+2026-11-05T21:23:47.250990649Z npm error command failed
+2026-11-05T21:23:47.250995179Z npm error signal SIGTERM
+2026-11-05T21:23:47.251000419Z npm error command sh -c node dist/main
+2026-11-05T21:23:47.2510049Z npm error A complete log of this run can be found in: /root/.npm/_logs/2026-11-05T21_21_23_637Z-debug-0.log
+2026-11-05T21:23:47.327767811Z ==> Your service is live 🎉
+2026-11-05T21:23:47.532656267Z ==> 
+2026-11-05T21:23:47.540953553Z ==> ///////////////////////////////////////////////////////////
+2026-11-05T21:23:47.546079831Z ==> 
+2026-11-05T21:23:47.555389834Z ==> Available at your primary URL https://evolution-zap.onrender.com
+2026-11-05T21:23:47.560292697Z ==> 
+2026-11-05T21:23:47.566883591Z ==> ///////////////////////////////////////////////////////////
+2026-11-05T21:23:47.687440243Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:47     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:48.188824234Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:48     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:48.690817921Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:48     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:49.193861577Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:49     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:49.694903349Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:49     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:50.196018842Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:50     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:50.697576588Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:50     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:51.199520023Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:51     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:51.700512483Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:51     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:52.202562262Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:52     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:52.703982334Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:52     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:53.204737787Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:53     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:53.705927173Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:53     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:54.207251742Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:54     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:54.709096075Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:54     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:55.21027954Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:55     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:55.711568028Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:55     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:56.212603319Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:56     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:56.715285025Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:56     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:57.217656992Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:57     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:57.71933524Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:57     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:58.221130571Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:58     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:58.722729987Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:58     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:59.224292692Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:59     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:23:59.726041412Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:23:59     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:00.226578059Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:00     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:00.728180215Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:00     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:01.228841015Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:01     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:01.729786504Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:01     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:02.230401172Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:02     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:02.732522052Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:02     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:03.234473398Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:03     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:03.736918677Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:03     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:04.265288866Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:04     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:04.74052112Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:04     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:05.243760531Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:05     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:05.745427029Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:05     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:06.248354051Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:06     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:06.749443733Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:06     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:07.251359118Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:07     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:07.753070917Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:07     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:08.679901937Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:08     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:09.183273932Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:09     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:09.881293337Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:09     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:10.381629428Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:10     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:10.883320007Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:10     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:11.387982357Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:11     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:11.927397478Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:11     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:12.391689013Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:12     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:12.894225285Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:12     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:13.396752726Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:13     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:13.898580729Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:13     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:14.40142773Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:14     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:14.909763321Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:14     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:15.407193593Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:15     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:15.911450092Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:15     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:16.412429592Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:16     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:16.916239709Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:16     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:17.423287934Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:17     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:17.925544239Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:17     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:18.426258851Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:18     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:18.930005596Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:18     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:19.431920752Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:19     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:19.93396686Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:19     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:19.984856026Z ==> Detected a new open port HTTP:8080
+2026-11-05T21:24:20.435385732Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:20     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:20.938328945Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:20     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:21.44278908Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:21     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:21.94490344Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:21     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:22.446762134Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:22     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:22.948643738Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:22     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:23.450903783Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:23     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:23.953364783Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:23     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:24.457797987Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:24     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:24.959383343Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:24     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:25.462234734Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:25     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:25.967555692Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:25     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:26.470715381Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:26     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:26.972988236Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:26     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:27.474466889Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:27     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:27.976495767Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:27     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:28.478958088Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:28     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:28.979918807Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:28     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:29.482329746Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:29     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:29.983202793Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:29     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:30.48444538Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:30     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:30.986359086Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:30     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:31.488263001Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:31     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:31.989220881Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:31     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:32.490671564Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:32     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:32.992347963Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:32     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:33.493907819Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:33     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:33.994595041Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:33     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:34.496145636Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:34     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:34.996698125Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:34     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:35.5161263Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:35     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:36.004580307Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:36     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:36.503451979Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:36     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:37.004740968Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:37     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:37.506993573Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:37     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:38.010206184Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:38     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:38.511579665Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:38     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:39.013653235Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:39     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:39.515651943Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:39     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:40.017123346Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:40     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:40.517896041Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:40     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:41.019726404Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:41     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:41.520826207Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:41     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:42.02191993Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:42     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:42.523218509Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:42     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:43.025563627Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:43     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:43.52738101Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:43     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:44.029495561Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:44     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:44.531584521Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:44     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:45.033328684Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:45     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:45.535129692Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:45     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:46.035770568Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:46     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:46.53695861Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:46     ERROR   [Redis]  [string]  redis disconnected 
+2026-11-05T21:24:47.039078676Z [Evolution API]    v2.2.0  183   -  Thu Nov 05 2026 18:24:47     ERROR   [Redis]  [string]  redis disconnected 

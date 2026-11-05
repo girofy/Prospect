@@ -51,19 +51,51 @@ export default async function handler(req: any, res: any) {
         if (evolutionUrl && evolutionKey) {
           try {
             const cleanUrl = evolutionUrl.replace(/\/+$/, '');
-            const connectRes = await fetch(`${cleanUrl}/instance/connect/${instanceName}`, {
-              method: 'POST',
+
+            // 1. Ensure instance exists in Evolution API
+            try {
+              await fetch(`${cleanUrl}/instance/create`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'apikey': evolutionKey,
+                },
+                body: JSON.stringify({
+                  instanceName,
+                  qrcode: false,
+                  integration: 'WHATSAPP-BAILEYS',
+                  number: cleanPhone,
+                }),
+              });
+            } catch {
+              // Instance may already exist
+            }
+
+            // 2. Request pairing code via GET with number param (Evolution v2 standard)
+            let connectRes = await fetch(`${cleanUrl}/instance/connect/${instanceName}?number=${cleanPhone}`, {
+              method: 'GET',
               headers: {
-                'Content-Type': 'application/json',
                 'apikey': evolutionKey,
               },
-              body: JSON.stringify({ number: cleanPhone }),
             });
+
+            // Fallback to POST if GET fails
+            if (!connectRes.ok) {
+              connectRes = await fetch(`${cleanUrl}/instance/connect/${instanceName}`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'apikey': evolutionKey,
+                },
+                body: JSON.stringify({ number: cleanPhone }),
+              });
+            }
 
             if (connectRes.ok) {
               const data = await connectRes.json();
-              if (data.pairingCode || data.code) {
-                code = data.pairingCode || data.code;
+              const foundCode = data.pairingCode || data.code || data.pairing_code;
+              if (foundCode) {
+                code = foundCode;
                 isRealSocketCode = true;
                 gatewayNotice = 'Código real gerado via WebSocket do WhatsApp (Evolution API).';
               }

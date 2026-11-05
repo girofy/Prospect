@@ -211,8 +211,8 @@ export default function App() {
   const [showPairingModal, setShowPairingModal] = useState(false);
   const [pairingModalTab, setPairingModalTab] = useState<'direct_free' | 'cloud_free' | 'meta_official'>('direct_free');
   const [inputPairPhone, setInputPairPhone] = useState('74988126578');
-  const [inputEvolutionUrl, setInputEvolutionUrl] = useState('');
-  const [inputEvolutionKey, setInputEvolutionKey] = useState('');
+  const [inputEvolutionUrl, setInputEvolutionUrl] = useState('https://evolution-zap.onrender.com');
+  const [inputEvolutionKey, setInputEvolutionKey] = useState('girofy123');
   const [showEvolutionAdvanced, setShowEvolutionAdvanced] = useState(false);
   const [isRequestingCode, setIsRequestingCode] = useState(false);
   const [isConfirmingPair, setIsConfirmingPair] = useState(false);
@@ -2364,10 +2364,16 @@ export default function App() {
                     Para o robô responder sozinho na nuvem 24 horas por dia (sem precisar do seu celular ligado ou de internet), basta rodar a <strong>Evolution API (código aberto e grátis)</strong> em um servidor com plano gratuito vitalício:
                   </p>
                   <ol className="text-[11px] text-zinc-600 space-y-1.5 list-decimal pl-4">
-                    <li>Crie uma conta gratuita em <strong>koyeb.com</strong> ou <strong>render.com</strong> (grátis sem cartão de crédito).</li>
-                    <li>Escolha <strong>Deploy Docker</strong> com a imagem: <code className="bg-white/80 px-1 py-0.5 rounded text-[10px]">atendai/evolution-api:v2.1.2</code></li>
-                    <li>Defina a variável <code className="bg-white/80 px-1 py-0.5 rounded text-[10px]">AUTHENTICATION_API_KEY=minhachave123</code>.</li>
-                    <li>Cole a URL gerada abaixo e digite seu número para gerar o código real de 8 dígitos!</li>
+                    <li>No <strong>render.com</strong>, toque em <strong>+ New &gt; Web Service &gt; Existing Image</strong>.</li>
+                    <li>Imagem pública oficial: <code className="bg-white/80 px-1.5 py-0.5 rounded font-mono font-bold text-[11px] text-[#0071E3]">evoapicloud/evolution-api:v2.2.0</code></li>
+                    <li>Adicione as variáveis de ambiente:
+                      <div className="mt-1 space-y-0.5 font-mono text-[10px] text-zinc-700 bg-white/70 p-1.5 rounded">
+                        <div>AUTHENTICATION_API_KEY = girofy123</div>
+                        <div>SERVER_TYPE = http</div>
+                        <div>DATABASE_ENABLED = false</div>
+                      </div>
+                    </li>
+                    <li>Cole a URL gerada abaixo junto com a chave e gere o código real de 8 dígitos!</li>
                   </ol>
                 </div>
 
