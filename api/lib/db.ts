@@ -133,6 +133,48 @@ export const db = {
     return this.saveContact(contact);
   },
 
+  async clearAllContacts(): Promise<number> {
+    const data = loadDatabase();
+    const count = Object.keys(data.contacts).length;
+    data.contacts = {};
+    data.messages = [];
+    saveDatabase(data);
+    await this.addAuditLog({
+      type: 'status_change',
+      summary: `Todos os ${count} leads e mensagens foram removidos do CRM a pedido do usuário.`,
+    });
+    return count;
+  },
+
+  async batchSaveContacts(contactsList: Contact[]): Promise<Contact[]> {
+    const data = loadDatabase();
+    const results: Contact[] = [];
+    const now = new Date().toISOString();
+
+    for (const item of contactsList) {
+      const clean = item.phone.replace(/\D/g, '');
+      if (!clean || clean.length < 10) continue;
+
+      const existing = data.contacts[clean];
+      const updated: Contact = {
+        ...existing,
+        ...item,
+        phone: clean,
+        createdAt: existing?.createdAt || item.createdAt || now,
+        lastInteractionAt: now,
+      };
+      data.contacts[clean] = updated;
+      results.push(updated);
+    }
+
+    saveDatabase(data);
+    await this.addAuditLog({
+      type: 'status_change',
+      summary: `${results.length} contatos importados e salvos com sucesso no CRM via arquivo.`,
+    });
+    return results;
+  },
+
   // --- Messages ---
   async getMessages(phone?: string): Promise<ChatMessage[]> {
     const data = loadDatabase();

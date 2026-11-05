@@ -1,6 +1,6 @@
-import { db } from './lib/db';
-import { formatPhoneNumber, sendWhatsAppTextMessage } from './lib/whatsapp';
-import { Contact, ChatMessage } from './lib/types';
+import { db } from '../lib/db';
+import { formatPhoneNumber, sendWhatsAppTextMessage } from '../lib/whatsapp';
+import { Contact, ChatMessage } from '../lib/types';
 
 export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');

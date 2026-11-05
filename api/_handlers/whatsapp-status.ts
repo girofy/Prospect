@@ -1,4 +1,4 @@
-import { getMetaConfig, getWhatsAppNumberStatus, AUTHORIZED_BUSINESS_NUMBER } from './lib/whatsapp';
+import { getMetaConfig, getWhatsAppNumberStatus, AUTHORIZED_BUSINESS_NUMBER } from '../lib/whatsapp';
 
 export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');

@@ -3,15 +3,15 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import { defineConfig, Plugin } from 'vite';
 
-import webhookHandler from './api/webhook';
-import contactsHandler from './api/contacts';
-import messagesHandler from './api/messages';
-import statusHandler from './api/whatsapp-status';
-import dataDeletionHandler from './api/data-deletion';
-import auditLogsHandler from './api/audit-logs';
-import configHandler from './api/config';
-import pairingHandler from './api/pairing';
-import campaignHandler from './api/campaign';
+import webhookHandler from './api/_handlers/webhook';
+import contactsHandler from './api/_handlers/contacts';
+import messagesHandler from './api/_handlers/messages';
+import statusHandler from './api/_handlers/whatsapp-status';
+import dataDeletionHandler from './api/_handlers/data-deletion';
+import auditLogsHandler from './api/_handlers/audit-logs';
+import configHandler from './api/_handlers/config';
+import pairingHandler from './api/_handlers/pairing';
+import campaignHandler from './api/_handlers/campaign';
 
 function adaptHandler(handler: (req: any, res: any) => Promise<any> | any) {
   return async (req: any, res: any) => {

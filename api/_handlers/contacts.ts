@@ -1,6 +1,6 @@
-import { db } from './lib/db';
-import { Contact } from './lib/types';
-import { formatPhoneNumber } from './lib/whatsapp';
+import { db } from '../lib/db';
+import { Contact } from '../lib/types';
+import { formatPhoneNumber } from '../lib/whatsapp';
 
 export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -17,8 +17,26 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ contacts });
     }
 
+    if (req.method === 'DELETE') {
+      const removedCount = await db.clearAllContacts();
+      return res.status(200).json({ success: true, message: `${removedCount} contatos removidos do CRM.`, removedCount });
+    }
+
     if (req.method === 'POST' || req.method === 'PUT') {
-      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+
+      // Clear all contacts
+      if (body.action === 'clear_all') {
+        const count = await db.clearAllContacts();
+        return res.status(200).json({ success: true, message: 'Todos os contatos foram removidos.', count });
+      }
+
+      // Batch import contacts
+      if (Array.isArray(body.contacts)) {
+        const imported = await db.batchSaveContacts(body.contacts);
+        return res.status(200).json({ success: true, count: imported.length, contacts: imported });
+      }
+
       const { phone, name, company, niche, role, status, agentState, notes } = body;
 
       if (!phone) {

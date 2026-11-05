@@ -1,5 +1,5 @@
-import { db } from './lib/db';
-import { formatPhoneNumber } from './lib/whatsapp';
+import { db } from '../lib/db';
+import { formatPhoneNumber } from '../lib/whatsapp';
 
 function generatePairingCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -41,7 +41,42 @@ export default async function handler(req: any, res: any) {
       if (action === 'request_code') {
         const rawPhone = phoneNumber || config.directPairingPhone || '557488126578';
         const cleanPhone = formatPhoneNumber(rawPhone);
-        const code = generatePairingCode();
+        const { evolutionUrl, evolutionKey, instanceName = 'prospectfy' } = body;
+
+        let code = '';
+        let isRealSocketCode = false;
+        let gatewayNotice = '';
+
+        // If Evolution API is configured, request real WebSocket pairing code from WhatsApp servers
+        if (evolutionUrl && evolutionKey) {
+          try {
+            const cleanUrl = evolutionUrl.replace(/\/+$/, '');
+            const connectRes = await fetch(`${cleanUrl}/instance/connect/${instanceName}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': evolutionKey,
+              },
+              body: JSON.stringify({ number: cleanPhone }),
+            });
+
+            if (connectRes.ok) {
+              const data = await connectRes.json();
+              if (data.pairingCode || data.code) {
+                code = data.pairingCode || data.code;
+                isRealSocketCode = true;
+                gatewayNotice = 'Código real gerado via WebSocket do WhatsApp (Evolution API).';
+              }
+            }
+          } catch (err: any) {
+            console.warn('[Evolution Connect Warning]:', err?.message);
+          }
+        }
+
+        if (!code) {
+          code = generatePairingCode();
+          gatewayNotice = 'Código local gerado. Nota: O WhatsApp exige conexão WebSocket ativa (Evolution API) ou Meta Plataforma Comercial para validar o pareamento no celular.';
+        }
 
         const updated = await db.saveConfig({
           directPairingPhone: cleanPhone,
@@ -53,7 +88,7 @@ export default async function handler(req: any, res: any) {
         await db.addAuditLog({
           type: 'status_change',
           phone: cleanPhone,
-          summary: `Código de pareamento direto gerado no celular: ${code}. Pronto para inserção no WhatsApp Business.`,
+          summary: `Código de pareamento solicitado: ${code}. ${gatewayNotice}`,
         });
 
         return res.status(200).json({
@@ -61,7 +96,9 @@ export default async function handler(req: any, res: any) {
           status: 'pairing',
           pairingCode: code,
           phoneNumber: cleanPhone,
-          message: 'Código de 8 dígitos gerado. Insira-o no WhatsApp Business em Aparelhos Conectados.',
+          isRealSocketCode,
+          notice: gatewayNotice,
+          message: 'Código de 8 dígitos gerado.',
         });
       }
 

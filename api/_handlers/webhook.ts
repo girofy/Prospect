@@ -1,4 +1,4 @@
-import { db } from './lib/db';
+import { db } from '../lib/db';
 import { 
   getMetaConfig, 
   validateXHubSignature, 
@@ -6,9 +6,9 @@ import {
   markWhatsAppMessageAsRead,
   isSelfMessage,
   formatPhoneNumber
-} from './lib/whatsapp';
-import { generateGirofyCommercialReply } from './lib/gemini';
-import { MetaWebhookPayload, ChatMessage, Contact } from './lib/types';
+} from '../lib/whatsapp';
+import { generateGirofyCommercialReply } from '../lib/gemini';
+import { MetaWebhookPayload, ChatMessage, Contact } from '../lib/types';
 
 // Regex para detecção rigorosa de Opt-Out / Stop-words (LGPD e Anti-ban)
 const OPT_OUT_REGEX = /(não tenho interesse|nao tenho interesse|pare de mandar|para de mandar|remove meu contato|remover contato|tirar da lista|não me mande|nao me mande|denunciar|spam|sair|desinscrever|bloqueado|nunca mais)/i;

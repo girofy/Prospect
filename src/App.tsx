@@ -36,10 +36,16 @@ import {
   Smartphone,
   Calendar,
   Sparkles,
-  X
+  X,
+  FileUp,
+  Upload,
+  FileText,
+  Globe,
+  Link as LinkIcon
 } from 'lucide-react';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { DataDeletion } from './components/DataDeletion';
+import { parseFileForLeads, ExtractedLead, ParseResult } from './utils/fileLeadParser';
 
 // [LAYOUT ARCHETYPE]: Mobile Modular Widget Hub / iOS Clean Curved Surface
 // [RADIUS & BORDERS]: rounded-2xl (16px), rounded-3xl (24px), border-black/[0.06]
@@ -203,7 +209,11 @@ export default function App() {
   });
 
   const [showPairingModal, setShowPairingModal] = useState(false);
+  const [pairingModalTab, setPairingModalTab] = useState<'direct_free' | 'cloud_free' | 'meta_official'>('direct_free');
   const [inputPairPhone, setInputPairPhone] = useState('74988126578');
+  const [inputEvolutionUrl, setInputEvolutionUrl] = useState('');
+  const [inputEvolutionKey, setInputEvolutionKey] = useState('');
+  const [showEvolutionAdvanced, setShowEvolutionAdvanced] = useState(false);
   const [isRequestingCode, setIsRequestingCode] = useState(false);
   const [isConfirmingPair, setIsConfirmingPair] = useState(false);
 
@@ -214,6 +224,15 @@ export default function App() {
   const [isDispatchingCampaign, setIsDispatchingCampaign] = useState(false);
   const [campaignCountdown, setCampaignCountdown] = useState<number | null>(null);
   const [campaignDoneCount, setCampaignDoneCount] = useState<number | null>(null);
+
+  // Universal File Import state (SVG, PDF, HTML, CSV, TXT, JSON, XML)
+  const [showFileImportModal, setShowFileImportModal] = useState(false);
+  const [isParsingFile, setIsParsingFile] = useState(false);
+  const [parsedData, setParsedData] = useState<ParseResult | null>(null);
+  const [selectedLeadsToImport, setSelectedLeadsToImport] = useState<Record<string, boolean>>({});
+  const [isImportingLeads, setIsImportingLeads] = useState(false);
+  const [showConfirmClearModal, setShowConfirmClearModal] = useState(false);
+  const [isClearingCrm, setIsClearingCrm] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -358,10 +377,14 @@ export default function App() {
     setIsRequestingCode(true);
     try {
       const phone = phoneToUse || inputPairPhone || config.directPairingPhone || '557488126578';
+      const payload: Record<string, any> = { action: 'request_code', phoneNumber: phone };
+      if (inputEvolutionUrl.trim()) payload.evolutionUrl = inputEvolutionUrl.trim();
+      if (inputEvolutionKey.trim()) payload.evolutionKey = inputEvolutionKey.trim();
+
       const res = await fetch('/api/pairing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'request_code', phoneNumber: phone })
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         const data = await res.json();
@@ -371,7 +394,11 @@ export default function App() {
           pairingCode: data.pairingCode,
           phoneNumber: data.phoneNumber
         }));
-        showToast('Código de 8 dígitos gerado! Digite no WhatsApp do celular.');
+        if (data.isRealSocketCode) {
+          showToast('Código real do WhatsApp gerado com sucesso!');
+        } else {
+          showToast('Código gerado.');
+        }
       } else {
         showToast('Erro ao gerar código de pareamento');
       }
@@ -485,6 +512,99 @@ export default function App() {
     }
   };
 
+  // Handle Universal File Upload and Parse (SVG, PDF, HTML, CSV, TXT, JSON, etc.)
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsParsingFile(true);
+    try {
+      const res = await parseFileForLeads(file);
+      setParsedData(res);
+      // Select all by default
+      const initialMap: Record<string, boolean> = {};
+      res.leads.forEach(l => { initialMap[l.phone] = true; });
+      setSelectedLeadsToImport(initialMap);
+      if (res.leads.length === 0) {
+        showToast('Nenhum número de WhatsApp identificado no arquivo.');
+      } else {
+        showToast(`${res.leads.length} contatos identificados no arquivo!`);
+      }
+    } catch (err: any) {
+      showToast(`Erro ao analisar arquivo: ${err?.message}`);
+    } finally {
+      setIsParsingFile(false);
+      // Reset input so same file can be selected again
+      e.target.value = '';
+    }
+  };
+
+  // Commit Imported Leads to Backend CRM
+  const handleCommitImport = async () => {
+    if (!parsedData || parsedData.leads.length === 0) return;
+    const leadsToSave = parsedData.leads.filter(l => selectedLeadsToImport[l.phone]);
+    if (leadsToSave.length === 0) {
+      showToast('Selecione pelo menos um contato para importar.');
+      return;
+    }
+    setIsImportingLeads(true);
+    try {
+      const payloadContacts = leadsToSave.map(l => ({
+        phone: l.phone,
+        name: l.name,
+        company: l.company,
+        notes: `${l.notes || ''} ${l.link ? `| Link: ${l.link}` : ''}`.trim(),
+        status: 'novo',
+        agentState: 'ai_active',
+      }));
+
+      const res = await fetch('/api/contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contacts: payloadContacts })
+      });
+
+      if (res.ok) {
+        showToast(`${leadsToSave.length} contatos adicionados ao CRM com sucesso!`);
+        setShowFileImportModal(false);
+        setParsedData(null);
+        fetchContacts();
+        if (leadsToSave[0]?.phone) {
+          setSelectedPhone(leadsToSave[0].phone);
+          setMobilePane('chat');
+        }
+      } else {
+        showToast('Erro ao salvar contatos no servidor.');
+      }
+    } catch (err: any) {
+      showToast(`Falha na importação: ${err?.message}`);
+    } finally {
+      setIsImportingLeads(false);
+    }
+  };
+
+  // Clear all leads from CRM
+  const handleClearAllContacts = async () => {
+    setIsClearingCrm(true);
+    try {
+      const res = await fetch('/api/contacts', {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        showToast('Todos os leads foram removidos do CRM.');
+        setShowConfirmClearModal(false);
+        setSelectedPhone('');
+        setMessages([]);
+        fetchContacts();
+      } else {
+        showToast('Falha ao limpar contatos.');
+      }
+    } catch (err: any) {
+      showToast(`Erro ao limpar: ${err?.message}`);
+    } finally {
+      setIsClearingCrm(false);
+    }
+  };
+
   // Polling on active conversation and contacts
   useEffect(() => {
     fetchConfig();
@@ -570,6 +690,42 @@ export default function App() {
       showToast(`Erro de rede: ${err?.message || 'Falha na conexão'}`);
     } finally {
       setIsSendingMessage(false);
+    }
+  };
+
+  // Open WhatsApp directly via wa.me protocol (100% Free, Zero API, No Tokens)
+  const handleOpenWhatsAppDirect = async (overrideText?: string) => {
+    if (!selectedPhone) return;
+    const cleanPhone = selectedPhone.replace(/\D/g, '');
+    const textToSend = (overrideText !== undefined ? overrideText : inputText).trim();
+    const encodedText = encodeURIComponent(textToSend);
+    const waUrl = `https://wa.me/${cleanPhone}${textToSend ? `?text=${encodedText}` : ''}`;
+    
+    // Open WhatsApp in new tab / native app
+    window.open(waUrl, '_blank');
+
+    // Also record in local CRM history if text was provided
+    if (textToSend) {
+      try {
+        await fetch('/api/messages/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone: cleanPhone,
+            text: textToSend,
+            from: 'operator',
+            directOnly: true,
+          })
+        });
+        fetchMessages(cleanPhone);
+        fetchContacts();
+        showToast('WhatsApp aberto. Mensagem registrada no CRM.');
+        setInputText('');
+      } catch {
+        // ignore
+      }
+    } else {
+      showToast('Abrindo WhatsApp do lead...');
     }
   };
 
@@ -1036,23 +1192,44 @@ export default function App() {
             }`}>
               
               {/* Header inside Contacts Card */}
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
                   <h2 className="text-lg font-extrabold text-[#1D1D1F] tracking-tight">
                     Leads & Conversas
                   </h2>
                   <p className="text-xs text-zinc-500 font-medium">
-                    {filteredContacts.length} contatos registrados
+                    {contacts.length} {contacts.length === 1 ? 'lead no CRM' : 'leads no CRM'}
                   </p>
                 </div>
 
-                <button
-                  onClick={() => setShowAddContactModal(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-[#0071E3] text-white hover:bg-[#0062C4] shadow-xs transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Novo Lead</span>
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {contacts.length > 0 && (
+                    <button
+                      onClick={() => setShowConfirmClearModal(true)}
+                      className="p-2 rounded-xl text-zinc-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                      title="Limpar todos os leads do CRM"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => setShowFileImportModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-[#34C759] text-white hover:bg-[#2EB84E] shadow-xs transition-colors"
+                    title="Importar contatos de SVG, PDF, HTML, Planilha, TXT"
+                  >
+                    <FileUp className="w-4 h-4" />
+                    <span>Importar</span>
+                  </button>
+
+                  <button
+                    onClick={() => setShowAddContactModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-[#0071E3] text-white hover:bg-[#0062C4] shadow-xs transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span className="hidden sm:inline">Novo</span>
+                  </button>
+                </div>
               </div>
 
               {/* Big Clean Search Field */}
@@ -1097,14 +1274,33 @@ export default function App() {
                     Carregando contatos...
                   </div>
                 ) : filteredContacts.length === 0 ? (
-                  <div className="p-8 text-center text-sm text-zinc-500 flex flex-col items-center gap-2.5">
-                    <div className="w-14 h-14 rounded-3xl bg-zinc-100 flex items-center justify-center text-zinc-400">
-                      <Users className="w-7 h-7 stroke-[1.5]" />
+                  <div className="p-6 text-center text-sm text-zinc-500 flex flex-col items-center gap-3 bg-[#FAFAFC] rounded-3xl border border-dashed border-black/[0.08] my-4">
+                    <div className="w-14 h-14 rounded-3xl bg-[#34C759]/15 text-[#248A3D] flex items-center justify-center">
+                      <FileUp className="w-7 h-7 stroke-[2]" />
                     </div>
-                    <p className="font-bold text-zinc-800 text-base">Nenhum lead encontrado</p>
-                    <p className="text-xs text-zinc-400 max-w-xs leading-relaxed">
-                      Quando alguém responder à sua abordagem pelo WhatsApp, a conversa aparecerá aqui automaticamente.
-                    </p>
+                    <div>
+                      <p className="font-extrabold text-[#1D1D1F] text-base">CRM Pronto para Importação</p>
+                      <p className="text-xs text-zinc-500 max-w-xs leading-relaxed mt-1">
+                        Suba qualquer arquivo (<strong>SVG, PDF, HTML, Planilha, TXT</strong>) para filtrar números, nomes, empresas e links automaticamente.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-2 w-full pt-2">
+                      <button
+                        onClick={() => setShowFileImportModal(true)}
+                        className="flex-1 py-3 px-4 rounded-2xl bg-[#34C759] text-white text-xs font-bold hover:bg-[#2EB84E] shadow-xs flex items-center justify-center gap-2 transition-all"
+                      >
+                        <FileUp className="w-4 h-4" />
+                        <span>Importar Arquivo</span>
+                      </button>
+
+                      <button
+                        onClick={() => setShowAddContactModal(true)}
+                        className="py-3 px-4 rounded-2xl bg-white border border-black/[0.1] text-zinc-700 text-xs font-bold hover:bg-zinc-50 transition-all"
+                      >
+                        + Cadastrar Manual
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   filteredContacts.map(contact => {
@@ -1215,8 +1411,18 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Takeover Control Switch */}
+                    {/* Takeover Control Switch & Direct WhatsApp */}
                     <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenWhatsAppDirect()}
+                        className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl bg-[#34C759]/15 text-[#248A3D] hover:bg-[#34C759]/25 transition-all shadow-xs"
+                        title="Abrir diretamente no WhatsApp (Sem API / Grátis)"
+                      >
+                        <Smartphone className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">WhatsApp</span>
+                      </button>
+
                       {activeContact.agentState === 'human_takeover' ? (
                         <button
                           onClick={() => handleToggleAgentState('ai_active')}
@@ -1330,14 +1536,27 @@ export default function App() {
                       disabled={isSendingMessage}
                       className="flex-1 px-4 py-3 text-sm bg-[#F5F5F7] border border-black/[0.08] rounded-2xl text-[#1D1D1F] placeholder-zinc-400 focus:outline-none focus:border-[#0071E3] focus:bg-white transition-all"
                     />
-                    <button
-                      type="submit"
-                      disabled={!inputText.trim() || isSendingMessage}
-                      className="px-5 py-3 rounded-2xl bg-[#0071E3] hover:bg-[#0062C4] disabled:opacity-40 text-white font-bold text-sm flex items-center gap-2 transition-all shadow-sm shrink-0"
-                    >
-                      <Send className="w-4 h-4" />
-                      <span className="hidden sm:inline">Enviar</span>
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenWhatsAppDirect()}
+                        className="px-4 py-3 rounded-2xl bg-[#34C759] hover:bg-[#2EB84E] text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm"
+                        title="Abrir diretamente no WhatsApp do celular (Sem API / Grátis)"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        <span className="hidden sm:inline">WhatsApp</span>
+                      </button>
+
+                      <button
+                        type="submit"
+                        disabled={!inputText.trim() || isSendingMessage}
+                        className="px-5 py-3 rounded-2xl bg-[#0071E3] hover:bg-[#0062C4] disabled:opacity-40 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm"
+                        title="Enviar via Gateway/Servidor configurado"
+                      >
+                        <Send className="w-4 h-4" />
+                        <span className="hidden sm:inline">Enviar</span>
+                      </button>
+                    </div>
                   </form>
                 </>
               ) : (
@@ -2010,37 +2229,99 @@ export default function App() {
               </button>
             </div>
 
-            {/* Gateway Switch Selector */}
-            <div className="flex p-1 bg-[#E5E5EA]/70 rounded-2xl gap-1 mb-5">
+            {/* 3-Way Mode Switcher */}
+            <div className="flex p-1 bg-[#E5E5EA]/70 rounded-2xl gap-1 mb-4">
               <button
                 type="button"
-                onClick={() => handleSwitchGateway('direct_pairing')}
-                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                  pairingData.activeGateway === 'direct_pairing'
+                onClick={() => setPairingModalTab('direct_free')}
+                className={`flex-1 py-2 px-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 ${
+                  pairingModalTab === 'direct_free'
                     ? 'bg-white text-[#1D1D1F] shadow-xs'
                     : 'text-zinc-500 hover:text-zinc-800'
                 }`}
               >
                 <span className="w-2 h-2 rounded-full bg-[#34C759]" />
-                <span>Código Celular (Grátis)</span>
+                <span className="truncate">Direto Celular (R$ 0)</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => handleSwitchGateway('meta_cloud_api')}
-                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                  pairingData.activeGateway === 'meta_cloud_api'
+                onClick={() => setPairingModalTab('cloud_free')}
+                className={`flex-1 py-2 px-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 ${
+                  pairingModalTab === 'cloud_free'
                     ? 'bg-white text-[#1D1D1F] shadow-xs'
                     : 'text-zinc-500 hover:text-zinc-800'
                 }`}
               >
                 <span className="w-2 h-2 rounded-full bg-[#0071E3]" />
-                <span>Meta Cloud API</span>
+                <span className="truncate">Nuvem 24h Grátis</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPairingModalTab('meta_official')}
+                className={`flex-1 py-2 px-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 ${
+                  pairingModalTab === 'meta_official'
+                    ? 'bg-white text-[#1D1D1F] shadow-xs'
+                    : 'text-zinc-500 hover:text-zinc-800'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-zinc-400" />
+                <span className="truncate">Meta Cloud</span>
               </button>
             </div>
 
-            {/* Content for Direct Phone Pairing */}
-            {pairingData.activeGateway === 'direct_pairing' ? (
+            {/* TAB 1: 100% FREE WHATSAPP DIRECT (ZERO API / NO TOKEN / NO SERVERS) */}
+            {pairingModalTab === 'direct_free' && (
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-[#34C759]/10 border border-[#34C759]/20 space-y-2">
+                  <div className="text-xs font-bold text-[#248A3D] flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>Modo 100% Gratuito · Sem API · Sem Tokens</span>
+                  </div>
+                  <p className="text-xs text-zinc-700 leading-relaxed">
+                    Você <strong>não precisa de servidor</strong>, não precisa de tokens da Meta e <strong>não paga nada</strong>.
+                  </p>
+                  <p className="text-[11px] text-zinc-600 leading-relaxed">
+                    Ao conversar com qualquer lead ou fazer micro-disparos, toque em <strong>"WhatsApp Direto"</strong>: o app abre a conversa oficial no seu celular com o texto personalizado já preenchido. É só tocar em enviar!
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-zinc-50 border border-black/[0.06] space-y-2">
+                  <span className="text-xs font-bold text-zinc-800 block">Vantagens deste modo:</span>
+                  <ul className="text-xs text-zinc-600 space-y-1.5 list-none">
+                    <li className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-[#34C759] shrink-0" />
+                      <span><strong>R$ 0,00 de custo:</strong> nunca é cobrado por mensagens.</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-[#34C759] shrink-0" />
+                      <span><strong>Zero risco de bloqueio:</strong> o envio é feito pelo app oficial do seu aparelho.</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-[#34C759] shrink-0" />
+                      <span><strong>CRM integrado:</strong> as mensagens ficam salvas no histórico do cliente.</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleSwitchGateway('direct_pairing');
+                    showToast('Modo WhatsApp Direto ativado! Use o botão "WhatsApp" em qualquer lead.');
+                    setShowPairingModal(false);
+                  }}
+                  className="w-full py-3.5 rounded-2xl bg-[#34C759] text-white text-sm font-bold hover:bg-[#2EB84E] shadow-sm transition-all flex items-center justify-center gap-2"
+                >
+                  <Smartphone className="w-4 h-4" />
+                  <span>Usar Modo Direto Grátis</span>
+                </button>
+              </div>
+            )}
+
+            {/* TAB 2: FREE CLOUD 24H (EVOLUTION API ON FREE CONTAINER - KOYEB/RENDER) */}
+            {pairingModalTab === 'cloud_free' && (
               <div className="space-y-4">
                 
                 {/* Active Connection Banner if connected */}
@@ -2050,7 +2331,7 @@ export default function App() {
                       <CheckCircle2 className="w-5 h-5 text-[#34C759] shrink-0" />
                       <div className="min-w-0">
                         <div className="text-xs font-bold text-[#1D1D1F] truncate">
-                          WhatsApp Conectado no Celular
+                          Nuvem Conectada ao WhatsApp
                         </div>
                         <div className="text-[11px] text-zinc-600 font-mono">
                           +{pairingData.phoneNumber || config.directPairingPhone || '557488126578'}
@@ -2058,10 +2339,56 @@ export default function App() {
                       </div>
                     </div>
                     <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#34C759] text-white shrink-0">
-                      Ativo
+                      Ativo 24h
                     </span>
                   </div>
                 )}
+
+                {/* Step-by-Step Free Cloud Guide */}
+                <div className="p-3.5 rounded-2xl bg-[#0071E3]/10 border border-[#0071E3]/20 space-y-2">
+                  <div className="text-xs font-bold text-[#0071E3] flex items-center gap-1.5">
+                    <Cpu className="w-4 h-4" />
+                    <span>Como ter seu WhatsApp 24h na Nuvem Grátis (R$ 0,00)</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-700 leading-relaxed">
+                    Para o robô responder sozinho na nuvem 24 horas por dia (sem precisar do seu celular ligado ou de internet), basta rodar a <strong>Evolution API (código aberto e grátis)</strong> em um servidor com plano gratuito vitalício:
+                  </p>
+                  <ol className="text-[11px] text-zinc-600 space-y-1.5 list-decimal pl-4">
+                    <li>Crie uma conta gratuita em <strong>koyeb.com</strong> ou <strong>render.com</strong> (grátis sem cartão de crédito).</li>
+                    <li>Escolha <strong>Deploy Docker</strong> com a imagem: <code className="bg-white/80 px-1 py-0.5 rounded text-[10px]">atendai/evolution-api:v2.1.2</code></li>
+                    <li>Defina a variável <code className="bg-white/80 px-1 py-0.5 rounded text-[10px]">AUTHENTICATION_API_KEY=minhachave123</code>.</li>
+                    <li>Cole a URL gerada abaixo e digite seu número para gerar o código real de 8 dígitos!</li>
+                  </ol>
+                </div>
+
+                {/* Server URL and Key Inputs */}
+                <div className="space-y-2.5 p-3.5 bg-zinc-50 border border-black/[0.06] rounded-2xl">
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                      URL da sua Evolution API Gratuita
+                    </label>
+                    <input
+                      type="text"
+                      value={inputEvolutionUrl}
+                      onChange={e => setInputEvolutionUrl(e.target.value)}
+                      placeholder="Ex: https://meu-zap.koyeb.app"
+                      className="w-full px-3 py-2 text-xs font-mono bg-white border border-black/[0.08] rounded-xl text-[#1D1D1F] focus:outline-none focus:border-[#0071E3]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-700 mb-1">
+                      Chave API da sua Evolution (AUTHENTICATION_API_KEY)
+                    </label>
+                    <input
+                      type="password"
+                      value={inputEvolutionKey}
+                      onChange={e => setInputEvolutionKey(e.target.value)}
+                      placeholder="Ex: minhachave123"
+                      className="w-full px-3 py-2 text-xs font-mono bg-white border border-black/[0.08] rounded-xl text-[#1D1D1F] focus:outline-none focus:border-[#0071E3]"
+                    />
+                  </div>
+                </div>
 
                 {/* Phone Number Input Form */}
                 <div>
@@ -2074,15 +2401,15 @@ export default function App() {
                       value={inputPairPhone}
                       onChange={e => setInputPairPhone(e.target.value)}
                       placeholder="Ex: 74988126578"
-                      className="flex-1 px-4 py-3 text-sm font-mono bg-[#F5F5F7] border border-black/[0.08] rounded-2xl text-[#1D1D1F] focus:outline-none focus:border-[#34C759] focus:bg-white transition-all"
+                      className="flex-1 px-4 py-3 text-sm font-mono bg-[#F5F5F7] border border-black/[0.08] rounded-2xl text-[#1D1D1F] focus:outline-none focus:border-[#0071E3] focus:bg-white transition-all"
                     />
                     <button
                       type="button"
                       disabled={isRequestingCode}
                       onClick={() => handleRequestPairingCode()}
-                      className="px-4 py-3 rounded-2xl bg-[#1D1D1F] text-white text-xs font-bold hover:bg-black transition-all shrink-0 disabled:opacity-50"
+                      className="px-4 py-3 rounded-2xl bg-[#0071E3] text-white text-xs font-bold hover:bg-[#0062C4] transition-all shrink-0 disabled:opacity-50"
                     >
-                      {isRequestingCode ? 'Gerando...' : 'Gerar Código'}
+                      {isRequestingCode ? 'Gerando...' : 'Gerar Código Real'}
                     </button>
                   </div>
                 </div>
@@ -2101,32 +2428,11 @@ export default function App() {
                       onClick={() => copyText(pairingData.pairingCode, 'paircode')}
                       className="flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all mt-1"
                     >
-                      {copiedKey === 'paircode' ? <Check className="w-3.5 h-3.5 text-[#34C759]" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedKey === 'paircode' ? <Check className="w-3.5 h-3.5 text-[#34C759]" /> : <Copy className="w-3.5 h-3.5 text-white" />}
                       <span>{copiedKey === 'paircode' ? 'Copiado!' : 'Copiar Código'}</span>
                     </button>
                   </div>
                 )}
-
-                {/* 3-Step Illustrated Guide for Mobile */}
-                <div className="p-3.5 rounded-2xl bg-[#F5F5F7] border border-black/[0.06] space-y-2.5">
-                  <div className="text-xs font-bold text-zinc-800 flex items-center gap-1.5">
-                    <span>Como conectar direto no seu aparelho:</span>
-                  </div>
-                  <ol className="text-xs text-zinc-600 space-y-2 list-none">
-                    <li className="flex items-start gap-2">
-                      <span className="w-5 h-5 rounded-full bg-[#0071E3] text-white text-[11px] font-bold flex items-center justify-center shrink-0">1</span>
-                      <span>Abra o <strong>WhatsApp Business</strong> no celular.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="w-5 h-5 rounded-full bg-[#0071E3] text-white text-[11px] font-bold flex items-center justify-center shrink-0">2</span>
-                      <span>Toque nos 3 pontinhos &gt; <strong>Aparelhos Conectados</strong> &gt; <strong>Conectar com número de telefone</strong>.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="w-5 h-5 rounded-full bg-[#0071E3] text-white text-[11px] font-bold flex items-center justify-center shrink-0">3</span>
-                      <span>Insira o <strong>código de 8 dígitos</strong> exibido acima para parear.</span>
-                    </li>
-                  </ol>
-                </div>
 
                 {/* Confirm Pairing Button */}
                 <div className="pt-2">
@@ -2142,8 +2448,10 @@ export default function App() {
                 </div>
 
               </div>
-            ) : (
-              /* Content for Meta Cloud API (Preserved & Ready) */
+            )}
+
+            {/* TAB 3: OFFICIAL META CLOUD API (PRESERVED) */}
+            {pairingModalTab === 'meta_official' && (
               <div className="space-y-4">
                 <div className="p-3.5 rounded-2xl bg-[#0071E3]/10 border border-[#0071E3]/20 space-y-2">
                   <div className="text-xs font-bold text-[#0071E3] flex items-center gap-1.5">
@@ -2158,8 +2466,8 @@ export default function App() {
                   </div>
                 </div>
 
-                <p className="text-xs text-zinc-500 font-medium">
-                  Use esta opção quando possuir tokens permanentes da Meta e desejar utilizar a infraestrutura oficial de nuvem.
+                <p className="text-xs text-zinc-500 font-medium leading-relaxed">
+                  A Meta concede 1.000 conversas gratuitas por mês. Requer apenas colar o Token de Acesso temporário ou permanente nos Ajustes.
                 </p>
 
                 <button
@@ -2307,6 +2615,224 @@ export default function App() {
                 </button>
               </div>
 
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* UNIVERSAL FILE IMPORT MODAL (SVG, PDF, HTML, CSV, TXT, JSON, XML) */}
+      {showFileImportModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="apple-widget bg-white w-full max-w-lg rounded-3xl p-5 sm:p-6 shadow-2xl animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto flex flex-col">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-black/[0.06] mb-4 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-[#34C759]/15 text-[#248A3D] flex items-center justify-center font-bold">
+                  <FileUp className="w-5 h-5 stroke-[2.2]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-[#1D1D1F] tracking-tight">
+                    Importar Arquivo para o CRM
+                  </h3>
+                  <p className="text-xs text-zinc-500 font-medium">
+                    SVG, PDF, HTML, TXT, CSV, JSON e links
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowFileImportModal(false);
+                  setParsedData(null);
+                }}
+                className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 hover:text-zinc-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Upload Area */}
+            <div className="space-y-4 flex-1">
+              <label className="border-2 border-dashed border-[#0071E3]/30 hover:border-[#0071E3] hover:bg-[#0071E3]/5 transition-all rounded-3xl p-6 flex flex-col items-center justify-center cursor-pointer text-center bg-[#FAFAFC]">
+                <input
+                  type="file"
+                  accept="*/*"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <div className="w-12 h-12 rounded-2xl bg-[#0071E3]/10 text-[#0071E3] flex items-center justify-center mb-2.5">
+                  <Upload className="w-6 h-6 stroke-[2]" />
+                </div>
+                <span className="text-sm font-bold text-[#1D1D1F]">
+                  {isParsingFile ? 'Lendo e filtrando dados...' : 'Selecione ou solte qualquer arquivo aqui'}
+                </span>
+                <span className="text-xs text-zinc-400 mt-1">
+                  Aceita <strong>SVG, PDF, HTML, Planilha, TXT, CSV, JSON</strong>
+                </span>
+                <span className="text-[11px] text-[#0071E3] font-semibold mt-2 px-3 py-1 bg-white rounded-full border border-black/[0.06] shadow-xs">
+                  Extração automática de telefones, nomes, empresas e links
+                </span>
+              </label>
+
+              {/* Analysis Results Display */}
+              {parsedData && (
+                <div className="space-y-3">
+                  
+                  {/* Results Banner */}
+                  <div className="p-3.5 rounded-2xl bg-[#34C759]/10 border border-[#34C759]/20 flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-bold text-[#1D1D1F]">
+                        {parsedData.totalFound} {parsedData.totalFound === 1 ? 'Contato Identificado' : 'Contatos Identificados'}
+                      </div>
+                      <div className="text-[11px] text-zinc-500 truncate max-w-xs">
+                        Arquivo: {parsedData.fileName}
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#34C759] text-white">
+                      Pronto para CRM
+                    </span>
+                  </div>
+
+                  {/* Extracted Links Section if any */}
+                  {parsedData.extractedLinks && parsedData.extractedLinks.length > 0 && (
+                    <div className="p-3 bg-zinc-50 rounded-2xl border border-black/[0.06]">
+                      <div className="text-[11px] font-bold text-zinc-600 mb-1.5 flex items-center gap-1">
+                        <LinkIcon className="w-3 h-3 text-[#0071E3]" />
+                        <span>Links e sites extraídos ({parsedData.extractedLinks.length}):</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
+                        {parsedData.extractedLinks.map((l, idx) => (
+                          <span key={idx} className="text-[10px] font-mono bg-white px-2 py-0.5 rounded-md border border-black/[0.06] text-zinc-600 truncate max-w-[200px]" title={l}>
+                            {l}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Leads List with Checkboxes */}
+                  {parsedData.leads.length > 0 ? (
+                    <div className="border border-black/[0.08] rounded-2xl overflow-hidden">
+                      <div className="p-2.5 bg-zinc-100/80 border-b border-black/[0.06] flex items-center justify-between text-xs font-bold text-zinc-700">
+                        <span>Contatos a importar:</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const allSelected = parsedData.leads.every(l => selectedLeadsToImport[l.phone]);
+                            const newMap: Record<string, boolean> = {};
+                            parsedData.leads.forEach(l => { newMap[l.phone] = !allSelected; });
+                            setSelectedLeadsToImport(newMap);
+                          }}
+                          className="text-[#0071E3] hover:underline"
+                        >
+                          {parsedData.leads.every(l => selectedLeadsToImport[l.phone]) ? 'Desmarcar todos' : 'Marcar todos'}
+                        </button>
+                      </div>
+
+                      <div className="max-h-56 overflow-y-auto divide-y divide-black/[0.04]">
+                        {parsedData.leads.map((lead, idx) => {
+                          const isChecked = selectedLeadsToImport[lead.phone] !== false;
+                          return (
+                            <div key={idx} className="p-2.5 flex items-center gap-3 hover:bg-zinc-50 transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={e => {
+                                  setSelectedLeadsToImport(prev => ({
+                                    ...prev,
+                                    [lead.phone]: e.target.checked
+                                  }));
+                                }}
+                                className="w-4 h-4 rounded text-[#0071E3] focus:ring-0 cursor-pointer"
+                              />
+                              <div className="flex-1 min-w-0 text-xs">
+                                <div className="font-bold text-[#1D1D1F] truncate">
+                                  {lead.name}
+                                </div>
+                                <div className="text-zinc-500 font-mono text-[11px] truncate">
+                                  +{lead.phone} {lead.company ? `· ${lead.company}` : ''}
+                                </div>
+                                {lead.link && (
+                                  <div className="text-[10px] text-[#0071E3] truncate">
+                                    {lead.link}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-6 text-center text-xs text-zinc-400">
+                      Nenhum número de telefone válido encontrado neste arquivo. Tente um arquivo com dados de contato.
+                    </div>
+                  )}
+
+                </div>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-black/[0.06] mt-4 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowFileImportModal(false);
+                  setParsedData(null);
+                }}
+                className="px-4 py-2.5 text-xs font-bold rounded-xl text-zinc-600 hover:bg-black/[0.04]"
+              >
+                Cancelar
+              </button>
+              {parsedData && parsedData.leads.length > 0 && (
+                <button
+                  type="button"
+                  disabled={isImportingLeads}
+                  onClick={handleCommitImport}
+                  className="px-5 py-2.5 text-xs font-bold rounded-xl bg-[#34C759] text-white hover:bg-[#2EB84E] shadow-xs flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{isImportingLeads ? 'Importando...' : 'Adicionar ao CRM'}</span>
+                </button>
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* CONFIRM CLEAR CRM MODAL */}
+      {showConfirmClearModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="apple-widget bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mb-3">
+              <Trash2 className="w-6 h-6 stroke-[2]" />
+            </div>
+            <h3 className="text-base font-extrabold text-[#1D1D1F] tracking-tight mb-1">
+              Limpar Todos os Leads do CRM?
+            </h3>
+            <p className="text-xs text-zinc-500 font-medium mb-5 leading-relaxed">
+              Esta ação removerá todos os contatos e mensagens registradas. Você poderá adicionar novos leads a qualquer momento enviando um arquivo ou cadastrando novos números.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                disabled={isClearingCrm}
+                onClick={() => setShowConfirmClearModal(false)}
+                className="px-4 py-2.5 text-xs font-bold rounded-xl text-zinc-600 hover:bg-black/[0.04]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isClearingCrm}
+                onClick={handleClearAllContacts}
+                className="px-5 py-2.5 text-xs font-bold rounded-xl bg-red-600 text-white hover:bg-red-700 shadow-xs disabled:opacity-50"
+              >
+                {isClearingCrm ? 'Limpando...' : 'Sim, Limpar Tudo'}
+              </button>
             </div>
           </div>
         </div>

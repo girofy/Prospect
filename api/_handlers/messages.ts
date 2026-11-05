@@ -1,6 +1,6 @@
-import { db } from './lib/db';
-import { sendWhatsAppTextMessage, formatPhoneNumber } from './lib/whatsapp';
-import { ChatMessage } from './lib/types';
+import { db } from '../lib/db';
+import { sendWhatsAppTextMessage, formatPhoneNumber } from '../lib/whatsapp';
+import { ChatMessage } from '../lib/types';
 
 export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -42,8 +42,11 @@ export default async function handler(req: any, res: any) {
         return res.status(400).json({ error: 'Este contato solicitou Opt-Out (LGPD). O envio de novas mensagens está bloqueado.' });
       }
 
-      // Envia a mensagem de forma segura pela Meta Graph API usando a credencial do servidor
-      const sendResult = await sendWhatsAppTextMessage(cleanPhone, text.trim());
+      // If directOnly is true (sent directly via WhatsApp Web/app), record it without calling Meta Cloud API
+      let sendResult: { success: boolean; messageId?: string; error?: string } = { success: true, messageId: `direct-${Date.now()}` };
+      if (!body.directOnly) {
+        sendResult = await sendWhatsAppTextMessage(cleanPhone, text.trim());
+      }
 
       const msg: ChatMessage = {
         id: `msg-${Date.now()}`,

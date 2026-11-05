@@ -1,5 +1,5 @@
-import { db, AppConfig } from './lib/db';
-import { getMetaConfig, AUTHORIZED_BUSINESS_NUMBER, DEFAULT_APP_ID, DEFAULT_BUSINESS_ID } from './lib/whatsapp';
+import { db, AppConfig } from '../lib/db';
+import { getMetaConfig, AUTHORIZED_BUSINESS_NUMBER, DEFAULT_APP_ID, DEFAULT_BUSINESS_ID } from '../lib/whatsapp';
 
 function maskSecret(val?: string): string {
   if (!val || val.length < 8) return val ? '••••••••' : '';
