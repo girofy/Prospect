@@ -13,6 +13,7 @@ import learningsHandler from './_handlers/learnings';
 import knowledgeHandler from './_handlers/knowledge';
 import metricsHandler from './_handlers/metrics';
 import exportHandler from './_handlers/export';
+import aiTestHandler from './_handlers/ai-test';
 import { isAuthorized } from './lib/auth';
 
 type Handler = (req: any, res: any) => Promise<any> | any;
@@ -41,6 +42,7 @@ const PROTECTED_ROUTES: Record<string, Handler> = {
   '/api/knowledge': knowledgeHandler,
   '/api/metrics': metricsHandler,
   '/api/export': exportHandler,
+  '/api/ai-test': aiTestHandler,
 };
 
 // Stats do agente: só GET e sem dado pessoal (contagens). Pode ser público.

@@ -1,4 +1,4 @@
-import KnowledgeSection from './KnowledgePage.tsx';
+import IAHub from './ia/IAHub.tsx';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Phone, 
@@ -1048,7 +1048,7 @@ export default function App() {
         {/* TOP MOBILE HERO & MODULAR 2x2 WIDGET HUB (Inspired by reference photos) */}
         {/* ========================================================================= */}
         {/* Only shown on main list view or when on widgets tab to keep phone organized */}
-        {(activeTab !== 'conversas' || mobilePane === 'list') && (
+        {activeTab !== 'ia' && (activeTab !== 'conversas' || mobilePane === 'list') && (
           <section className="space-y-3.5">
             
             {/* Big Welcome Card with Clock & Date */}
@@ -1804,7 +1804,7 @@ export default function App() {
           <div className="space-y-4 max-w-4xl mx-auto w-full">
             
             {/* Base de conhecimento e aprendizado */}
-            <KnowledgeSection />
+            <IAHub />
 
             {/* Guidelines Card */}
             <div className="apple-widget p-5 sm:p-6">
@@ -1820,7 +1820,7 @@ export default function App() {
                 <div className="p-4 bg-[#FBFBFD] border border-black/[0.06] rounded-2xl">
                   <span className="font-bold text-[#0071E3] block mb-1 text-sm">01. Escopo Autorizado</span>
                   <p className="text-zinc-600 leading-relaxed font-medium">
-                    Sites institucionais, Landing Pages de alta conversão a partir de R$ 997 e automações de atendimento.
+                    Site para o negócio por R$ 300, pago só na entrega, com prévia gratuita antes. Automações de atendimento passam pelo César.
                   </p>
                 </div>
 

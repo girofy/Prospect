@@ -41,6 +41,24 @@ export async function sendEvolutionText(
   }
 }
 
+// Estado real da conexão do WhatsApp na Evolution ('open' = conectado). Nunca lança erro.
+export async function getEvolutionState(): Promise<'open' | 'connecting' | 'close' | 'unknown'> {
+  const cfg = getEvolutionCfg();
+  if (!cfg) return 'unknown';
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 5000);
+    const res = await fetch(`${cfg.url}/instance/connectionState/${encodeURIComponent(cfg.instance)}`, { headers: { apikey: cfg.apiKey }, signal: ctrl.signal });
+    clearTimeout(t);
+    if (!res.ok) return 'unknown';
+    const j: any = await res.json();
+    const st = j?.instance?.state;
+    return st === 'open' || st === 'connecting' || st === 'close' ? st : 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
 // Baixa a mídia (imagem/áudio) de uma mensagem recebida, em base64.
 // Endpoint: POST /chat/getBase64FromMediaMessage/{instance} (Evolution v2).
 export async function fetchEvolutionMedia(

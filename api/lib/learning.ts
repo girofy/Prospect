@@ -55,7 +55,7 @@ ${transcript(msgs)}
 
 Responda SOMENTE um JSON com as chaves:
 - "worked": o que na conversa funcionou (frase curta, ou "-")
-- "failed": o que não funcionou ou afastou a pessoa (frase curta, ou "-")
+- "failed": o ponto exato em que a conversa travou ou a pessoa recuou, citando a mensagem do assistente que veio antes entre aspas, e por que isso afastou (ou "-")
 - "why": por que você acha que aconteceu (uma frase)
 - "opener_style": o estilo da primeira mensagem que deu resposta (uma frase, ou "-")
 Sem texto fora do JSON. Sem inventar fatos que não estão na conversa.`;
