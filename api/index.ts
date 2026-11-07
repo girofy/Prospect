@@ -14,6 +14,7 @@ import knowledgeHandler from './_handlers/knowledge';
 import metricsHandler from './_handlers/metrics';
 import exportHandler from './_handlers/export';
 import aiTestHandler from './_handlers/ai-test';
+import aiModelsHandler from './_handlers/ai-models';
 import followupsHandler from './_handlers/followups';
 import { isAuthorized } from './lib/auth';
 
@@ -44,6 +45,7 @@ const PROTECTED_ROUTES: Record<string, Handler> = {
   '/api/metrics': metricsHandler,
   '/api/export': exportHandler,
   '/api/ai-test': aiTestHandler,
+  '/api/ai-models': aiModelsHandler,
   '/api/followups': followupsHandler,
 };
 

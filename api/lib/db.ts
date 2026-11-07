@@ -146,6 +146,9 @@ let configCache: AppConfig = { ...DEFAULT_CONFIG };
 let configLoaded = false;
 let configLoadPromise: Promise<void> | null = null;
 
+let configLoadedAt = 0;
+const CONFIG_TTL_MS = 20_000;
+
 async function loadConfigOnce(): Promise<void> {
   try {
     const { data, error } = await supabase().from('app_config').select('data').eq('id', true).maybeSingle();
@@ -156,11 +159,16 @@ async function loadConfigOnce(): Promise<void> {
     console.warn('[DB] Falha ao carregar config inicial do Supabase:', err);
   } finally {
     configLoaded = true;
+    configLoadedAt = Date.now();
   }
 }
 
+// Relê do banco a cada 20 s: o que foi mudado direto no Supabase (ou por outro processo) vale logo.
 function ensureConfigLoaded(): Promise<void> {
-  if (!configLoadPromise) configLoadPromise = loadConfigOnce();
+  if (!configLoadPromise || (configLoaded && Date.now() - configLoadedAt > CONFIG_TTL_MS)) {
+    configLoaded = false;
+    configLoadPromise = loadConfigOnce();
+  }
   return configLoadPromise;
 }
 ensureConfigLoaded(); // dispara no import do módulo, sem bloquear

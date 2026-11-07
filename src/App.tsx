@@ -900,7 +900,7 @@ export default function App() {
   // Quick replies
   const QUICK_REPLIES = [
     { label: '📅 Reunião 15 min', text: 'Olá! Podemos agendar uma conversa rápida de 15 minutos via Google Meet para analisar o seu cenário e desenhar a melhor solução?' },
-    { label: '🚀 Landing Page R$ 997', text: 'Nossas Landing Pages partem de R$ 997,00 em até 3x, com entrega em 5 dias úteis, design de alta conversão e copy persuasivo.' },
+    { label: '🚀 Landing Page R$ 300', text: 'A landing page sai por R$ 300, pagos só na entrega. Antes você vê uma prévia grátis e aprova se gostar.' },
     { label: '⚙️ Sistemas Sob Medida', text: 'Desenvolvemos sistemas web e automações operacionais sob medida para otimizar processos de vendas e gestão da sua empresa.' },
     { label: '👤 Chamar Especialista', text: 'Compreendo perfeitamente. Estou transferindo o atendimento agora para o nosso especialista humano dar sequência.' }
   ];
@@ -1768,7 +1768,7 @@ export default function App() {
                     </div>
                     <div className="flex items-center justify-between py-1.5 border-b border-black/[0.04]">
                       <span className="text-zinc-500 font-medium">Condições Comerciais:</span>
-                      <span className="font-bold text-zinc-800">Landing Pages a partir de R$ 997</span>
+                      <span className="font-bold text-zinc-800">Landing Page R$ 300, paga na entrega</span>
                     </div>
                     <div className="flex items-center justify-between py-1.5 border-b border-black/[0.04]">
                       <span className="text-zinc-500 font-medium">Guarda de Negociação:</span>

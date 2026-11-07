@@ -71,6 +71,7 @@ Se for passar a conversa para o César, escreva a mensagem e, no fim, [TRANSF_HU
 Se a pessoa pedir para parar, confirme em uma frase e não escreva mais nada.
 `;
 
+const GROQ_KNOWLEDGE_CHARS = 4000; // cabe no limite por minuto do Groq grátis
 const KNOWLEDGE_MAX_CHARS = 30000; // ~8k tokens por mensagem; ajuste se a cota gratuita apertar
 
 // Base de conhecimento = documentos do painel (banco, ativos) + arquivos .md da pasta knowledge/ do repo.
@@ -171,7 +172,8 @@ function defaultChain(cfg: AppConfig): ChainItem[] {
   return [
     { provider: 'gemini', model: resolveModel(cfg.geminiModel) },
     { provider: 'gemini', model: 'gemini-3.1-flash-lite' },
-    { provider: 'groq', model: 'llama-3.3-70b-versatile' },
+    { provider: 'groq', model: 'qwen/qwen3.8-27b' },
+    { provider: 'groq', model: 'openai/gpt-oss-120b' },
   ];
 }
 
@@ -190,9 +192,20 @@ function isPaused(cfg: AppConfig, item: ChainItem): boolean {
   return !!until && Date.parse(until) > Date.now();
 }
 
-async function pauseModel(item: ChainItem): Promise<void> {
+// Quanto tempo pausar um modelo que bateu no limite. O Groq diz "try again in 7.5s" (limite por minuto):
+// nesse caso pausa só esse tempo. Sem essa dica (cota do dia), pausa 1 hora.
+function pauseMsFrom(msg: string): number {
+  const m = msg.match(/try again in\s+(?:(\d+)m)?\s*(\d+(?:\.\d+)?)(ms|s)\b/i);
+  if (!m) return 60 * 60_000;
+  const mins = m[1] ? Number(m[1]) : 0;
+  const n = Number(m[2]);
+  const ms = (m[3].toLowerCase() === 'ms' ? n : n * 1000) + mins * 60_000;
+  return Math.min(60 * 60_000, Math.max(5_000, ms + 1_000));
+}
+
+async function pauseModel(item: ChainItem, ms = 60 * 60_000): Promise<void> {
   const cfg = await db.getConfig();
-  const until = new Date(Date.now() + 60 * 60_000).toISOString();
+  const until = new Date(Date.now() + ms).toISOString();
   await db.saveAiUsage({ aiPausedModels: { ...(cfg.aiPausedModels || {}), [pauseKey(item)]: until } });
 }
 
@@ -210,23 +223,68 @@ async function callGemini(apiKey: string, model: string, text: string, media?: I
 }
 
 // Groq usa o mesmo formato da OpenAI (chat/completions).
+// Modelos de raciocínio (gpt-oss, qwen3) precisam de ajuste para não gastar o limite "pensando".
+function groqExtras(model: string): Record<string, unknown> {
+  if (/gpt-oss/i.test(model)) return { reasoning_effort: 'low', include_reasoning: false };
+  if (/qwen3/i.test(model)) return { reasoning_effort: 'none' };
+  return {};
+}
+
 async function callGroq(apiKey: string, model: string, text: string): Promise<string> {
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model, messages: [{ role: 'user', content: text }], temperature: 0.7, max_tokens: 200 }),
+    body: JSON.stringify({ model, messages: [{ role: 'user', content: text }], temperature: 0.7, max_tokens: 300, ...groqExtras(model) }),
+    signal: AbortSignal.timeout(20_000),
   });
   if (!res.ok) {
     const body = await res.text();
     const err: any = new Error(`groq ${res.status}: ${body.slice(0, 200)}`);
     err.status = res.status;
+    err.pauseMs = pauseMsFrom(body); // a dica "try again in Xs" vem depois dos 200 primeiros caracteres
     throw err;
   }
   const j: any = await res.json();
-  return String(j.choices?.[0]?.message?.content || '').trim();
+  return String(j.choices?.[0]?.message?.content || '').replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 }
 
+// Pergunta de teste para um modelo (usada pelo leitor de chaves): mesma persona, prompt enxuto.
+export async function probeModel(
+  provider: 'gemini' | 'groq',
+  model: string,
+  apiKey: string,
+  text = 'Oi, quem é?'
+): Promise<{ ok: boolean; reply: string; ms: number; problem: string | null; error?: string }> {
+  const prompt = `${SYSTEM_PROMPT}\n\nDADOS DA PESSOA:\n- Nome: não sei o nome\n- Nicho: barbearia\n\nCONVERSA RECENTE:\nVocê: Boa tarde!\n\nNOVA MENSAGEM DA PESSOA:\n"${text}"\n\nResponda só com o texto da próxima mensagem para o WhatsApp.`;
+  const t0 = Date.now();
+  try {
+    const reply = provider === 'gemini' ? await callGemini(apiKey, model, prompt) : await callGroq(apiKey, model, prompt);
+    return { ok: !!reply, reply, ms: Date.now() - t0, problem: reply ? validateReply(reply, []) : 'vazio' };
+  } catch (err: any) {
+    return { ok: false, reply: '', ms: Date.now() - t0, problem: null, error: String(err?.message || err).slice(0, 160) };
+  }
+}
+
+// Se todos os modelos estão só esperando o limite por minuto (poucos segundos), espera e tenta de novo
+// em vez de largar o lead. Pausa longa (cota do dia) continua falhando na hora.
 export async function generateGirofyCommercialReply(
+  contact: Contact,
+  incoming: IncomingMessage,
+  history: ChatMessage[]
+): Promise<AiGenerationResult> {
+  const first = await generateOnce(contact, incoming, history);
+  if (first.aiAvailable || (first.unavailableReason !== 'quota' && first.unavailableReason !== 'error')) return first;
+  const cfg = await db.getConfig();
+  const waits = chainFrom(cfg)
+    .map(it => Date.parse(cfg.aiPausedModels?.[pauseKey(it)] || '') - Date.now())
+    .filter(ms => ms > 0);
+  const shortest = waits.length ? Math.min(...waits) : Infinity;
+  if (shortest > 20_000) return first;
+  await new Promise(r => setTimeout(r, shortest + 500));
+  return generateOnce(contact, incoming, history);
+}
+
+async function generateOnce(
   contact: Contact,
   incoming: IncomingMessage,
   history: ChatMessage[]
@@ -276,7 +334,8 @@ export async function generateGirofyCommercialReply(
     const knowledge = await loadKnowledge();
     const learnings = await db.getTopLearnings(8);
 
-    const promptText = `
+    // O Groq grátis limita ~7 mil tokens por minuto: ele recebe uma versão enxuta da base de conhecimento.
+    const buildPrompt = (knowledge: string) => `
 ${SYSTEM_PROMPT}
 ${knowledge ? `\nBASE DE CONHECIMENTO DA GIROFY:\n${knowledge}\n` : ''}
 ${learnings.length ? `\nO QUE JÁ FUNCIONOU E NÃO FUNCIONOU (aprendido de conversas anteriores, use como guia):\n${learnings.map(l => `- ${l}`).join('\n')}\n` : ''}
@@ -298,6 +357,8 @@ Regras do follow-up: use um ângulo NOVO (não repita a observação anterior), 
 
 Responda só com o texto da próxima mensagem para o WhatsApp.
 `;
+    const promptFull = buildPrompt(knowledge);
+    const promptSlim = buildPrompt(knowledge.slice(0, GROQ_KNOWLEDGE_CHARS));
 
     const recentBotTexts = recent.filter(m => m.from === 'bot').slice(-4).map(m => m.text);
 
@@ -313,12 +374,12 @@ Responda só com o texto da próxima mensagem para o WhatsApp.
         let candidate = '';
         try {
           candidate = item.provider === 'gemini'
-            ? await callGemini(geminiKey, item.model, promptText + feedback, incoming.media)
-            : await callGroq(groqKey, item.model, promptText + feedback);
+            ? await callGemini(geminiKey, item.model, promptFull + feedback, incoming.media)
+            : await callGroq(groqKey, item.model, promptSlim + feedback);
         } catch (err: any) {
           const msg = String(err?.message || err);
           console.error(`[IA] ${item.provider}/${item.model} falhou:`, msg.slice(0, 300));
-          if (err?.status === 429 || /429|RESOURCE_EXHAUSTED|quota|rate limit/i.test(msg)) await pauseModel(item);
+          if (err?.status === 429 || /429|RESOURCE_EXHAUSTED|quota|rate limit/i.test(msg)) await pauseModel(item, err?.pauseMs ?? pauseMsFrom(msg));
           break; // próximo modelo da cadeia
         }
         const problem = validateReply(candidate, recentBotTexts);
