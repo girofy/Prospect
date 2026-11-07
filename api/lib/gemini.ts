@@ -55,7 +55,7 @@ export async function generateGirofyCommercialReply(
 ): Promise<AiGenerationResult> {
   const unavailable: AiGenerationResult = { replyText: '', aiAvailable: false, transferToHuman: false };
 
-  const dynamicConfig = db.getConfigSync();
+  const dynamicConfig = await db.getConfig();
   const apiKey = (dynamicConfig.geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
   if (!apiKey) {
     console.error('[Gemini] GEMINI_API_KEY não configurada: resposta não enviada.');

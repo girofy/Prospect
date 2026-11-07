@@ -65,9 +65,7 @@ export async function getProspectStats() {
   const cfg = await db.getConfig();
   const { day, hour } = bahiaNow();
   const sentToday = cfg.prospectDay === day ? cfg.prospectSentToday || 0 : 0;
-  const repliedPhones = new Set(
-    (await db.getMessages()).filter(m => m.from === 'lead').map(m => m.contactPhone)
-  );
+  const repliedPhones = await db.getRepliedPhones();
   return {
     enabled: process.env.PROSPECTOR_ENABLED !== 'false',
     evolutionConfigured: !!getEvolutionCfg(),
