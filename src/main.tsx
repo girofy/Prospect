@@ -1,6 +1,7 @@
 import {StrictMode, useEffect, useState, FormEvent} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
+import KnowledgePage from './KnowledgePage.tsx';
 import './index.css';
 
 const TOKEN_KEY = 'girofy_painel_token';
@@ -47,6 +48,13 @@ function LoginGate() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [route, setRoute] = useState(window.location.hash);
+
+  useEffect(() => {
+    const onHash = () => setRoute(window.location.hash);
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   useEffect(() => {
     const check = async () => {
@@ -95,7 +103,22 @@ function LoginGate() {
   };
 
   if (!ready) return null;
-  if (authed) return <App />;
+  if (authed && route === '#girofy-ia') {
+    return <KnowledgePage onBack={() => { window.location.hash = ''; }} />;
+  }
+  if (authed) {
+    return (
+      <>
+        <App />
+        <a
+          href="#girofy-ia"
+          style={{position: 'fixed', left: 12, bottom: 12, zIndex: 50, padding: '10px 14px', borderRadius: 999, background: '#fff', color: '#0b5cad', fontWeight: 600, boxShadow: '0 4px 14px rgba(0,0,0,.15)', textDecoration: 'none', fontFamily: 'system-ui, sans-serif'}}
+        >
+          Girofy IA
+        </a>
+      </>
+    );
+  }
 
   return (
     <div style={{minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: '#f5f7fb', fontFamily: 'system-ui, sans-serif'}}>
