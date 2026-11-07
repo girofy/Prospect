@@ -1438,7 +1438,9 @@ async function handler8(req, res) {
       if (action === "request_code") {
         const rawPhone = phoneNumber || config.directPairingPhone || "557488126578";
         const cleanPhone = formatPhoneNumber(rawPhone);
-        const { evolutionUrl, evolutionKey, instanceName = "prospectfy" } = body2;
+        const evolutionUrl = body2.evolutionUrl || process.env.EVOLUTION_URL || "";
+        const evolutionKey = body2.evolutionKey || process.env.EVOLUTION_API_KEY || "";
+        const instanceName = body2.instanceName || process.env.EVOLUTION_INSTANCE || "prospectfy";
         let code = "";
         let isRealSocketCode = false;
         let gatewayNotice = "";

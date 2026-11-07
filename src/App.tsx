@@ -1,3 +1,4 @@
+import KnowledgeSection from './KnowledgePage.tsx';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Phone, 
@@ -1802,6 +1803,9 @@ export default function App() {
         {activeTab === 'ia' && (
           <div className="space-y-4 max-w-4xl mx-auto w-full">
             
+            {/* Base de conhecimento e aprendizado */}
+            <KnowledgeSection />
+
             {/* Guidelines Card */}
             <div className="apple-widget p-5 sm:p-6">
               <h2 className="text-base sm:text-lg font-bold text-[#1D1D1F] tracking-tight mb-1 flex items-center gap-2.5">
