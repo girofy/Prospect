@@ -1,5 +1,6 @@
 import { db } from '../lib/db';
 import { sendWhatsAppTextMessage, formatPhoneNumber } from '../lib/whatsapp';
+import { sendEvolutionText } from '../lib/evolution';
 import { ChatMessage } from '../lib/types';
 
 export default async function handler(req: any, res: any) {
@@ -29,9 +30,12 @@ export default async function handler(req: any, res: any) {
 
     if (req.method === 'POST') {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-      const { phone, text, from = 'operator' } = body;
+      // Aceita os dois formatos que existem no painel (text/from e message/sender)
+      const phone = body.phone;
+      const text = body.text ?? body.message;
+      const from = body.from ?? body.sender ?? 'operator';
 
-      if (!phone || !text || !text.trim()) {
+      if (!phone || !text || !String(text).trim()) {
         return res.status(400).json({ error: 'Telefone e texto da mensagem são obrigatórios.' });
       }
 
@@ -45,7 +49,12 @@ export default async function handler(req: any, res: any) {
       // If directOnly is true (sent directly via WhatsApp Web/app), record it without calling Meta Cloud API
       let sendResult: { success: boolean; messageId?: string; error?: string } = { success: true, messageId: `direct-${Date.now()}` };
       if (!body.directOnly) {
-        sendResult = await sendWhatsAppTextMessage(cleanPhone, text.trim());
+        const config = await db.getConfig();
+        if ((config.activeGateway || 'direct_pairing') === 'direct_pairing') {
+          sendResult = await sendEvolutionText(cleanPhone, String(text).trim(), 2000);
+        } else {
+          sendResult = await sendWhatsAppTextMessage(cleanPhone, String(text).trim());
+        }
       }
 
       const msg: ChatMessage = {
