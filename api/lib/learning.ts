@@ -30,8 +30,7 @@ export async function runLearningPass(): Promise<number> {
   const learned = await db.getLearnedPhonesSince(new Date(Date.now() - 14 * 86400_000).toISOString());
   const candidates = contacts
     .filter(c => CLOSED_STATUSES.has(c.status) || c.status === 'em_conversa')
-    .filter(c => !learned.has(c.phone))
-    .slice(0, MAX_PER_PASS);
+    .filter(c => !learned.has(c.phone));
 
   if (candidates.length === 0) return 0;
 
@@ -43,8 +42,9 @@ export async function runLearningPass(): Promise<number> {
   let saved = 0;
 
   for (const c of candidates) {
+    if (saved >= MAX_PER_PASS) break; // limite por passe, contando só conversas com troca de fato
     const msgs = await db.getMessages(c.phone);
-    if (msgs.length < 2) continue;
+    if (msgs.length < 2 || !msgs.some(m => m.from === 'lead')) continue; // conversa sem troca não ensina nada
     if (!(await reserveAiCall())) break; // cota do dia acabou: para e tenta amanhã
 
     const outcome = outcomeOf(c, msgs);
