@@ -96,12 +96,15 @@ async function build(): Promise<void> {
     const conversas: any[] = [];
     let total = 0;
 
+    if (chats.length === 0) throw new Error('nenhuma conversa chegou desse número ainda. Desconecte e tente de novo, esperando uns minutos.');
+
     for (const chat of chats) {
       const jid = String(chat.remoteJid || chat.id || '');
       if (!jid || jid.endsWith('@g.us') || jid === 'status@broadcast') continue; // ignora grupos e status
       const mensagens: any[] = [];
       let page = 1;
       let pages = 1;
+      try {
       do {
         const r = await retry(() => evo('POST', `/chat/findMessages/${encodeURIComponent(name)}`, { where: { key: { remoteJid: jid } }, page }, 120_000));
         pages = r?.messages?.pages || 1;
@@ -116,12 +119,18 @@ async function build(): Promise<void> {
         }
         page++;
       } while (page <= pages && page <= MAX_PAGES_PER_CHAT);
+      } catch (err: any) {
+        // Uma conversa com erro no servidor não derruba a exportação inteira: fica de fora e é contada.
+        console.error('[Export] conversa ignorada:', jid, err?.message);
+        continue;
+      }
       if (mensagens.length === 0) continue;
       total += mensagens.length;
       mensagens.sort((a, b) => String(a.quando).localeCompare(String(b.quando)));
       conversas.push({ contato: jid, nome: chat.name || chat.pushName || '', mensagens });
     }
 
+    if (total === 0) throw new Error('as conversas chegaram vazias. Desconecte e tente de novo.');
     current.chats = conversas.length;
     current.messages = total;
     current.file = JSON.stringify({ exportado_em: new Date().toISOString(), conversas: conversas.length, mensagens: total, conversas_lista: conversas }, null, 2);
@@ -180,7 +189,8 @@ export default async function handler(req: any, res: any) {
         }
         if (job) await closeJob();
         const name = `export-${Date.now().toString(36)}`;
-        await evo('POST', '/instance/create', { instanceName: name, integration: 'WHATSAPP-BAILEYS', qrcode: !number, ...(number ? { number } : {}) });
+        // syncFullHistory: pede ao WhatsApp o histórico de conversas na conexão (sem isso a lista vem vazia).
+        await evo('POST', '/instance/create', { instanceName: name, integration: 'WHATSAPP-BAILEYS', qrcode: !number, syncFullHistory: true, ...(number ? { number } : {}) });
         const c = await evo('GET', `/instance/connect/${encodeURIComponent(name)}${number ? `?number=${number}` : ''}`);
         const qr = c?.base64 || c?.qrcode?.base64 || '';
         job = {
