@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Smartphone, Download, X, RefreshCw } from 'lucide-react';
+import { Smartphone, Download, X, RefreshCw, Copy } from 'lucide-react';
 import { Card, SectionTitle, Btn, Pill, Skeleton } from './ui';
 
 // Exportação única das conversas do seu WhatsApp pessoal. Nada é salvo no banco:
@@ -29,6 +29,8 @@ export default function PersonalExportCard() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [downloaded, setDownloaded] = useState(false);
+  const [number, setNumber] = useState('5574981017188');
+  const [copied, setCopied] = useState(false);
   const timer = useRef<number | null>(null);
 
   const run = async (fn: () => Promise<View>) => {
@@ -78,15 +80,31 @@ export default function PersonalExportCard() {
       {v.status === 'none' && (
         <div className="space-y-3">
           {downloaded && <div className="text-[13.5px] text-[#1f8a3a] font-medium">Baixado. Conexão encerrada e arquivo apagado do servidor.</div>}
-          <Btn onClick={() => run(() => call('POST', { action: 'start' }))} disabled={busy}>{busy ? 'Iniciando…' : 'Iniciar exportação'}</Btn>
+          <div>
+            <label className="block text-[12.5px] font-semibold text-[#86868B] mb-1.5">Número do WhatsApp que você quer conectar</label>
+            <input inputMode="numeric" value={number} onChange={e => setNumber(e.target.value)} placeholder="5574999999999" className="w-full rounded-xl bg-white border border-black/[0.08] px-3.5 py-2.5 text-[15px] tabular-nums outline-none focus:border-[#0071E3]" />
+          </div>
+          <Btn onClick={() => run(() => call('POST', { action: 'start', number }))} disabled={busy || number.replace(/\D/g, '').length < 12}>{busy ? 'Gerando código…' : 'Gerar código'}</Btn>
         </div>
       )}
 
       {v.status === 'waiting_qr' && (
         <div className="space-y-3">
-          <div className="text-[13.5px] text-[#1D1D1F]">No celular pessoal: WhatsApp, Configurações, Aparelhos conectados, Conectar aparelho, e aponte para o código.</div>
-          {v.qr ? <img src={v.qr} alt="QR code do WhatsApp" className="w-56 h-56 rounded-2xl bg-white p-2" /> : null}
-          {v.pairingCode ? <div className="text-[22px] font-bold tracking-widest tabular-nums">{v.pairingCode}</div> : null}
+          {v.pairingCode ? (
+            <>
+              <div className="text-[13.5px] text-[#1D1D1F] leading-relaxed">
+                No WhatsApp desse número: toque em Configurações, Aparelhos conectados, Conectar aparelho, e escolha <b>Conectar com número de telefone</b>. Cole o código abaixo.
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="text-[24px] font-bold tracking-widest tabular-nums bg-white rounded-2xl px-4 py-3 select-all">{v.pairingCode}</div>
+                <Btn kind="soft" onClick={async () => { try { await navigator.clipboard.writeText(v.pairingCode || ''); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { setErr('Não consegui copiar. Segure o código e copie manualmente.'); } }}>
+                  <span className="inline-flex items-center gap-2"><Copy className="w-4 h-4" />{copied ? 'Copiado' : 'Copiar código'}</span>
+                </Btn>
+              </div>
+            </>
+          ) : v.qr ? (
+            <img src={v.qr} alt="QR code do WhatsApp" className="w-56 h-56 rounded-2xl bg-white p-2" />
+          ) : null}
           <div className="text-[12.5px] text-[#86868B]">Esperando a leitura… a tela avança sozinha.</div>
           <Btn kind="soft" onClick={() => run(() => call('POST', { action: 'cancel' }))} disabled={busy}><span className="inline-flex items-center gap-2"><X className="w-4 h-4" />Cancelar</span></Btn>
         </div>
