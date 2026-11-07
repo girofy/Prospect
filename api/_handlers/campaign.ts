@@ -1,9 +1,11 @@
 import { db } from '../lib/db';
-import { formatPhoneNumber, sendWhatsAppTextMessage } from '../lib/whatsapp';
-import { Contact, ChatMessage } from '../lib/types';
+import { formatPhoneNumber } from '../lib/whatsapp';
+import { Contact } from '../lib/types';
 
+// Disparo manual agora só ENFILEIRA. Quem envia é o agendador (prospector), com
+// janela de horário, intervalo aleatório, teto diário e checagem de opt-out.
+// Assim não existe mais envio "fake" nem caminho paralelo sem proteção.
 export default async function handler(req: any, res: any) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
@@ -16,119 +18,83 @@ export default async function handler(req: any, res: any) {
       const contacts = await db.getContacts();
       const repliedPhones = await db.getRepliedPhones();
 
-      const microDispatched = contacts.filter(c => c.status === 'em_conversa' || c.status === 'novo' || c.status === 'qualificado');
-      const responded = microDispatched.filter(c => repliedPhones.has(c.phone));
+      const dispatched = contacts.filter(c => c.status !== 'novo');
+      const responded = dispatched.filter(c => repliedPhones.has(c.phone));
 
       return res.status(200).json({
         totalContacts: contacts.length,
-        dispatchedCount: microDispatched.length,
+        dispatchedCount: dispatched.length,
         respondedCount: responded.length,
-        responseRate: microDispatched.length > 0 ? Math.round((responded.length / microDispatched.length) * 100) : 0,
+        responseRate: dispatched.length > 0 ? Math.round((responded.length / dispatched.length) * 100) : 0,
       });
     }
 
     if (req.method === 'POST') {
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-      const { leads, customMessage } = body;
+      const leads: any[] = Array.isArray(body.leads) ? body.leads : [];
 
-      if (!Array.isArray(leads) || leads.length === 0) {
-        return res.status(400).json({ error: 'Envie uma lista de contatos para o micro-disparo.' });
+      if (leads.length === 0) {
+        return res.status(400).json({ error: 'Envie uma lista de contatos para enfileirar.' });
+      }
+      if (leads.length > 500) {
+        return res.status(400).json({ error: 'Máximo de 500 contatos por envio.' });
       }
 
-      // Safety constraint: max 10 contacts per test batch to strictly prevent carrier or spam blocks
-      const safeLeads = leads.slice(0, 10);
-      const config = await db.getConfig();
-      const gateway = config.activeGateway || 'direct_pairing';
+      const enqueued: string[] = [];
+      const skipped: { phone: string; motivo: string }[] = [];
+      const now = new Date().toISOString();
 
-      const results = [];
-      const timestamp = new Date().toISOString();
-
-      for (let i = 0; i < safeLeads.length; i++) {
-        const item = safeLeads[i];
-        const rawPhone = item.phone || '';
-        const cleanPhone = formatPhoneNumber(rawPhone);
-        if (!cleanPhone || cleanPhone.length < 10) continue;
-
-        const name = item.name || 'Contato';
-        const company = item.company || 'Empresa';
-        const firstName = name.split(' ')[0];
-
-        // Custom template or default human "Bom dia"
-        const messageText = customMessage 
-          ? customMessage.replace('{nome}', firstName).replace('{empresa}', company)
-          : `Bom dia, ${firstName}! Tudo bem? Vi o trabalho da ${company} e achei muito interessante.`;
-
-        // 1. Ensure contact is recorded in CRM
-        const contact: Contact = {
-          id: `lead-${cleanPhone}`,
-          phone: cleanPhone,
-          name,
-          company,
-          niche: item.niche || 'Prospecção Ativa',
-          role: 'decisor',
-          status: 'em_conversa',
-          agentState: 'ai_active',
-          optOutDetected: false,
-          lastInteractionAt: timestamp,
-          createdAt: timestamp,
-        };
-        await db.saveContact(contact);
-
-        // 2. Record outgoing message
-        const outgoingMsg: ChatMessage = {
-          id: `msg-micro-${Date.now()}-${i}`,
-          contactPhone: cleanPhone,
-          from: 'operator',
-          text: messageText,
-          type: 'text',
-          timestamp: new Date(Date.now() + i * 20000).toISOString(),
-          status: 'sent',
-        };
-
-        // If Meta Cloud API is chosen and configured, send through Meta
-        if (gateway === 'meta_cloud_api') {
-          try {
-            const sendRes = await sendWhatsAppTextMessage(cleanPhone, messageText);
-            if (sendRes.success && sendRes.messageId) {
-              outgoingMsg.metaMessageId = sendRes.messageId;
-              outgoingMsg.status = 'delivered';
-            }
-          } catch (e) {
-            console.warn('[Micro-dispatch Meta API]', e);
-          }
+      for (const item of leads) {
+        const cleanPhone = formatPhoneNumber(String(item.phone || ''));
+        if (!cleanPhone || cleanPhone.length < 12) {
+          skipped.push({ phone: String(item.phone || ''), motivo: 'telefone inválido' });
+          continue;
         }
 
-        await db.saveMessage(outgoingMsg);
+        const existing = await db.getContactByPhone(cleanPhone);
+        if (existing?.optOutDetected || existing?.status === 'bloqueado') {
+          skipped.push({ phone: cleanPhone, motivo: 'opt-out (pediu para sair)' });
+          continue;
+        }
+        if (existing && existing.status !== 'novo') {
+          skipped.push({ phone: cleanPhone, motivo: `já prospectado (${existing.status})` });
+          continue;
+        }
 
-        results.push({
+        const contact: Contact = {
+          id: existing?.id || `lead-${cleanPhone}`,
           phone: cleanPhone,
-          name,
-          company,
-          message: messageText,
-          status: 'enviado',
-          gateway,
-          scheduledIntervalSeconds: i * 25, // 25s safe human delay
-        });
+          name: item.name || existing?.name || '',
+          company: item.company || existing?.company || 'Em qualificação',
+          niche: item.niche || existing?.niche || undefined,
+          role: 'decisor',
+          status: 'novo',
+          agentState: 'ai_active',
+          optOutDetected: false,
+          lastInteractionAt: now,
+          createdAt: existing?.createdAt || now,
+        };
+        await db.saveContact(contact);
+        enqueued.push(cleanPhone);
       }
 
       await db.addAuditLog({
-        type: 'incoming_message',
-        summary: `Micro-disparo cadenciado executado com sucesso para ${results.length} contatos via ${gateway === 'direct_pairing' ? 'Conexão Direta (Celular)' : 'Meta Cloud API'}.`,
-        details: { count: results.length, gateway },
+        type: 'status_change',
+        summary: `${enqueued.length} contatos enfileirados para prospecção; ${skipped.length} pulados.`,
+        details: { enqueued: enqueued.length, skipped: skipped.length },
       });
 
       return res.status(200).json({
         success: true,
-        dispatched: results.length,
-        gateway,
-        leads: results,
-        message: `${results.length} mensagens cadenciadas com intervalo seguro de 25s iniciadas com sucesso!`,
+        enqueued: enqueued.length,
+        skipped,
+        message: `${enqueued.length} contatos entraram na fila. O agente envia no horário, respeitando o teto diário.`,
       });
     }
 
     return res.status(405).json({ error: 'Method Not Allowed' });
   } catch (err: any) {
     console.error('[Campaign API Error]:', err);
-    return res.status(500).json({ error: err?.message || 'Falha ao processar micro-disparo.' });
+    return res.status(500).json({ error: err?.message || 'Falha ao enfileirar contatos.' });
   }
 }

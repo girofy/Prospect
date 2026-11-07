@@ -41,4 +41,31 @@ export async function sendEvolutionText(
   }
 }
 
-export const OPT_OUT_REGEX = /(não tenho interesse|nao tenho interesse|pare de mandar|para de mandar|remove meu contato|remover contato|tirar da lista|não me mande|nao me mande|denunciar|spam|desinscrever|bloqueado|nunca mais)/i;
+// Baixa a mídia (imagem/áudio) de uma mensagem recebida, em base64.
+// Endpoint: POST /chat/getBase64FromMediaMessage/{instance} (Evolution v2).
+export async function fetchEvolutionMedia(
+  messageKey: { id: string; remoteJid: string; fromMe: boolean },
+  message: any
+): Promise<{ mimeType: string; data: string } | null> {
+  const cfg = getEvolutionCfg();
+  if (!cfg) return null;
+  try {
+    const res = await fetch(`${cfg.url}/chat/getBase64FromMediaMessage/${encodeURIComponent(cfg.instance)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: cfg.apiKey },
+      body: JSON.stringify({ message: { key: messageKey, message }, convertToMp4: false }),
+    });
+    if (!res.ok) return null;
+    const json: any = await res.json().catch(() => null);
+    if (!json?.base64) return null;
+    const mimeType = String(json.mimetype || '').split(';')[0] || (message?.audioMessage ? 'audio/ogg' : 'image/jpeg');
+    // Remove prefixo data: se vier
+    const data = String(json.base64).replace(/^data:[^;]+;base64,/, '');
+    return { mimeType, data };
+  } catch {
+    return null;
+  }
+}
+
+// Pedido de saída (LGPD). Frases claras; "sair" e "parar" só entram como pedido completo, não como palavra solta.
+export const OPT_OUT_REGEX = /(não tenho interesse|nao tenho interesse|pare de (me )?mandar|para de (me )?mandar|pare de (me )?enviar|para de (me )?enviar|remove (meu|o meu) (contato|número|numero)|remover (meu )?contato|tirar (me|meu contato) da lista|não me (mande|envie|chame)|nao me (mande|envie|chame)|denunciar|desinscrever|me (tira|tire|remove) (daí|daqui|da lista)|nunca mais|^\s*(parar|stop|sair|cancelar)\s*[.!]*\s*$)/i;

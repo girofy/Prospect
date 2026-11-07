@@ -323,6 +323,43 @@ var db = {
     });
     return { success: true, deletedCount };
   },
+  // --- Uso da IA (cota) — grava sem gerar log de auditoria a cada chamada ---
+  async saveAiUsage(patch) {
+    await ensureConfigLoaded();
+    const updated = { ...configCache, ...patch };
+    const res = await supabase().from("app_config").upsert({ id: true, data: updated }, { onConflict: "id" });
+    if (res.error) console.warn("[DB] saveAiUsage:", res.error.message);
+    configCache = updated;
+  },
+  // --- Aprendizado: lições gravadas a partir de conversas encerradas ---
+  async saveLearning(l) {
+    const res = await supabase().from("learnings").insert({
+      contact_phone: l.contactPhone,
+      outcome: l.outcome,
+      worked: l.worked,
+      failed: l.failed,
+      why: l.why,
+      opener_style: l.openerStyle ?? null
+    });
+    if (res.error) console.warn("[DB] saveLearning:", res.error.message);
+  },
+  async getRecentLearnings(n) {
+    const res = await supabase().from("learnings").select("*").order("created_at", { ascending: false }).limit(n);
+    if (res.error || !res.data) return [];
+    return res.data;
+  },
+  // Telefones que já têm lição gravada desde uma data (evita aprender a mesma conversa duas vezes).
+  async getLearnedPhonesSince(sinceIso) {
+    const res = await supabase().from("learnings").select("contact_phone").gte("created_at", sinceIso);
+    if (res.error || !res.data) return /* @__PURE__ */ new Set();
+    return new Set(res.data.map((r) => r.contact_phone).filter(Boolean));
+  },
+  // Lições mais recentes em forma de frase, para o prompt. Se a tabela ainda não existir, devolve [].
+  async getTopLearnings(n) {
+    const res = await supabase().from("learnings").select("outcome, worked, failed, why").order("created_at", { ascending: false }).limit(n);
+    if (res.error || !res.data) return [];
+    return res.data.map((r) => `[${r.outcome}] funcionou: ${r.worked || "-"} | n\xE3o funcionou: ${r.failed || "-"} | porqu\xEA: ${r.why || "-"}`);
+  },
   // --- Dynamic App Configuration ---
   // Leitura síncrona a partir do cache em memória (carregado em segundo plano no import do módulo).
   // Pode estar um tick atrasado logo no boot do processo; getConfig() aguarda a carga inicial.
@@ -531,20 +568,36 @@ async function getWhatsAppNumberStatus() {
 import fs from "fs";
 import path from "path";
 import { GoogleGenAI } from "@google/genai";
-var GIROFY_SYSTEM_PROMPT = `
-Voc\xEA \xE9 o assistente de IA da Girofy, est\xFAdio de engenharia digital que resolve problemas de neg\xF3cio (sistemas, sites e automa\xE7\xF5es).
-Voc\xEA conversa por WhatsApp com neg\xF3cios locais e regionais. O objetivo \xE9 entender a dor do neg\xF3cio e marcar uma conversa curta de 15 minutos.
+var DEFAULT_MODEL = "gemini-3.6-flash";
+var DAILY_CALL_LIMIT = Number(process.env.GEMINI_DAILY_CALL_LIMIT ?? 200);
+var SYSTEM_PROMPT = `
+Voc\xEA responde no WhatsApp pela Girofy, um est\xFAdio de engenharia digital que resolve problemas de neg\xF3cio (sistemas, sites, automa\xE7\xF5es). Voc\xEA conversa com donos e gerentes de neg\xF3cios locais e regionais.
 
-REGRAS DE CONVERSA:
-1. Escreva como gente no WhatsApp: curto, direto, sem enrola\xE7\xE3o e sem jarg\xE3o.
-2. Cada mensagem tem no m\xE1ximo 15 palavras. Se precisar, use no m\xE1ximo 2 bal\xF5es curtos.
-3. Nunca mande listas, t\xF3picos ou par\xE1grafos longos.
-4. Fa\xE7a UMA pergunta por vez. Pergunte sobre a dor (como o cliente perde dinheiro ou tempo hoje), n\xE3o sobre o produto.
-5. N\xE3o empurre pre\xE7o cedo. S\xF3 fale valor quando perguntarem.
-6. IDENTIDADE: voc\xEA \xE9 uma IA da Girofy. Se perguntarem se \xE9 rob\xF4 ou IA, confirme com honestidade e diga que o C\xE9sar acompanha as conversas. Nunca diga que \xE9 humano.
-7. Se o contato pedir atendente ou humano, inclua a tag [TRANSF_HUMANO: motivo] e avise com gentileza.
-8. Se o contato pedir para parar, n\xE3o insista.
-9. N\xE3o invente pre\xE7o, prazo, cliente ou resultado. Se n\xE3o souber, diga que o C\xE9sar confirma.
+COMO ESCREVER (o mais importante):
+- Soe como gente digitando no celular. Portugu\xEAs do Brasil, informal, educado.
+- Responda primeiro ao que a pessoa acabou de dizer, com as palavras dela quando der.
+- Mensagem curta: uma ou duas frases. Se a pessoa escreveu pouco, escreva pouco.
+- No m\xE1ximo UMA pergunta por mensagem. Pergunte sobre a rotina ou a dor ("como chega cliente novo a\xED hoje?"), nunca sobre o produto.
+- Proibido: "Obrigado pelo retorno", "Posso te apresentar brevemente", "Com certeza!", "Excelente", "Perfeito", listas, t\xF3picos, emojis em excesso, par\xE1grafos.
+- N\xE3o repita frases que voc\xEA j\xE1 mandou. Veja as suas \xFAltimas mensagens no hist\xF3rico e mude a forma.
+- Se a pessoa estiver seca ("ok", "sim", "n\xE3o"), n\xE3o insista: responda curto e deixe a porta aberta.
+
+CONTEXTO DA PESSOA:
+- Use o nome e o nicho quando ajudar, sem for\xE7ar. Nunca chame de "Lead" ou "Contato".
+- N\xE3o invente nada sobre a empresa que n\xE3o esteja nos dados abaixo.
+
+IMAGEM E \xC1UDIO:
+- Se a pessoa mandou imagem ou \xE1udio, voc\xEA recebe o conte\xFAdo. Reaja ao conte\xFAdo de verdade, em uma frase. Nunca diga que n\xE3o consegue ver ou ouvir quando o conte\xFAdo estiver aqui.
+
+OBJETIVO:
+- Entender a dor e propor uma conversa curta de 15 minutos quando houver dor clara.
+- Pre\xE7o s\xF3 quando perguntarem. Se perguntarem: "A partir de R$ 997 para landing page pronta. Depende do que voc\xEA precisa."
+
+REGRAS FIXAS:
+- Voc\xEA \xE9 uma IA da Girofy. Se perguntarem se \xE9 rob\xF4 ou IA, diga que sim, que \xE9 o assistente da Girofy e que o C\xE9sar acompanha as conversas. Nunca diga que \xE9 humano.
+- Se pedirem atendente ou humano, inclua [TRANSF_HUMANO: motivo] e avise com gentileza que o C\xE9sar responde.
+- Se pedirem para parar, confirme em uma frase e n\xE3o mande mais nada.
+- N\xE3o invente pre\xE7o, prazo, cliente ou resultado. Se n\xE3o souber, diga que o C\xE9sar confirma.
 `;
 var KNOWLEDGE_MAX_CHARS = 12e3;
 function loadKnowledge() {
@@ -565,47 +618,82 @@ ${fs.readFileSync(path.join(dir, f), "utf-8")}`;
     return "";
   }
 }
-async function generateGirofyCommercialReply(contact, incomingText, history) {
-  const unavailable = { replyText: "", aiAvailable: false, transferToHuman: false };
-  const dynamicConfig = await db.getConfig();
-  const apiKey = (dynamicConfig.geminiApiKey || process.env.GEMINI_API_KEY || "").trim();
+function todayBahia() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bahia", year: "numeric", month: "2-digit", day: "2-digit" }).format(/* @__PURE__ */ new Date());
+}
+async function reserveAiCall() {
+  const cfg = await db.getConfig();
+  if (cfg.aiPausedUntil && Date.parse(cfg.aiPausedUntil) > Date.now()) return false;
+  const day = todayBahia();
+  const used = cfg.aiUsageDay === day ? cfg.aiUsageCount || 0 : 0;
+  if (used >= DAILY_CALL_LIMIT) return false;
+  await db.saveAiUsage({ aiUsageDay: day, aiUsageCount: used + 1 });
+  return true;
+}
+async function generateGirofyCommercialReply(contact, incoming, history) {
+  const fail = (reason) => ({
+    replyText: "",
+    aiAvailable: false,
+    unavailableReason: reason,
+    transferToHuman: false
+  });
+  const cfg = await db.getConfig();
+  const apiKey = (cfg.geminiApiKey || process.env.GEMINI_API_KEY || "").trim();
   if (!apiKey) {
     console.error("[Gemini] GEMINI_API_KEY n\xE3o configurada: resposta n\xE3o enviada.");
-    return unavailable;
+    return fail("no_key");
+  }
+  if (!await reserveAiCall()) {
+    console.warn("[Gemini] cota di\xE1ria do agente atingida ou IA pausada: nada enviado.");
+    return fail("quota");
   }
   try {
     const ai = new GoogleGenAI({ apiKey });
-    const recentHistory = history.slice(-12).map((m) => {
-      const who = m.from === "bot" ? "Assistente Girofy" : m.from === "operator" ? "C\xE9sar (humano)" : contact.name || "Contato";
+    const recent = history.slice(-12);
+    const recentBot = recent.filter((m) => m.from === "bot").slice(-4).map((m) => `- "${m.text}"`).join("\n");
+    const transcript2 = recent.map((m) => {
+      const who = m.from === "bot" ? "Voc\xEA" : m.from === "operator" ? "C\xE9sar (humano)" : "Pessoa";
       return `${who}: ${m.text}`;
     }).join("\n");
     const knowledge = loadKnowledge();
-    const prompt = `
-${GIROFY_SYSTEM_PROMPT}
+    const learnings = await db.getTopLearnings(8);
+    const promptText = `
+${SYSTEM_PROMPT}
 ${knowledge ? `
 BASE DE CONHECIMENTO DA GIROFY:
 ${knowledge}
 ` : ""}
-DADOS DO CONTATO:
-- Nome: ${contact.name || "N\xE3o informado"}
-- Empresa: ${contact.company && contact.company !== "Em qualifica\xE7\xE3o" ? contact.company : "N\xE3o informada"}
-- Status: ${contact.status}
+${learnings.length ? `
+O QUE J\xC1 FUNCIONOU E N\xC3O FUNCIONOU (aprendido de conversas anteriores, use como guia):
+${learnings.map((l) => `- ${l}`).join("\n")}
+` : ""}
+DADOS DA PESSOA:
+- Nome: ${contact.name && !/^(lead|contato)/i.test(contact.name) ? contact.name : "n\xE3o sei o nome"}
+- Neg\xF3cio: ${contact.company && contact.company !== "Em qualifica\xE7\xE3o" ? contact.company : "n\xE3o sei o nome do neg\xF3cio"}
+- Nicho: ${contact.niche || "n\xE3o informado"}
 
-HIST\xD3RICO RECENTE (inclui mensagens que o C\xE9sar mandou pessoalmente; respeite o que ele j\xE1 disse):
-${recentHistory || "(Sem hist\xF3rico anterior)"}
+SUAS \xDALTIMAS MENSAGENS (n\xE3o repita nenhuma destas ideias):
+${recentBot || "(nenhuma ainda)"}
 
-NOVA MENSAGEM DO CONTATO:
-"${incomingText}"
+CONVERSA RECENTE:
+${transcript2 || "(in\xEDcio da conversa)"}
 
-Gere s\xF3 o texto da pr\xF3xima mensagem para o WhatsApp:
+NOVA MENSAGEM DA PESSOA:
+"${incoming.text}"
+
+Responda s\xF3 com o texto da pr\xF3xima mensagem para o WhatsApp.
 `;
-    const modelName = process.env.GEMINI_MODEL || "gemini-3.6-flash";
+    const parts = [];
+    if (incoming.media) {
+      parts.push({ inlineData: { mimeType: incoming.media.mimeType, data: incoming.media.data } });
+    }
+    parts.push({ text: promptText });
     const response = await ai.models.generateContent({
-      model: modelName,
-      contents: prompt,
+      model: cfg.geminiModel || process.env.GEMINI_MODEL || DEFAULT_MODEL,
+      contents: [{ role: "user", parts }],
       config: {
-        temperature: 0.5,
-        maxOutputTokens: 150,
+        temperature: 0.7,
+        maxOutputTokens: 200,
         thinkingConfig: { thinkingBudget: 0 }
       }
     });
@@ -619,15 +707,13 @@ Gere s\xF3 o texto da pr\xF3xima mensagem para o WhatsApp:
       rawText = rawText.replace(/\[TRANSF_HUMANO:[^\]]+\]/gi, "").trim();
     }
     const directHumanPattern = /(falar com (humano|atendente|pessoa|alguém|proprietário|responsável)|me liga|passa para humano)/i;
-    if (directHumanPattern.test(incomingText)) {
+    if (directHumanPattern.test(incoming.text)) {
       transferToHuman = true;
       transferReason = "Pedido expl\xEDcito de atendimento humano pelo cliente";
-      if (!rawText) {
-        rawText = "Com certeza! Vou passar para o C\xE9sar te responder pessoalmente. Um instante.";
-      }
+      if (!rawText) rawText = "Claro. Vou pedir para o C\xE9sar te responder pessoalmente. Um instante.";
     }
-    if (!rawText) return unavailable;
-    const isMeetingRequested = /meet\.google\.com|reunião|alinhamento de 15|15 min/i.test(rawText);
+    if (!rawText) return fail("empty");
+    const isMeetingRequested = /meet\.google\.com|reunião|15 min/i.test(rawText);
     return {
       replyText: rawText,
       aiAvailable: true,
@@ -636,8 +722,13 @@ Gere s\xF3 o texto da pr\xF3xima mensagem para o WhatsApp:
       isMeetingRequested
     };
   } catch (err) {
-    console.error("[Gemini AI Server Error]:", err?.message);
-    return unavailable;
+    const msg = String(err?.message || err);
+    console.error("[Gemini AI Server Error]:", msg);
+    if (/429|RESOURCE_EXHAUSTED|quota/i.test(msg)) {
+      await db.saveAiUsage({ aiPausedUntil: new Date(Date.now() + 60 * 6e4).toISOString() });
+      return fail("quota");
+    }
+    return fail("error");
   }
 }
 
@@ -822,7 +913,7 @@ async function handler(req, res) {
               if (messageType === "audio") {
                 promptText = "O cliente enviou um \xE1udio. Agrade\xE7a brevemente e pergunte se ele pode adiantar a d\xFAvida por texto ou se prefere agendarmos 15 min no Meet para conversarmos.";
               }
-              const aiResult = await generateGirofyCommercialReply(contact, promptText, history);
+              const aiResult = await generateGirofyCommercialReply(contact, { text: promptText }, history);
               if (!aiResult.aiAvailable) continue;
               if (aiResult.transferToHuman) {
                 contact.agentState = "human_takeover";
@@ -940,6 +1031,55 @@ async function handler2(req, res) {
   }
 }
 
+// api/lib/evolution.ts
+function getEvolutionCfg() {
+  const url = (process.env.EVOLUTION_URL || "").trim().replace(/\/+$/, "");
+  const apiKey = (process.env.EVOLUTION_API_KEY || "").trim();
+  const instance = (process.env.EVOLUTION_INSTANCE || "prospectfy").trim();
+  if (!url || !apiKey) return null;
+  return { url, apiKey, instance };
+}
+async function sendEvolutionText(phone, text, delayMs = 3e3) {
+  const cfg = getEvolutionCfg();
+  if (!cfg) {
+    return { success: false, error: "EVOLUTION_URL / EVOLUTION_API_KEY n\xE3o configurados" };
+  }
+  try {
+    const res = await fetch(`${cfg.url}/message/sendText/${encodeURIComponent(cfg.instance)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: cfg.apiKey },
+      body: JSON.stringify({ number: phone, text, delay: delayMs, linkPreview: false })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { success: false, error: data?.message || data?.error || `HTTP ${res.status}` };
+    }
+    return { success: true, messageId: data?.key?.id };
+  } catch (err) {
+    return { success: false, error: err?.message || "Falha de rede na Evolution" };
+  }
+}
+async function fetchEvolutionMedia(messageKey, message) {
+  const cfg = getEvolutionCfg();
+  if (!cfg) return null;
+  try {
+    const res = await fetch(`${cfg.url}/chat/getBase64FromMediaMessage/${encodeURIComponent(cfg.instance)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: cfg.apiKey },
+      body: JSON.stringify({ message: { key: messageKey, message }, convertToMp4: false })
+    });
+    if (!res.ok) return null;
+    const json = await res.json().catch(() => null);
+    if (!json?.base64) return null;
+    const mimeType = String(json.mimetype || "").split(";")[0] || (message?.audioMessage ? "audio/ogg" : "image/jpeg");
+    const data = String(json.base64).replace(/^data:[^;]+;base64,/, "");
+    return { mimeType, data };
+  } catch {
+    return null;
+  }
+}
+var OPT_OUT_REGEX2 = /(não tenho interesse|nao tenho interesse|pare de (me )?mandar|para de (me )?mandar|pare de (me )?enviar|para de (me )?enviar|remove (meu|o meu) (contato|número|numero)|remover (meu )?contato|tirar (me|meu contato) da lista|não me (mande|envie|chame)|nao me (mande|envie|chame)|denunciar|desinscrever|me (tira|tire|remove) (daí|daqui|da lista)|nunca mais|^\s*(parar|stop|sair|cancelar)\s*[.!]*\s*$)/i;
+
 // api/_handlers/messages.ts
 async function handler3(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -963,8 +1103,10 @@ async function handler3(req, res) {
     }
     if (req.method === "POST") {
       const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-      const { phone, text, from = "operator" } = body;
-      if (!phone || !text || !text.trim()) {
+      const phone = body.phone;
+      const text = body.text ?? body.message;
+      const from = body.from ?? body.sender ?? "operator";
+      if (!phone || !text || !String(text).trim()) {
         return res.status(400).json({ error: "Telefone e texto da mensagem s\xE3o obrigat\xF3rios." });
       }
       const cleanPhone = formatPhoneNumber(phone);
@@ -974,7 +1116,12 @@ async function handler3(req, res) {
       }
       let sendResult = { success: true, messageId: `direct-${Date.now()}` };
       if (!body.directOnly) {
-        sendResult = await sendWhatsAppTextMessage(cleanPhone, text.trim());
+        const config = await db.getConfig();
+        if ((config.activeGateway || "direct_pairing") === "direct_pairing") {
+          sendResult = await sendEvolutionText(cleanPhone, String(text).trim(), 2e3);
+        } else {
+          sendResult = await sendWhatsAppTextMessage(cleanPhone, String(text).trim());
+        }
       }
       const msg = {
         id: `msg-${Date.now()}`,
@@ -1149,16 +1296,15 @@ async function handler7(req, res) {
         authorizedBusinessNumber: AUTHORIZED_BUSINESS_NUMBER,
         appId: DEFAULT_APP_ID,
         businessId: DEFAULT_BUSINESS_ID,
-        webhookVerifyToken: meta.verifyToken,
+        webhookVerifyTokenMasked: maskSecret(meta.verifyToken),
         metaAccessTokenMasked: maskSecret(meta.token),
         metaAppSecretMasked: maskSecret(meta.appSecret),
         geminiApiKeyMasked: maskSecret(geminiKey),
-        geminiModel: cfg.geminiModel || "gemini-2.5-flash",
+        geminiModel: cfg.geminiModel || process.env.GEMINI_MODEL || "gemini-3.6-flash",
         autoReplyEnabled: meta.autoReplyEnabled,
         activeGateway: cfg.activeGateway || "direct_pairing",
-        directPairingPhone: cfg.directPairingPhone || "557488126578",
-        directPairingStatus: cfg.directPairingStatus || "connected",
-        directPairingCode: cfg.directPairingCode || "",
+        directPairingPhone: cfg.directPairingPhone || "",
+        directPairingStatus: cfg.directPairingStatus || "disconnected",
         directPairingConnectedAt: cfg.directPairingConnectedAt || ""
       });
     }
@@ -1388,7 +1534,6 @@ async function handler8(req, res) {
 
 // api/_handlers/campaign.ts
 async function handler9(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") {
@@ -1398,169 +1543,76 @@ async function handler9(req, res) {
     if (req.method === "GET") {
       const contacts = await db.getContacts();
       const repliedPhones = await db.getRepliedPhones();
-      const microDispatched = contacts.filter((c) => c.status === "em_conversa" || c.status === "novo" || c.status === "qualificado");
-      const responded = microDispatched.filter((c) => repliedPhones.has(c.phone));
+      const dispatched = contacts.filter((c) => c.status !== "novo");
+      const responded = dispatched.filter((c) => repliedPhones.has(c.phone));
       return res.status(200).json({
         totalContacts: contacts.length,
-        dispatchedCount: microDispatched.length,
+        dispatchedCount: dispatched.length,
         respondedCount: responded.length,
-        responseRate: microDispatched.length > 0 ? Math.round(responded.length / microDispatched.length * 100) : 0
+        responseRate: dispatched.length > 0 ? Math.round(responded.length / dispatched.length * 100) : 0
       });
     }
     if (req.method === "POST") {
       const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
-      const { leads, customMessage } = body;
-      if (!Array.isArray(leads) || leads.length === 0) {
-        return res.status(400).json({ error: "Envie uma lista de contatos para o micro-disparo." });
+      const leads = Array.isArray(body.leads) ? body.leads : [];
+      if (leads.length === 0) {
+        return res.status(400).json({ error: "Envie uma lista de contatos para enfileirar." });
       }
-      const safeLeads = leads.slice(0, 10);
-      const config = await db.getConfig();
-      const gateway = config.activeGateway || "direct_pairing";
-      const results = [];
-      const timestamp = (/* @__PURE__ */ new Date()).toISOString();
-      for (let i = 0; i < safeLeads.length; i++) {
-        const item = safeLeads[i];
-        const rawPhone = item.phone || "";
-        const cleanPhone = formatPhoneNumber(rawPhone);
-        if (!cleanPhone || cleanPhone.length < 10) continue;
-        const name = item.name || "Contato";
-        const company = item.company || "Empresa";
-        const firstName = name.split(" ")[0];
-        const messageText = customMessage ? customMessage.replace("{nome}", firstName).replace("{empresa}", company) : `Bom dia, ${firstName}! Tudo bem? Vi o trabalho da ${company} e achei muito interessante.`;
+      if (leads.length > 500) {
+        return res.status(400).json({ error: "M\xE1ximo de 500 contatos por envio." });
+      }
+      const enqueued = [];
+      const skipped = [];
+      const now = (/* @__PURE__ */ new Date()).toISOString();
+      for (const item of leads) {
+        const cleanPhone = formatPhoneNumber(String(item.phone || ""));
+        if (!cleanPhone || cleanPhone.length < 12) {
+          skipped.push({ phone: String(item.phone || ""), motivo: "telefone inv\xE1lido" });
+          continue;
+        }
+        const existing = await db.getContactByPhone(cleanPhone);
+        if (existing?.optOutDetected || existing?.status === "bloqueado") {
+          skipped.push({ phone: cleanPhone, motivo: "opt-out (pediu para sair)" });
+          continue;
+        }
+        if (existing && existing.status !== "novo") {
+          skipped.push({ phone: cleanPhone, motivo: `j\xE1 prospectado (${existing.status})` });
+          continue;
+        }
         const contact = {
-          id: `lead-${cleanPhone}`,
+          id: existing?.id || `lead-${cleanPhone}`,
           phone: cleanPhone,
-          name,
-          company,
-          niche: item.niche || "Prospec\xE7\xE3o Ativa",
+          name: item.name || existing?.name || "",
+          company: item.company || existing?.company || "Em qualifica\xE7\xE3o",
+          niche: item.niche || existing?.niche || void 0,
           role: "decisor",
-          status: "em_conversa",
+          status: "novo",
           agentState: "ai_active",
           optOutDetected: false,
-          lastInteractionAt: timestamp,
-          createdAt: timestamp
+          lastInteractionAt: now,
+          createdAt: existing?.createdAt || now
         };
         await db.saveContact(contact);
-        const outgoingMsg = {
-          id: `msg-micro-${Date.now()}-${i}`,
-          contactPhone: cleanPhone,
-          from: "operator",
-          text: messageText,
-          type: "text",
-          timestamp: new Date(Date.now() + i * 2e4).toISOString(),
-          status: "sent"
-        };
-        if (gateway === "meta_cloud_api") {
-          try {
-            const sendRes = await sendWhatsAppTextMessage(cleanPhone, messageText);
-            if (sendRes.success && sendRes.messageId) {
-              outgoingMsg.metaMessageId = sendRes.messageId;
-              outgoingMsg.status = "delivered";
-            }
-          } catch (e) {
-            console.warn("[Micro-dispatch Meta API]", e);
-          }
-        }
-        await db.saveMessage(outgoingMsg);
-        results.push({
-          phone: cleanPhone,
-          name,
-          company,
-          message: messageText,
-          status: "enviado",
-          gateway,
-          scheduledIntervalSeconds: i * 25
-          // 25s safe human delay
-        });
+        enqueued.push(cleanPhone);
       }
       await db.addAuditLog({
-        type: "incoming_message",
-        summary: `Micro-disparo cadenciado executado com sucesso para ${results.length} contatos via ${gateway === "direct_pairing" ? "Conex\xE3o Direta (Celular)" : "Meta Cloud API"}.`,
-        details: { count: results.length, gateway }
+        type: "status_change",
+        summary: `${enqueued.length} contatos enfileirados para prospec\xE7\xE3o; ${skipped.length} pulados.`,
+        details: { enqueued: enqueued.length, skipped: skipped.length }
       });
       return res.status(200).json({
         success: true,
-        dispatched: results.length,
-        gateway,
-        leads: results,
-        message: `${results.length} mensagens cadenciadas com intervalo seguro de 25s iniciadas com sucesso!`
+        enqueued: enqueued.length,
+        skipped,
+        message: `${enqueued.length} contatos entraram na fila. O agente envia no hor\xE1rio, respeitando o teto di\xE1rio.`
       });
     }
     return res.status(405).json({ error: "Method Not Allowed" });
   } catch (err) {
     console.error("[Campaign API Error]:", err);
-    return res.status(500).json({ error: err?.message || "Falha ao processar micro-disparo." });
+    return res.status(500).json({ error: err?.message || "Falha ao enfileirar contatos." });
   }
 }
-
-// api/_handlers/evolution-proxy.ts
-async function handler10(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, apikey");
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method Not Allowed" });
-  }
-  try {
-    const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
-    const { targetUrl, method = "GET", headers = {}, body: payloadBody } = body;
-    if (!targetUrl) {
-      return res.status(400).json({ error: "Missing targetUrl" });
-    }
-    const fetchOptions = {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        ...headers
-      }
-    };
-    if (payloadBody && method !== "GET" && method !== "HEAD") {
-      fetchOptions.body = typeof payloadBody === "string" ? payloadBody : JSON.stringify(payloadBody);
-    }
-    const proxyRes = await fetch(targetUrl, fetchOptions);
-    const contentType = proxyRes.headers.get("content-type") || "application/json";
-    const textData = await proxyRes.text();
-    res.status(proxyRes.status);
-    res.setHeader("Content-Type", contentType);
-    return res.end(textData);
-  } catch (err) {
-    console.error("[Evolution Proxy Error]:", err);
-    return res.status(500).json({ error: err?.message || "Proxy error" });
-  }
-}
-
-// api/lib/evolution.ts
-function getEvolutionCfg() {
-  const url = (process.env.EVOLUTION_URL || "").trim().replace(/\/+$/, "");
-  const apiKey = (process.env.EVOLUTION_API_KEY || "").trim();
-  const instance = (process.env.EVOLUTION_INSTANCE || "prospectfy").trim();
-  if (!url || !apiKey) return null;
-  return { url, apiKey, instance };
-}
-async function sendEvolutionText(phone, text, delayMs = 3e3) {
-  const cfg = getEvolutionCfg();
-  if (!cfg) {
-    return { success: false, error: "EVOLUTION_URL / EVOLUTION_API_KEY n\xE3o configurados" };
-  }
-  try {
-    const res = await fetch(`${cfg.url}/message/sendText/${encodeURIComponent(cfg.instance)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: cfg.apiKey },
-      body: JSON.stringify({ number: phone, text, delay: delayMs, linkPreview: false })
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      return { success: false, error: data?.message || data?.error || `HTTP ${res.status}` };
-    }
-    return { success: true, messageId: data?.key?.id };
-  } catch (err) {
-    return { success: false, error: err?.message || "Falha de rede na Evolution" };
-  }
-}
-var OPT_OUT_REGEX2 = /(não tenho interesse|nao tenho interesse|pare de mandar|para de mandar|remove meu contato|remover contato|tirar da lista|não me mande|nao me mande|denunciar|spam|desinscrever|bloqueado|nunca mais)/i;
 
 // api/lib/prospector.ts
 var TZ = "America/Bahia";
@@ -1689,13 +1741,18 @@ function startProspector() {
 }
 
 // api/_handlers/evolution-webhook.ts
-function extractText(message) {
+function labelOf(message) {
   if (!message) return null;
   if (message.conversation) return String(message.conversation).trim();
   if (message.extendedTextMessage?.text) return String(message.extendedTextMessage.text).trim();
-  if (message.audioMessage) return "[\xC1udio recebido do contato: pe\xE7a para escrever ou para marcar 15 min]";
-  if (message.imageMessage) return message.imageMessage.caption ? `[Imagem: ${message.imageMessage.caption}]` : "[Imagem recebida]";
-  if (message.documentMessage) return "[Documento recebido]";
+  if (message.audioMessage) return "[\xC1udio]";
+  if (message.imageMessage) return message.imageMessage.caption ? `[Imagem] ${message.imageMessage.caption}` : "[Imagem]";
+  if (message.documentMessage) return "[Documento]";
+  return null;
+}
+function mediaKindOf(message) {
+  if (message?.audioMessage) return "audio";
+  if (message?.imageMessage) return "image";
   return null;
 }
 async function handleUpsert(d) {
@@ -1712,8 +1769,9 @@ async function handleUpsert(d) {
   const msgId = String(key.id || "");
   if (!msgId || await db.hasProcessedMessage(msgId)) return;
   await db.markMessageAsProcessed(msgId);
-  const text = extractText(d.message);
+  const text = labelOf(d.message);
   if (!text) return;
+  const mediaKind = mediaKindOf(d.message);
   if (key.fromMe) {
     await db.saveMessage({
       id: `op-${msgId}`,
@@ -1770,10 +1828,16 @@ async function handleUpsert(d) {
   if (contact.status === "novo") {
     contact = await db.saveContact({ ...contact, status: "em_conversa", lastInteractionAt: now });
   }
-  const ai = await generateGirofyCommercialReply(contact, text, history);
+  let media;
+  if (mediaKind) {
+    const got = await fetchEvolutionMedia({ id: msgId, remoteJid: jid, fromMe: false }, d.message);
+    if (got) media = got;
+  }
+  const ai = await generateGirofyCommercialReply(contact, { text, media }, history);
   if (!ai.aiAvailable) {
     await db.saveContact({ ...contact, status: "aguardando_humano", lastInteractionAt: now });
-    await db.addAuditLog({ type: "error", phone, summary: `IA indispon\xEDvel: ${phone} aguardando resposta sua.` });
+    const why = ai.unavailableReason === "quota" ? "cota di\xE1ria da IA atingida" : ai.unavailableReason === "no_key" ? "chave da IA n\xE3o configurada" : "erro da IA";
+    await db.addAuditLog({ type: "error", phone, summary: `IA n\xE3o respondeu (${why}). Aguardando voc\xEA: ${phone}.` });
     return;
   }
   if (ai.transferToHuman) {
@@ -1803,7 +1867,7 @@ async function handleUpsert(d) {
     await db.addAuditLog({ type: "error", phone, summary: `Falha ao responder ${phone}: ${send.error}` });
   }
 }
-async function handler11(req, res) {
+async function handler10(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -1831,27 +1895,110 @@ async function handler11(req, res) {
   }
 }
 
+// api/lib/auth.ts
+import crypto2 from "crypto";
+function secret() {
+  const pwd = (process.env.ADMIN_PASSWORD || "").trim();
+  return pwd.length >= 8 ? pwd : null;
+}
+function issueToken() {
+  const s = secret();
+  if (!s) return null;
+  return crypto2.createHmac("sha256", s).update("painel-girofy-v1").digest("hex");
+}
+function checkPassword(candidate) {
+  const s = secret();
+  if (!s || !candidate) return false;
+  const a = Buffer.from(candidate);
+  const b = Buffer.from(s);
+  return a.length === b.length && crypto2.timingSafeEqual(a, b);
+}
+function isAuthorized(req) {
+  const token = issueToken();
+  if (!token) return false;
+  const header = String(req.headers?.authorization || "");
+  const bearer = header.replace(/^Bearer\s+/i, "").trim();
+  return bearer.length > 0 && bearer.length === token.length && crypto2.timingSafeEqual(Buffer.from(bearer), Buffer.from(token));
+}
+
+// api/_handlers/login.ts
+var attempts = /* @__PURE__ */ new Map();
+function tooManyAttempts(ip) {
+  const now = Date.now();
+  const cur = attempts.get(ip);
+  if (!cur || cur.reset < now) {
+    attempts.set(ip, { count: 1, reset: now + 15 * 6e4 });
+    return false;
+  }
+  cur.count += 1;
+  return cur.count > 10;
+}
+async function handler11(req, res) {
+  if (req.method === "GET") {
+    const token2 = issueToken();
+    const ok = !!token2 && String(req.headers?.authorization || "").replace(/^Bearer\s+/i, "").trim() === token2;
+    return res.status(ok ? 200 : 401).json({ authenticated: ok, configured: !!token2 });
+  }
+  if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
+  const ip = String(req.headers?.["x-forwarded-for"] || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
+  if (tooManyAttempts(ip)) {
+    return res.status(429).json({ error: "Muitas tentativas. Espere 15 minutos." });
+  }
+  const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+  const token = issueToken();
+  if (!token) {
+    return res.status(503).json({ error: "Painel sem senha configurada (ADMIN_PASSWORD no servidor)." });
+  }
+  if (!checkPassword(String(body.password || ""))) {
+    return res.status(401).json({ error: "Senha incorreta." });
+  }
+  return res.status(200).json({ token });
+}
+
+// api/_handlers/learnings.ts
+async function handler12(req, res) {
+  if (req.method !== "GET") return res.status(405).json({ error: "Method Not Allowed" });
+  try {
+    const [learnings, stats] = await Promise.all([db.getRecentLearnings(50), getProspectStats()]);
+    const byOutcome = {};
+    for (const l of learnings) byOutcome[l.outcome] = (byOutcome[l.outcome] || 0) + 1;
+    return res.status(200).json({ funnel: stats, byOutcome, learnings });
+  } catch (err) {
+    return res.status(500).json({ error: err?.message || "Falha ao ler aprendizado." });
+  }
+}
+
 // api/index.ts
-var handlers = {
-  "/api/evolution/webhook": handler11,
-  "/api/prospector": handler11,
-  // GET = stats do agente (fila, enviados hoje, respostas)
+var PUBLIC_ROUTES = {
+  "/api/login": handler11,
+  "/api/evolution/webhook": handler10,
   "/api/webhook": handler,
+  "/api/data-deletion": handler5
+};
+var PROTECTED_ROUTES = {
   "/api/contacts": handler2,
   "/api/contacts/create": handler2,
   "/api/contacts/update-agent": handler2,
   "/api/messages": handler3,
   "/api/messages/send": handler3,
   "/api/whatsapp-status": handler4,
-  "/api/data-deletion": handler5,
   "/api/audit-logs": handler6,
   "/api/config": handler7,
   "/api/pairing": handler8,
   "/api/campaign": handler9,
-  "/api/evolution/proxy": handler10
+  "/api/learnings": handler12
 };
-async function handler12(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+var PUBLIC_GET_ROUTES = {
+  "/api/prospector": handler10
+};
+function match(table, urlPath) {
+  if (table[urlPath]) return table[urlPath];
+  for (const [route, fn] of Object.entries(table)) {
+    if (urlPath.startsWith(`${route}/`)) return fn;
+  }
+  return null;
+}
+async function handler13(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-hub-signature-256");
   if (req.method === "OPTIONS") {
@@ -1860,20 +2007,90 @@ async function handler12(req, res) {
   const rawUrl = req.url || "/api";
   const pathname = rawUrl.split("?")[0];
   const urlPath = pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
-  const routeHandler = handlers[urlPath];
-  if (routeHandler) {
-    return routeHandler(req, res);
+  const pub = match(PUBLIC_ROUTES, urlPath);
+  if (pub) return pub(req, res);
+  if (req.method === "GET") {
+    const pubGet = match(PUBLIC_GET_ROUTES, urlPath);
+    if (pubGet) return pubGet(req, res);
   }
-  for (const [route, fn] of Object.entries(handlers)) {
-    if (urlPath === route || urlPath.startsWith(`${route}/`)) {
-      return fn(req, res);
+  const prot = match(PROTECTED_ROUTES, urlPath);
+  if (prot) {
+    if (!isAuthorized(req)) {
+      return res.status(401).json({ error: "N\xE3o autorizado. Fa\xE7a login no painel." });
+    }
+    return prot(req, res);
+  }
+  return res.status(404).json({ error: "Endpoint n\xE3o encontrado", path: urlPath });
+}
+
+// api/lib/learning.ts
+import { GoogleGenAI as GoogleGenAI2 } from "@google/genai";
+var LEARNING_MODEL = "gemini-3.6-flash";
+var MAX_PER_PASS = Number(process.env.LEARNING_MAX_PER_PASS ?? 5);
+var CLOSED_STATUSES = /* @__PURE__ */ new Set(["reuniao_marcada", "aguardando_humano", "esfriou", "bloqueado"]);
+function transcript(msgs) {
+  return msgs.slice(-30).map((m) => `${m.from === "bot" ? "Assistente" : m.from === "operator" ? "C\xE9sar" : "Pessoa"}: ${m.text}`).join("\n");
+}
+function outcomeOf(c, msgs) {
+  if (c.status === "reuniao_marcada") return "reuniao";
+  if (c.optOutDetected || c.status === "bloqueado") return "opt_out";
+  if (!msgs.some((m) => m.from === "lead")) return "sem_resposta";
+  if (c.status === "aguardando_humano") return "passou_para_humano";
+  return "esfriou";
+}
+async function runLearningPass() {
+  const contacts = await db.getContacts();
+  const learned = await db.getLearnedPhonesSince(new Date(Date.now() - 14 * 864e5).toISOString());
+  const candidates = contacts.filter((c) => CLOSED_STATUSES.has(c.status) || c.status === "em_conversa").filter((c) => !learned.has(c.phone)).slice(0, MAX_PER_PASS);
+  if (candidates.length === 0) return 0;
+  const cfg = await db.getConfig();
+  const apiKey = (cfg.geminiApiKey || process.env.GEMINI_API_KEY || "").trim();
+  if (!apiKey) return 0;
+  const ai = new GoogleGenAI2({ apiKey });
+  let saved = 0;
+  for (const c of candidates) {
+    const msgs = await db.getMessages(c.phone);
+    if (msgs.length < 2) continue;
+    if (!await reserveAiCall()) break;
+    const outcome = outcomeOf(c, msgs);
+    const prompt = `Voc\xEA analisa uma conversa de prospec\xE7\xE3o por WhatsApp feita por um assistente de IA da Girofy (engenharia digital para neg\xF3cios locais). Desfecho registrado: ${outcome}.
+
+Conversa:
+${transcript(msgs)}
+
+Responda SOMENTE um JSON com as chaves:
+- "worked": o que na conversa funcionou (frase curta, ou "-")
+- "failed": o que n\xE3o funcionou ou afastou a pessoa (frase curta, ou "-")
+- "why": por que voc\xEA acha que aconteceu (uma frase)
+- "opener_style": o estilo da primeira mensagem que deu resposta (uma frase, ou "-")
+Sem texto fora do JSON. Sem inventar fatos que n\xE3o est\xE3o na conversa.`;
+    try {
+      const res = await ai.models.generateContent({
+        model: LEARNING_MODEL,
+        contents: prompt,
+        config: { temperature: 0.2, maxOutputTokens: 400, responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 } }
+      });
+      const parsed = JSON.parse(res.text || "{}");
+      await db.saveLearning({
+        contactPhone: c.phone,
+        outcome,
+        worked: String(parsed.worked || "-").slice(0, 300),
+        failed: String(parsed.failed || "-").slice(0, 300),
+        why: String(parsed.why || "-").slice(0, 300),
+        openerStyle: String(parsed.opener_style || "-").slice(0, 200)
+      });
+      saved += 1;
+    } catch (err) {
+      console.warn("[Learning] falha numa conversa:", err?.message || err);
     }
   }
-  return res.status(404).json({
-    error: "Endpoint n\xE3o encontrado",
-    path: urlPath,
-    availableRoutes: Object.keys(handlers)
-  });
+  return saved;
+}
+function startLearning(everyMs = 6 * 36e5) {
+  if (process.env.LEARNING_ENABLED === "false") return;
+  setInterval(() => {
+    runLearningPass().catch((err) => console.warn("[Learning] passe falhou:", err));
+  }, everyMs);
 }
 
 // server.ts
@@ -1949,7 +2166,7 @@ var server = http.createServer(async (req, res) => {
         req.body = bodyData;
       }
       try {
-        await handler12(req, resCompat);
+        await handler13(req, resCompat);
       } catch (err) {
         console.error("[Server API Error]:", err);
         if (!res.writableEnded) {
@@ -1974,4 +2191,5 @@ var server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`[Prospectfy Production Server] running on http://0.0.0.0:${PORT}`);
   startProspector();
+  startLearning();
 });

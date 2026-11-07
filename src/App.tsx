@@ -212,7 +212,7 @@ export default function App() {
   const [pairingModalTab, setPairingModalTab] = useState<'direct_free' | 'cloud_free' | 'meta_official'>('direct_free');
   const [inputPairPhone, setInputPairPhone] = useState('74988126578');
   const [inputEvolutionUrl, setInputEvolutionUrl] = useState('https://evolution-zap.onrender.com');
-  const [inputEvolutionKey, setInputEvolutionKey] = useState('girofy123');
+  const [inputEvolutionKey, setInputEvolutionKey] = useState('');
   const [showEvolutionAdvanced, setShowEvolutionAdvanced] = useState(false);
   const [isRequestingCode, setIsRequestingCode] = useState(false);
   const [isConfirmingPair, setIsConfirmingPair] = useState(false);
@@ -2368,7 +2368,7 @@ export default function App() {
                     <li>Imagem pública oficial: <code className="bg-white/80 px-1.5 py-0.5 rounded font-mono font-bold text-[11px] text-[#0071E3]">evoapicloud/evolution-api:v2.2.0</code></li>
                     <li>Adicione as variáveis de ambiente:
                       <div className="mt-1 space-y-0.5 font-mono text-[10px] text-zinc-700 bg-white/70 p-1.5 rounded">
-                        <div>AUTHENTICATION_API_KEY = girofy123</div>
+                        <div>AUTHENTICATION_API_KEY = (crie uma chave longa e aleatória)</div>
                         <div>SERVER_TYPE = http</div>
                         <div>DATABASE_ENABLED = false</div>
                       </div>

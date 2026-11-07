@@ -4,17 +4,25 @@
 import { db } from '../lib/db';
 import { formatPhoneNumber } from '../lib/whatsapp';
 import { generateGirofyCommercialReply } from '../lib/gemini';
-import { sendEvolutionText, OPT_OUT_REGEX } from '../lib/evolution';
+import { sendEvolutionText, fetchEvolutionMedia, OPT_OUT_REGEX } from '../lib/evolution';
 import { getProspectStats } from '../lib/prospector';
 import { Contact, ChatMessage } from '../lib/types';
 
-function extractText(message: any): string | null {
+// Texto que vai para o histórico (o que o César vê no painel).
+function labelOf(message: any): string | null {
   if (!message) return null;
   if (message.conversation) return String(message.conversation).trim();
   if (message.extendedTextMessage?.text) return String(message.extendedTextMessage.text).trim();
-  if (message.audioMessage) return '[Áudio recebido do contato: peça para escrever ou para marcar 15 min]';
-  if (message.imageMessage) return message.imageMessage.caption ? `[Imagem: ${message.imageMessage.caption}]` : '[Imagem recebida]';
-  if (message.documentMessage) return '[Documento recebido]';
+  if (message.audioMessage) return '[Áudio]';
+  if (message.imageMessage) return message.imageMessage.caption ? `[Imagem] ${message.imageMessage.caption}` : '[Imagem]';
+  if (message.documentMessage) return '[Documento]';
+  return null;
+}
+
+// Mídia que a IA consegue ler diretamente (imagem e áudio).
+function mediaKindOf(message: any): 'image' | 'audio' | null {
+  if (message?.audioMessage) return 'audio';
+  if (message?.imageMessage) return 'image';
   return null;
 }
 
@@ -36,8 +44,9 @@ async function handleUpsert(d: any) {
   if (!msgId || (await db.hasProcessedMessage(msgId))) return; // já tratada (inclui eco das mensagens do bot)
   await db.markMessageAsProcessed(msgId);
 
-  const text = extractText(d.message);
+  const text = labelOf(d.message);
   if (!text) return;
+  const mediaKind = mediaKindOf(d.message);
 
   // Mensagem que VOCÊ mandou pelo celular: entra no histórico como humano, a IA não responde a ela.
   if (key.fromMe) {
@@ -105,12 +114,23 @@ async function handleUpsert(d: any) {
     contact = await db.saveContact({ ...contact, status: 'em_conversa', lastInteractionAt: now });
   }
 
-  const ai = await generateGirofyCommercialReply(contact, text, history);
+  // Imagem e áudio: baixa o arquivo e entrega para a IA ler de verdade.
+  let media: { mimeType: string; data: string } | undefined;
+  if (mediaKind) {
+    const got = await fetchEvolutionMedia({ id: msgId, remoteJid: jid, fromMe: false }, d.message);
+    if (got) media = got;
+  }
+
+  const ai = await generateGirofyCommercialReply(contact, { text, media }, history);
 
   if (!ai.aiAvailable) {
-    // IA não rodou: não manda nada improvisado. Fica sinalizado para você responder.
+    // IA não rodou (sem chave, cota ou erro): nada improvisado. Fica sinalizado para você.
     await db.saveContact({ ...contact, status: 'aguardando_humano', lastInteractionAt: now });
-    await db.addAuditLog({ type: 'error', phone, summary: `IA indisponível: ${phone} aguardando resposta sua.` });
+    const why =
+      ai.unavailableReason === 'quota' ? 'cota diária da IA atingida'
+      : ai.unavailableReason === 'no_key' ? 'chave da IA não configurada'
+      : 'erro da IA';
+    await db.addAuditLog({ type: 'error', phone, summary: `IA não respondeu (${why}). Aguardando você: ${phone}.` });
     return;
   }
 

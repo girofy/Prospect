@@ -253,7 +253,7 @@ export default async function handler(req: any, res: any) {
                 promptText = 'O cliente enviou um áudio. Agradeça brevemente e pergunte se ele pode adiantar a dúvida por texto ou se prefere agendarmos 15 min no Meet para conversarmos.';
               }
 
-              const aiResult = await generateGirofyCommercialReply(contact, promptText, history);
+              const aiResult = await generateGirofyCommercialReply(contact, { text: promptText }, history);
               if (!aiResult.aiAvailable) continue; // IA indisponível: não envia texto improvisado
 
               // Se a IA identificou necessidade de transferência para atendente humano

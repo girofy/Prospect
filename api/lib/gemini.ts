@@ -4,26 +4,47 @@ import { GoogleGenAI } from '@google/genai';
 import { Contact, ChatMessage } from './types';
 import { db } from './db';
 
-// Regras fixas do agente. Conhecimento do negócio entra pela pasta knowledge/ (arquivos .md).
-const GIROFY_SYSTEM_PROMPT = `
-Você é o assistente de IA da Girofy, estúdio de engenharia digital que resolve problemas de negócio (sistemas, sites e automações).
-Você conversa por WhatsApp com negócios locais e regionais. O objetivo é entender a dor do negócio e marcar uma conversa curta de 15 minutos.
+// Modelo de conversa: Flash 3.6 (3.8 deu 503 repetido). Thinking desligado, resposta curta.
+// Trocar com GEMINI_MODEL quando o 3.8 estabilizar.
+const DEFAULT_MODEL = 'gemini-3.6-flash';
 
-REGRAS DE CONVERSA:
-1. Escreva como gente no WhatsApp: curto, direto, sem enrolação e sem jargão.
-2. Cada mensagem tem no máximo 15 palavras. Se precisar, use no máximo 2 balões curtos.
-3. Nunca mande listas, tópicos ou parágrafos longos.
-4. Faça UMA pergunta por vez. Pergunte sobre a dor (como o cliente perde dinheiro ou tempo hoje), não sobre o produto.
-5. Não empurre preço cedo. Só fale valor quando perguntarem.
-6. IDENTIDADE: você é uma IA da Girofy. Se perguntarem se é robô ou IA, confirme com honestidade e diga que o César acompanha as conversas. Nunca diga que é humano.
-7. Se o contato pedir atendente ou humano, inclua a tag [TRANSF_HUMANO: motivo] e avise com gentileza.
-8. Se o contato pedir para parar, não insista.
-9. Não invente preço, prazo, cliente ou resultado. Se não souber, diga que o César confirma.
+// Teto de chamadas por dia para ficar dentro da cota gratuita (sem gasto em dólar).
+// Acima disso a IA para e nada é enviado no automático.
+const DAILY_CALL_LIMIT = Number(process.env.GEMINI_DAILY_CALL_LIMIT ?? 200);
+
+const SYSTEM_PROMPT = `
+Você responde no WhatsApp pela Girofy, um estúdio de engenharia digital que resolve problemas de negócio (sistemas, sites, automações). Você conversa com donos e gerentes de negócios locais e regionais.
+
+COMO ESCREVER (o mais importante):
+- Soe como gente digitando no celular. Português do Brasil, informal, educado.
+- Responda primeiro ao que a pessoa acabou de dizer, com as palavras dela quando der.
+- Mensagem curta: uma ou duas frases. Se a pessoa escreveu pouco, escreva pouco.
+- No máximo UMA pergunta por mensagem. Pergunte sobre a rotina ou a dor ("como chega cliente novo aí hoje?"), nunca sobre o produto.
+- Proibido: "Obrigado pelo retorno", "Posso te apresentar brevemente", "Com certeza!", "Excelente", "Perfeito", listas, tópicos, emojis em excesso, parágrafos.
+- Não repita frases que você já mandou. Veja as suas últimas mensagens no histórico e mude a forma.
+- Se a pessoa estiver seca ("ok", "sim", "não"), não insista: responda curto e deixe a porta aberta.
+
+CONTEXTO DA PESSOA:
+- Use o nome e o nicho quando ajudar, sem forçar. Nunca chame de "Lead" ou "Contato".
+- Não invente nada sobre a empresa que não esteja nos dados abaixo.
+
+IMAGEM E ÁUDIO:
+- Se a pessoa mandou imagem ou áudio, você recebe o conteúdo. Reaja ao conteúdo de verdade, em uma frase. Nunca diga que não consegue ver ou ouvir quando o conteúdo estiver aqui.
+
+OBJETIVO:
+- Entender a dor e propor uma conversa curta de 15 minutos quando houver dor clara.
+- Preço só quando perguntarem. Se perguntarem: "A partir de R$ 997 para landing page pronta. Depende do que você precisa."
+
+REGRAS FIXAS:
+- Você é uma IA da Girofy. Se perguntarem se é robô ou IA, diga que sim, que é o assistente da Girofy e que o César acompanha as conversas. Nunca diga que é humano.
+- Se pedirem atendente ou humano, inclua [TRANSF_HUMANO: motivo] e avise com gentileza que o César responde.
+- Se pedirem para parar, confirme em uma frase e não mande mais nada.
+- Não invente preço, prazo, cliente ou resultado. Se não souber, diga que o César confirma.
 `;
 
 const KNOWLEDGE_MAX_CHARS = 12000;
 
-// Lê a base de conhecimento (todos os .md em knowledge/). Lido a cada chamada, barato e sem cache.
+// Lê a base de conhecimento (todos os .md em knowledge/). Lido a cada chamada.
 export function loadKnowledge(): string {
   try {
     const dir = path.resolve(process.cwd(), 'knowledge');
@@ -40,72 +61,113 @@ export function loadKnowledge(): string {
   }
 }
 
+export interface IncomingMedia {
+  mimeType: string; // ex.: image/jpeg, audio/ogg
+  data: string; // base64 sem prefixo
+}
+
+export interface IncomingMessage {
+  text: string; // texto ou legenda; para áudio/imagem, um rótulo curto
+  media?: IncomingMedia;
+}
+
 export interface AiGenerationResult {
   replyText: string;
-  aiAvailable: boolean; // false = IA não rodou (sem chave ou erro). Nada deve ser enviado.
+  aiAvailable: boolean; // false = IA não rodou (sem chave, cota estourada ou erro). Nada deve ser enviado.
+  unavailableReason?: 'no_key' | 'quota' | 'error' | 'empty';
   transferToHuman: boolean;
   transferReason?: string;
   isMeetingRequested?: boolean;
 }
 
+function todayBahia(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bahia', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+}
+
+// Confere e conta a cota diária. Retorna false se já estourou ou se a IA está pausada.
+export async function reserveAiCall(): Promise<boolean> {
+  const cfg = await db.getConfig();
+  if (cfg.aiPausedUntil && Date.parse(cfg.aiPausedUntil) > Date.now()) return false;
+  const day = todayBahia();
+  const used = cfg.aiUsageDay === day ? cfg.aiUsageCount || 0 : 0;
+  if (used >= DAILY_CALL_LIMIT) return false;
+  await db.saveAiUsage({ aiUsageDay: day, aiUsageCount: used + 1 });
+  return true;
+}
+
 export async function generateGirofyCommercialReply(
   contact: Contact,
-  incomingText: string,
+  incoming: IncomingMessage,
   history: ChatMessage[]
 ): Promise<AiGenerationResult> {
-  const unavailable: AiGenerationResult = { replyText: '', aiAvailable: false, transferToHuman: false };
+  const fail = (reason: AiGenerationResult['unavailableReason']): AiGenerationResult => ({
+    replyText: '',
+    aiAvailable: false,
+    unavailableReason: reason,
+    transferToHuman: false,
+  });
 
-  const dynamicConfig = await db.getConfig();
-  const apiKey = (dynamicConfig.geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
+  const cfg = await db.getConfig();
+  const apiKey = (cfg.geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
   if (!apiKey) {
     console.error('[Gemini] GEMINI_API_KEY não configurada: resposta não enviada.');
-    return unavailable;
+    return fail('no_key');
+  }
+
+  if (!(await reserveAiCall())) {
+    console.warn('[Gemini] cota diária do agente atingida ou IA pausada: nada enviado.');
+    return fail('quota');
   }
 
   try {
     const ai = new GoogleGenAI({ apiKey });
 
-    const recentHistory = history
-      .slice(-12)
+    // Últimas mensagens, com as do bot marcadas para evitar repetição.
+    const recent = history.slice(-12);
+    const recentBot = recent.filter(m => m.from === 'bot').slice(-4).map(m => `- "${m.text}"`).join('\n');
+    const transcript = recent
       .map(m => {
-        const who = m.from === 'bot' ? 'Assistente Girofy' : m.from === 'operator' ? 'César (humano)' : contact.name || 'Contato';
+        const who = m.from === 'bot' ? 'Você' : m.from === 'operator' ? 'César (humano)' : 'Pessoa';
         return `${who}: ${m.text}`;
       })
       .join('\n');
 
     const knowledge = loadKnowledge();
+    const learnings = await db.getTopLearnings(8);
 
-    const prompt = `
-${GIROFY_SYSTEM_PROMPT}
+    const promptText = `
+${SYSTEM_PROMPT}
 ${knowledge ? `\nBASE DE CONHECIMENTO DA GIROFY:\n${knowledge}\n` : ''}
-DADOS DO CONTATO:
-- Nome: ${contact.name || 'Não informado'}
-- Empresa: ${contact.company && contact.company !== 'Em qualificação' ? contact.company : 'Não informada'}
-- Status: ${contact.status}
+${learnings.length ? `\nO QUE JÁ FUNCIONOU E NÃO FUNCIONOU (aprendido de conversas anteriores, use como guia):\n${learnings.map(l => `- ${l}`).join('\n')}\n` : ''}
+DADOS DA PESSOA:
+- Nome: ${contact.name && !/^(lead|contato)/i.test(contact.name) ? contact.name : 'não sei o nome'}
+- Negócio: ${contact.company && contact.company !== 'Em qualificação' ? contact.company : 'não sei o nome do negócio'}
+- Nicho: ${contact.niche || 'não informado'}
 
-HISTÓRICO RECENTE (inclui mensagens que o César mandou pessoalmente; respeite o que ele já disse):
-${recentHistory || '(Sem histórico anterior)'}
+SUAS ÚLTIMAS MENSAGENS (não repita nenhuma destas ideias):
+${recentBot || '(nenhuma ainda)'}
 
-NOVA MENSAGEM DO CONTATO:
-"${incomingText}"
+CONVERSA RECENTE:
+${transcript || '(início da conversa)'}
 
-Gere só o texto da próxima mensagem para o WhatsApp:
+NOVA MENSAGEM DA PESSOA:
+"${incoming.text}"
+
+Responda só com o texto da próxima mensagem para o WhatsApp.
 `;
 
-    // gemini-2.5-flash foi descontinuado (404 "no longer available to new users").
-    // gemini-3.8-flash existe mas, em teste direto no SDK, voltou 503 "alta
-    // demanda" de forma consistente — usar 3.6-flash até a Google estabilizar
-    // o 3.8 (trocar via variável de ambiente GEMINI_MODEL quando resolver).
-    // Modelos 3.x "pensam" antes de responder e consomem maxOutputTokens nisso;
-    // thinkingBudget: 0 desliga esse raciocínio interno, que não serve pra uma
-    // resposta curta de WhatsApp e, sem isso, pode sair vazia.
-    const modelName = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+    const parts: any[] = [];
+    if (incoming.media) {
+      parts.push({ inlineData: { mimeType: incoming.media.mimeType, data: incoming.media.data } });
+    }
+    parts.push({ text: promptText });
+
     const response = await ai.models.generateContent({
-      model: modelName,
-      contents: prompt,
+      model: cfg.geminiModel || process.env.GEMINI_MODEL || DEFAULT_MODEL,
+      contents: [{ role: 'user', parts }],
       config: {
-        temperature: 0.5,
-        maxOutputTokens: 150,
+        temperature: 0.7,
+        maxOutputTokens: 200,
         thinkingConfig: { thinkingBudget: 0 },
       },
     });
@@ -123,17 +185,15 @@ Gere só o texto da próxima mensagem para o WhatsApp:
     }
 
     const directHumanPattern = /(falar com (humano|atendente|pessoa|alguém|proprietário|responsável)|me liga|passa para humano)/i;
-    if (directHumanPattern.test(incomingText)) {
+    if (directHumanPattern.test(incoming.text)) {
       transferToHuman = true;
       transferReason = 'Pedido explícito de atendimento humano pelo cliente';
-      if (!rawText) {
-        rawText = 'Com certeza! Vou passar para o César te responder pessoalmente. Um instante.';
-      }
+      if (!rawText) rawText = 'Claro. Vou pedir para o César te responder pessoalmente. Um instante.';
     }
 
-    if (!rawText) return unavailable;
+    if (!rawText) return fail('empty');
 
-    const isMeetingRequested = /meet\.google\.com|reunião|alinhamento de 15|15 min/i.test(rawText);
+    const isMeetingRequested = /meet\.google\.com|reunião|15 min/i.test(rawText);
 
     return {
       replyText: rawText,
@@ -143,7 +203,13 @@ Gere só o texto da próxima mensagem para o WhatsApp:
       isMeetingRequested,
     };
   } catch (err: any) {
-    console.error('[Gemini AI Server Error]:', err?.message);
-    return unavailable;
+    const msg = String(err?.message || err);
+    console.error('[Gemini AI Server Error]:', msg);
+    if (/429|RESOURCE_EXHAUSTED|quota/i.test(msg)) {
+      // Cota da API estourou: pausa a IA por 1 hora para não ficar batendo na cota.
+      await db.saveAiUsage({ aiPausedUntil: new Date(Date.now() + 60 * 60_000).toISOString() });
+      return fail('quota');
+    }
+    return fail('error');
   }
 }
