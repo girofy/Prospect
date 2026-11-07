@@ -900,7 +900,7 @@ export default function App() {
   // Quick replies
   const QUICK_REPLIES = [
     { label: '📅 Reunião 15 min', text: 'Olá! Podemos agendar uma conversa rápida de 15 minutos via Google Meet para analisar o seu cenário e desenhar a melhor solução?' },
-    { label: '🚀 Landing Page R$ 300', text: 'A landing page sai por R$ 300, pagos só na entrega. Antes você vê uma prévia grátis e aprova se gostar.' },
+    { label: '🚀 Site R$ 290', text: 'O site sai por R$ 290. Você vê a prévia antes e só paga depois de aprovar. À vista, entrego no mesmo dia.' },
     { label: '⚙️ Sistemas Sob Medida', text: 'Desenvolvemos sistemas web e automações operacionais sob medida para otimizar processos de vendas e gestão da sua empresa.' },
     { label: '👤 Chamar Especialista', text: 'Compreendo perfeitamente. Estou transferindo o atendimento agora para o nosso especialista humano dar sequência.' }
   ];
@@ -1768,7 +1768,7 @@ export default function App() {
                     </div>
                     <div className="flex items-center justify-between py-1.5 border-b border-black/[0.04]">
                       <span className="text-zinc-500 font-medium">Condições Comerciais:</span>
-                      <span className="font-bold text-zinc-800">Landing Page R$ 300, paga na entrega</span>
+                      <span className="font-bold text-zinc-800">Site R$ 290, pago só após aprovar</span>
                     </div>
                     <div className="flex items-center justify-between py-1.5 border-b border-black/[0.04]">
                       <span className="text-zinc-500 font-medium">Guarda de Negociação:</span>
@@ -1820,7 +1820,7 @@ export default function App() {
                 <div className="p-4 bg-[#FBFBFD] border border-black/[0.06] rounded-2xl">
                   <span className="font-bold text-[#0071E3] block mb-1 text-sm">01. Escopo Autorizado</span>
                   <p className="text-zinc-600 leading-relaxed font-medium">
-                    Site para o negócio por R$ 300, pago só na entrega, com prévia gratuita antes. Automações de atendimento passam pelo César.
+                    Site para o negócio por R$ 290, pago só após aprovar a prévia. Automações de atendimento passam pelo César.
                   </p>
                 </div>
 

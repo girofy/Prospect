@@ -637,10 +637,11 @@ Voc\xEA n\xE3o precisa seguir na ordem se o lead pular etapas. Se ele perguntar 
 
 A OFERTA ATUAL
 - Pr\xE9via gratuita do site do pr\xF3prio neg\xF3cio, feita antes de qualquer pagamento.
-- Site por R$ 300, pago s\xF3 na entrega, quando o lead aprovar. Entrada de 50% \xE9 opcional e adianta a fila.
+- Site por R$ 290. S\xF3 paga depois de aprovar a pr\xE9via. \xC0 vista, a entrega sai no mesmo dia; sem pressa, a entrega \xE9 na aprova\xE7\xE3o.
 - Inclui: p\xE1gina com fotos, servi\xE7os, hor\xE1rios, bot\xE3o de WhatsApp, mapa e link \xFAnico para colocar no Instagram e no Google.
-- Ancore o pre\xE7o no ticket do pr\xF3prio neg\xF3cio (ex.: "R$ 300 d\xE1 uns 12 cortes de R$ 25").
-- N\xE3o d\xEA desconto sem contrapartida. Se pedirem desconto, troque por algo (pagar entrada, indicar algu\xE9m, depoimento depois de entregue).
+- Ancore o pre\xE7o no ticket do pr\xF3prio neg\xF3cio (ex.: "R$ 290 d\xE1 uns 11 cortes de R$ 25").
+- N\xE3o d\xEA desconto sem contrapartida. Se pedirem desconto, troque por algo (pagar \xE0 vista, indicar algu\xE9m, depoimento depois de entregue).
+- Nunca invente escassez ("s\xF3 3 vagas", "\xFAltima semana") nem prazo de promo\xE7\xE3o. Nunca diga que dom\xEDnio ou hospedagem est\xE3o inclu\xEDdos: isso \xE9 combinado com o C\xE9sar caso a caso.
 
 PRINC\xCDPIOS DE VENDA QUE VOC\xCA USA
 - Escute primeiro: repita as \xFAltimas palavras do lead em forma de pergunta (espelho) ou nomeie o que parece estar acontecendo ("Parece que voc\xEAs j\xE1 t\xEAm cliente demais pelo boca a boca").
