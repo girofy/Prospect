@@ -158,8 +158,8 @@ var db = {
     } else {
       data.messages.push(msgToSave);
     }
-    if (data.messages.length > 2e3) {
-      data.messages = data.messages.slice(-2e3);
+    if (data.messages.length > 5e4) {
+      data.messages = data.messages.slice(-5e4);
     }
     saveDatabase(data);
     return msgToSave;
@@ -175,8 +175,8 @@ var db = {
     const data = loadDatabase();
     if (!data.processedMessageIds.includes(metaMessageId)) {
       data.processedMessageIds.push(metaMessageId);
-      if (data.processedMessageIds.length > 1e3) {
-        data.processedMessageIds = data.processedMessageIds.slice(-1e3);
+      if (data.processedMessageIds.length > 2e4) {
+        data.processedMessageIds = data.processedMessageIds.slice(-2e4);
       }
       saveDatabase(data);
     }
@@ -1157,18 +1157,43 @@ async function handler8(req, res) {
         if (evolutionUrl && evolutionKey) {
           try {
             const cleanUrl = evolutionUrl.replace(/\/+$/, "");
-            const connectRes = await fetch(`${cleanUrl}/instance/connect/${instanceName}`, {
-              method: "POST",
+            try {
+              await fetch(`${cleanUrl}/instance/create`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "apikey": evolutionKey
+                },
+                body: JSON.stringify({
+                  instanceName,
+                  qrcode: false,
+                  integration: "WHATSAPP-BAILEYS",
+                  number: cleanPhone
+                })
+              });
+            } catch {
+            }
+            let connectRes = await fetch(`${cleanUrl}/instance/connect/${instanceName}?number=${cleanPhone}`, {
+              method: "GET",
               headers: {
-                "Content-Type": "application/json",
                 "apikey": evolutionKey
-              },
-              body: JSON.stringify({ number: cleanPhone })
+              }
             });
+            if (!connectRes.ok) {
+              connectRes = await fetch(`${cleanUrl}/instance/connect/${instanceName}`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "apikey": evolutionKey
+                },
+                body: JSON.stringify({ number: cleanPhone })
+              });
+            }
             if (connectRes.ok) {
               const data = await connectRes.json();
-              if (data.pairingCode || data.code) {
-                code = data.pairingCode || data.code;
+              const foundCode = data.pairingCode || data.code || data.pairing_code;
+              if (foundCode) {
+                code = foundCode;
                 isRealSocketCode = true;
                 gatewayNotice = "C\xF3digo real gerado via WebSocket do WhatsApp (Evolution API).";
               }
@@ -1411,8 +1436,287 @@ async function handler10(req, res) {
   }
 }
 
+// api/lib/evolution.ts
+function getEvolutionCfg() {
+  const url = (process.env.EVOLUTION_URL || "").trim().replace(/\/+$/, "");
+  const apiKey = (process.env.EVOLUTION_API_KEY || "").trim();
+  const instance = (process.env.EVOLUTION_INSTANCE || "prospectfy").trim();
+  if (!url || !apiKey) return null;
+  return { url, apiKey, instance };
+}
+async function sendEvolutionText(phone, text, delayMs = 3e3) {
+  const cfg = getEvolutionCfg();
+  if (!cfg) {
+    return { success: false, error: "EVOLUTION_URL / EVOLUTION_API_KEY n\xE3o configurados" };
+  }
+  try {
+    const res = await fetch(`${cfg.url}/message/sendText/${encodeURIComponent(cfg.instance)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: cfg.apiKey },
+      body: JSON.stringify({ number: phone, text, delay: delayMs, linkPreview: false })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { success: false, error: data?.message || data?.error || `HTTP ${res.status}` };
+    }
+    return { success: true, messageId: data?.key?.id };
+  } catch (err) {
+    return { success: false, error: err?.message || "Falha de rede na Evolution" };
+  }
+}
+var OPT_OUT_REGEX2 = /(não tenho interesse|nao tenho interesse|pare de mandar|para de mandar|remove meu contato|remover contato|tirar da lista|não me mande|nao me mande|denunciar|spam|desinscrever|bloqueado|nunca mais)/i;
+
+// api/lib/prospector.ts
+var TZ = "America/Bahia";
+var WINDOW_START = Number(process.env.PROSPECTOR_START_HOUR ?? 8);
+var WINDOW_END = Number(process.env.PROSPECTOR_END_HOUR ?? 19);
+var MIN_GAP_S = Number(process.env.PROSPECTOR_MIN_GAP_S ?? 120);
+var MAX_GAP_S = Number(process.env.PROSPECTOR_MAX_GAP_S ?? 420);
+var DAILY_CAP = Number(process.env.PROSPECTOR_DAILY_CAP ?? 40);
+var TICK_MS = 15e3;
+function bahiaNow(d = /* @__PURE__ */ new Date()) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: TZ,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      hourCycle: "h23"
+    }).formatToParts(d).map((p) => [p.type, p.value])
+  );
+  return { day: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
+}
+var rand = (min, max) => min + Math.random() * (max - min);
+function firstNameOf(contact) {
+  const name = (contact.name || "").trim();
+  if (!name || /^contato\s/i.test(name)) return null;
+  return name.split(" ")[0];
+}
+function buildOpener(contact, hour) {
+  const greeting = hour < 12 ? "Bom dia" : "Boa tarde";
+  const first = firstNameOf(contact);
+  return first ? `${greeting}, ${first}! Tudo bem?` : `${greeting}! Tudo bem?`;
+}
+function isEligible(c) {
+  return c.status === "novo" && c.agentState === "ai_active" && !c.optOutDetected && c.phone.replace(/\D/g, "").length >= 12;
+}
+async function getProspectStats() {
+  const contacts = await db.getContacts();
+  const cfg = await db.getConfig();
+  const { day, hour } = bahiaNow();
+  const sentToday = cfg.prospectDay === day ? cfg.prospectSentToday || 0 : 0;
+  const repliedPhones = new Set(
+    (await db.getMessages()).filter((m) => m.from === "lead").map((m) => m.contactPhone)
+  );
+  return {
+    enabled: process.env.PROSPECTOR_ENABLED !== "false",
+    evolutionConfigured: !!getEvolutionCfg(),
+    inWindow: hour >= WINDOW_START && hour < WINDOW_END,
+    window: `${WINDOW_START}h-${WINDOW_END}h (America/Bahia)`,
+    sentToday,
+    dailyCap: DAILY_CAP,
+    queue: contacts.filter(isEligible).length,
+    inConversation: contacts.filter((c) => c.status === "em_conversa").length,
+    replied: contacts.filter((c) => repliedPhones.has(c.phone)).length,
+    totalContacts: contacts.length
+  };
+}
+var nextAt = 0;
+var running = false;
+async function tick() {
+  if (running) return;
+  running = true;
+  try {
+    if (Date.now() < nextAt) return;
+    if (!getEvolutionCfg()) return;
+    const { day, hour } = bahiaNow();
+    if (hour < WINDOW_START || hour >= WINDOW_END) return;
+    const cfg = await db.getConfig();
+    const sentToday = cfg.prospectDay === day ? cfg.prospectSentToday || 0 : 0;
+    if (sentToday >= DAILY_CAP) return;
+    const queue = (await db.getContacts()).filter(isEligible).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    const contact = queue[0];
+    if (!contact) return;
+    const text = buildOpener(contact, hour);
+    const res = await sendEvolutionText(contact.phone, text, 2500);
+    if (!res.success) {
+      nextAt = Date.now() + 5 * 6e4;
+      await db.addAuditLog({
+        type: "error",
+        phone: contact.phone,
+        summary: `Falha ao enviar abordagem para ${contact.phone}: ${res.error}`
+      });
+      return;
+    }
+    nextAt = Date.now() + rand(MIN_GAP_S, MAX_GAP_S) * 1e3;
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    await db.saveMessage({
+      id: `out-prospect-${res.messageId || Date.now()}`,
+      contactPhone: contact.phone,
+      from: "bot",
+      text,
+      type: "text",
+      timestamp: now,
+      metaMessageId: res.messageId,
+      status: "sent"
+    });
+    await db.saveContact({ ...contact, status: "em_conversa", lastInteractionAt: now });
+    await db.saveConfig({ prospectDay: day, prospectSentToday: sentToday + 1 });
+    await db.addAuditLog({
+      type: "ai_reply",
+      phone: contact.phone,
+      summary: `Abordagem ${sentToday + 1}/${DAILY_CAP} enviada: "${text}"`
+    });
+  } catch (err) {
+    console.error("[Prospector] tick falhou:", err);
+  } finally {
+    running = false;
+  }
+}
+function startProspector() {
+  if (process.env.PROSPECTOR_ENABLED === "false") {
+    console.log("[Prospector] desativado (PROSPECTOR_ENABLED=false)");
+    return;
+  }
+  if (!getEvolutionCfg()) {
+    console.warn("[Prospector] EVOLUTION_URL/EVOLUTION_API_KEY ausentes: loop iniciado, mas sem envio.");
+  }
+  setInterval(tick, TICK_MS);
+  console.log(
+    `[Prospector] ativo. Janela ${WINDOW_START}h-${WINDOW_END}h, teto ${DAILY_CAP}/dia, intervalo ${MIN_GAP_S}-${MAX_GAP_S}s`
+  );
+}
+
+// api/_handlers/evolution-webhook.ts
+function extractText(message) {
+  if (!message) return null;
+  if (message.conversation) return String(message.conversation).trim();
+  if (message.extendedTextMessage?.text) return String(message.extendedTextMessage.text).trim();
+  if (message.audioMessage) return "[\xC1udio recebido do contato]";
+  if (message.imageMessage) return message.imageMessage.caption ? `[Imagem: ${message.imageMessage.caption}]` : "[Imagem recebida]";
+  if (message.documentMessage) return "[Documento recebido]";
+  return "[Mensagem recebida de tipo n\xE3o suportado]";
+}
+async function handleUpsert(d) {
+  const key = d?.key;
+  if (!key || key.fromMe) return;
+  const jid = String(key.remoteJid || "");
+  if (!jid || jid.endsWith("@g.us") || jid === "status@broadcast") return;
+  const sourceJid = key.remoteJidAlt || jid;
+  if (sourceJid.endsWith("@lid")) {
+    console.warn(`[Evolution] JID LID sem n\xFAmero real, ignorado: ${sourceJid}`);
+    return;
+  }
+  const phone = formatPhoneNumber(sourceJid.split("@")[0]);
+  const msgId = String(key.id || "");
+  if (!msgId || await db.hasProcessedMessage(msgId)) return;
+  await db.markMessageAsProcessed(msgId);
+  const text = extractText(d.message);
+  if (!text) return;
+  const history = await db.getMessages(phone);
+  let contact = await db.getContactByPhone(phone);
+  if (!contact) {
+    contact = await db.saveContact({
+      id: `contact-${phone}`,
+      phone,
+      name: d.pushName || `Contato ${phone.slice(-4)}`,
+      company: "Em qualifica\xE7\xE3o",
+      role: "decisor",
+      status: "em_conversa",
+      agentState: "ai_active",
+      optOutDetected: false,
+      lastInteractionAt: (/* @__PURE__ */ new Date()).toISOString(),
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  }
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  await db.saveMessage({
+    id: `in-${msgId}`,
+    contactPhone: phone,
+    from: "lead",
+    text,
+    type: "text",
+    timestamp: now,
+    metaMessageId: msgId,
+    status: "received"
+  });
+  if (OPT_OUT_REGEX2.test(text)) {
+    await db.saveContact({
+      ...contact,
+      status: "bloqueado",
+      optOutDetected: true,
+      optOutReason: "Solicita\xE7\xE3o expl\xEDcita do titular (Opt-Out LGPD)",
+      agentState: "paused",
+      lastInteractionAt: now
+    });
+    await db.addAuditLog({ type: "opt_out", phone, summary: `Opt-out registrado para ${phone}: "${text}"` });
+    return;
+  }
+  if (contact.optOutDetected || contact.agentState !== "ai_active") return;
+  if (contact.status === "novo") {
+    contact = await db.saveContact({ ...contact, status: "em_conversa", lastInteractionAt: now });
+  }
+  const ai = await generateGirofyCommercialReply(contact, text, history);
+  if (ai.transferToHuman) {
+    await db.saveContact({ ...contact, agentState: "human_takeover", status: "aguardando_humano", lastInteractionAt: now });
+    await db.addAuditLog({
+      type: "status_change",
+      phone,
+      summary: `Transferido para humano: ${ai.transferReason || "complexidade da negocia\xE7\xE3o"}`
+    });
+  } else if (ai.isMeetingRequested) {
+    await db.saveContact({ ...contact, status: "reuniao_marcada", lastInteractionAt: now });
+  }
+  const send = await sendEvolutionText(phone, ai.replyText, 3e3);
+  if (send.success) {
+    await db.saveMessage({
+      id: `out-${send.messageId || Date.now()}`,
+      contactPhone: phone,
+      from: "bot",
+      text: ai.replyText,
+      type: "text",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      metaMessageId: send.messageId,
+      status: "sent"
+    });
+  } else {
+    await db.addAuditLog({ type: "error", phone, summary: `Falha ao responder ${phone}: ${send.error}` });
+  }
+}
+async function handler11(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method === "GET") {
+    return res.status(200).json(await getProspectStats());
+  }
+  if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
+  const token = new URL(req.url || "/", "http://localhost").searchParams.get("token");
+  const expected = process.env.EVOLUTION_WEBHOOK_TOKEN;
+  if (expected && token !== expected) {
+    return res.status(401).json({ error: "Token inv\xE1lido" });
+  }
+  const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+  res.status(200).json({ ok: true });
+  const event = String(body.event || "").toLowerCase().replace(/_/g, ".");
+  if (event !== "messages.upsert") return;
+  const items = Array.isArray(body.data) ? body.data : [body.data];
+  for (const item of items) {
+    try {
+      await handleUpsert(item);
+    } catch (err) {
+      console.error("[Evolution Webhook] erro ao processar mensagem:", err);
+    }
+  }
+}
+
 // api/index.ts
 var handlers = {
+  "/api/evolution/webhook": handler11,
+  "/api/prospector": handler11,
+  // GET = stats do agente (fila, enviados hoje, respostas)
   "/api/webhook": handler,
   "/api/contacts": handler2,
   "/api/contacts/create": handler2,
@@ -1427,7 +1731,7 @@ var handlers = {
   "/api/campaign": handler9,
   "/api/evolution/proxy": handler10
 };
-async function handler11(req, res) {
+async function handler12(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-hub-signature-256");
@@ -1526,7 +1830,7 @@ var server = http.createServer(async (req, res) => {
         req.body = bodyData;
       }
       try {
-        await handler11(req, resCompat);
+        await handler12(req, resCompat);
       } catch (err) {
         console.error("[Server API Error]:", err);
         if (!res.writableEnded) {
@@ -1550,4 +1854,5 @@ var server = http.createServer(async (req, res) => {
 });
 server.listen(PORT, () => {
   console.log(`[Prospectfy Production Server] running on http://0.0.0.0:${PORT}`);
+  startProspector();
 });

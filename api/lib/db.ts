@@ -18,6 +18,8 @@ export interface AppConfig {
   directPairingCode?: string;
   directPairingStatus?: 'disconnected' | 'pairing' | 'connected';
   directPairingConnectedAt?: string;
+  prospectDay?: string; // dia (America/Bahia) da contagem de abordagens
+  prospectSentToday?: number;
 }
 
 interface DatabaseSchema {
@@ -205,8 +207,8 @@ export const db = {
     }
 
     // Keep message history capped at 2000 items in local buffer
-    if (data.messages.length > 2000) {
-      data.messages = data.messages.slice(-2000);
+    if (data.messages.length > 50000) {
+      data.messages = data.messages.slice(-50000);
     }
 
     saveDatabase(data);
@@ -226,8 +228,8 @@ export const db = {
     if (!data.processedMessageIds.includes(metaMessageId)) {
       data.processedMessageIds.push(metaMessageId);
       // Cap at 1000 items
-      if (data.processedMessageIds.length > 1000) {
-        data.processedMessageIds = data.processedMessageIds.slice(-1000);
+      if (data.processedMessageIds.length > 20000) {
+        data.processedMessageIds = data.processedMessageIds.slice(-20000);
       }
       saveDatabase(data);
     }
