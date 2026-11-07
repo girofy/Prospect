@@ -63,12 +63,23 @@ export function validateXHubSignature(rawBody: string, signatureHeader?: string)
 }
 
 /**
- * Clean phone number to E.164 without non-digits.
+ * Limpa o telefone para E.164 (só dígitos) e normaliza o 9º dígito do celular brasileiro.
+ * O WhatsApp às vezes devolve o número sem o 9 (formato antigo) no JID de entrada,
+ * mesmo quando enviamos com o 9. Sem normalizar, a mesma pessoa vira dois contatos
+ * diferentes (um para o envio, outro para a resposta que chega).
  */
 export function formatPhoneNumber(phone: string): string {
   let cleaned = phone.replace(/\D/g, '');
   if (cleaned.length === 10 || cleaned.length === 11) {
     cleaned = `55${cleaned}`;
+  }
+  if (cleaned.length === 12 && cleaned.startsWith('55')) {
+    const ddd = cleaned.slice(2, 4);
+    const rest = cleaned.slice(4);
+    // Celular brasileiro sem o 9 (8 dígitos, começando em 6-9): insere o 9 para o formato canônico.
+    if (rest.length === 8 && /^[6-9]/.test(rest)) {
+      cleaned = `55${ddd}9${rest}`;
+    }
   }
   return cleaned;
 }
