@@ -14,6 +14,22 @@ const ghost: CSSProperties = {...btn, background: '#eef1f6', color: '#334'};
 const danger: CSSProperties = {...btn, background: '#fbe9e9', color: '#b42318'};
 
 
+
+// Baixa todas as conversas. A chamada leva o token (o fetch do painel já adiciona).
+async function downloadExport(format: 'csv' | 'json') {
+  const res = await fetch(`/api/export?format=${format}`);
+  if (!res.ok) {
+    alert('Não foi possível baixar agora.');
+    return;
+  }
+  const blob = await res.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `conversas-girofy.${format}`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 // Dashboard de conversas: calculado no banco (sem IA, sem cota).
 function MetricsBlock() {
   const [m, setM] = useState<any>(null);
@@ -41,7 +57,13 @@ function MetricsBlock() {
   const statusEntries = Object.entries(m.status as Record<string, number>).sort((a, b) => b[1] - a[1]);
   return (
     <div style={card}>
-      <h2 style={{fontSize: 17, margin: '0 0 10px'}}>Dashboard de conversas</h2>
+      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 10}}>
+        <h2 style={{fontSize: 17, margin: 0}}>Dashboard de conversas</h2>
+        <div style={{display: 'flex', gap: 8}}>
+          <button style={ghost} onClick={() => downloadExport('csv')}>Baixar CSV</button>
+          <button style={ghost} onClick={() => downloadExport('json')}>Baixar JSON</button>
+        </div>
+      </div>
       <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, marginBottom: 14}}>
         {cards.map(([k, v]) => (
           <div key={k} style={{background: '#f5f7fb', borderRadius: 10, padding: 10}}>

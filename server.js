@@ -2226,6 +2226,75 @@ async function handler14(req, res) {
   }
 }
 
+// api/_handlers/export.ts
+var LABEL = { lead: "Contato", bot: "Agente IA", operator: "C\xE9sar" };
+function bahia(iso) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Bahia",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  }).format(new Date(iso));
+}
+async function allRows2(table, cols) {
+  const rows = [];
+  for (let from = 0; ; from += 1e3) {
+    const { data, error } = await supabase().from(table).select(cols).range(from, from + 999);
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) break;
+    rows.push(...data);
+    if (data.length < 1e3) break;
+  }
+  return rows;
+}
+function csvCell(v) {
+  const s = v === null || v === void 0 ? "" : String(v);
+  return /[",\n\r;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+async function handler15(req, res) {
+  if (req.method !== "GET") return res.status(405).json({ error: "Method Not Allowed" });
+  try {
+    const url = new URL(req.url || "/", "http://localhost");
+    const format = (url.searchParams.get("format") || "csv").toLowerCase();
+    const [contacts, messages] = await Promise.all([
+      allRows2("contacts", "phone, name, company, niche, status, created_at"),
+      allRows2("messages", 'contact_phone, "from", type, text, "timestamp"')
+    ]);
+    const byPhone = new Map(contacts.map((c) => [c.phone, c]));
+    const rows = messages.sort((a, b) => a.timestamp < b.timestamp ? -1 : 1).map((m) => {
+      const c = byPhone.get(m.contact_phone) || {};
+      return {
+        contato: c.name || "",
+        empresa: c.company || "",
+        nicho: c.niche || "",
+        telefone: m.contact_phone,
+        status_atual: c.status || "",
+        quem_falou: LABEL[m.from] || m.from,
+        tipo: m.type || "text",
+        quando: bahia(m.timestamp),
+        texto: m.text || ""
+      };
+    });
+    const stamp = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    if (format === "json") {
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="conversas-girofy-${stamp}.json"`);
+      return res.status(200).end(JSON.stringify(rows, null, 2));
+    }
+    const header = Object.keys(rows[0] || { contato: "", telefone: "", quem_falou: "", quando: "", texto: "" });
+    const lines = [header.join(";"), ...rows.map((r) => header.map((h) => csvCell(r[h])).join(";"))];
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="conversas-girofy-${stamp}.csv"`);
+    return res.status(200).end("\uFEFF" + lines.join("\r\n"));
+  } catch (err) {
+    return res.status(500).json({ error: err?.message || "Falha ao exportar." });
+  }
+}
+
 // api/index.ts
 var PUBLIC_ROUTES = {
   "/api/login": handler11,
@@ -2246,7 +2315,8 @@ var PROTECTED_ROUTES = {
   "/api/campaign": handler9,
   "/api/learnings": handler12,
   "/api/knowledge": handler13,
-  "/api/metrics": handler14
+  "/api/metrics": handler14,
+  "/api/export": handler15
 };
 var PUBLIC_GET_ROUTES = {
   "/api/prospector": handler10
@@ -2258,7 +2328,7 @@ function match(table, urlPath) {
   }
   return null;
 }
-async function handler15(req, res) {
+async function handler16(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-hub-signature-256");
   if (req.method === "OPTIONS") {
@@ -2427,7 +2497,7 @@ var server = http.createServer(async (req, res) => {
         req.body = bodyData;
       }
       try {
-        await handler15(req, resCompat);
+        await handler16(req, resCompat);
       } catch (err) {
         console.error("[Server API Error]:", err);
         if (!res.writableEnded) {
