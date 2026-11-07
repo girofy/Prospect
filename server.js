@@ -323,6 +323,28 @@ var db = {
     });
     return { success: true, deletedCount };
   },
+  // --- Base de conhecimento (documentos que a IA lê) ---
+  async listKnowledge() {
+    const res = await supabase().from("knowledge_docs").select("id, title, content, active, created_at").order("created_at", { ascending: false });
+    return mustOk(res, "listKnowledge") || [];
+  },
+  async getActiveKnowledge() {
+    const res = await supabase().from("knowledge_docs").select("title, content").eq("active", true).order("created_at", { ascending: true });
+    if (res.error) throw new Error(res.error.message);
+    return res.data || [];
+  },
+  async saveKnowledge(title, content) {
+    const res = await supabase().from("knowledge_docs").insert({ title, content, active: true, updated_at: (/* @__PURE__ */ new Date()).toISOString() });
+    mustOk(res, "saveKnowledge");
+  },
+  async setKnowledgeActive(id, active) {
+    const res = await supabase().from("knowledge_docs").update({ active, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id);
+    mustOk(res, "setKnowledgeActive");
+  },
+  async deleteKnowledge(id) {
+    const res = await supabase().from("knowledge_docs").delete().eq("id", id);
+    mustOk(res, "deleteKnowledge");
+  },
   // --- Uso da IA (cota) — grava sem gerar log de auditoria a cada chamada ---
   async saveAiUsage(patch) {
     await ensureConfigLoaded();
@@ -605,24 +627,38 @@ REGRAS FIXAS:
 - Se pedirem para parar, confirme em uma frase e n\xE3o mande mais nada.
 - N\xE3o invente pre\xE7o, prazo, cliente ou resultado. Se n\xE3o souber, diga que o C\xE9sar confirma.
 `;
-var KNOWLEDGE_MAX_CHARS = 12e3;
-function loadKnowledge() {
+var KNOWLEDGE_MAX_CHARS = 3e4;
+var knowledgeCache = null;
+async function loadKnowledge() {
+  if (knowledgeCache && Date.now() - knowledgeCache.at < 6e4) return knowledgeCache.text;
+  let out = "";
+  try {
+    const docs = await db.getActiveKnowledge();
+    for (const d of docs) out += `
+
+# ${d.title}
+${d.content}`;
+  } catch (err) {
+    console.warn("[Knowledge] falha ao ler documentos do banco:", err);
+  }
   try {
     const dir = path.resolve(process.cwd(), "knowledge");
-    if (!fs.existsSync(dir)) return "";
-    const files = fs.readdirSync(dir).filter((f) => f.toLowerCase().endsWith(".md")).sort();
-    let out = "";
-    for (const f of files) {
-      out += `
+    if (fs.existsSync(dir)) {
+      const files = fs.readdirSync(dir).filter((f) => f.toLowerCase().endsWith(".md")).sort();
+      for (const f of files) out += `
 
 # ${f}
 ${fs.readFileSync(path.join(dir, f), "utf-8")}`;
     }
-    return out.slice(0, KNOWLEDGE_MAX_CHARS).trim();
   } catch (err) {
     console.warn("[Knowledge] falha ao ler knowledge/:", err);
-    return "";
   }
+  const text = out.slice(0, KNOWLEDGE_MAX_CHARS).trim();
+  knowledgeCache = { at: Date.now(), text };
+  return text;
+}
+function clearKnowledgeCache() {
+  knowledgeCache = null;
 }
 function todayBahia() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bahia", year: "numeric", month: "2-digit", day: "2-digit" }).format(/* @__PURE__ */ new Date());
@@ -661,7 +697,7 @@ async function generateGirofyCommercialReply(contact, incoming, history) {
       const who = m.from === "bot" ? "Voc\xEA" : m.from === "operator" ? "C\xE9sar (humano)" : "Pessoa";
       return `${who}: ${m.text}`;
     }).join("\n");
-    const knowledge = loadKnowledge();
+    const knowledge = await loadKnowledge();
     const learnings = await db.getTopLearnings(8);
     const promptText = `
 ${SYSTEM_PROMPT}
@@ -998,16 +1034,16 @@ async function handler2(req, res) {
       return res.status(200).json({ success: true, message: `${removedCount} contatos removidos do CRM.`, removedCount });
     }
     if (req.method === "POST" || req.method === "PUT") {
-      const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
-      if (body.action === "clear_all") {
+      const body2 = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
+      if (body2.action === "clear_all") {
         const count = await db.clearAllContacts();
         return res.status(200).json({ success: true, message: "Todos os contatos foram removidos.", count });
       }
-      if (Array.isArray(body.contacts)) {
-        const imported = await db.batchSaveContacts(body.contacts);
+      if (Array.isArray(body2.contacts)) {
+        const imported = await db.batchSaveContacts(body2.contacts);
         return res.status(200).json({ success: true, count: imported.length, contacts: imported });
       }
-      const { phone, name, company, niche, role, status, agentState, notes } = body;
+      const { phone, name, company, niche, role, status, agentState, notes } = body2;
       if (!phone) {
         return res.status(400).json({ error: "Telefone \xE9 obrigat\xF3rio." });
       }
@@ -1109,10 +1145,10 @@ async function handler3(req, res) {
       return res.status(200).json({ messages });
     }
     if (req.method === "POST") {
-      const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-      const phone = body.phone;
-      const text = body.text ?? body.message;
-      const from = body.from ?? body.sender ?? "operator";
+      const body2 = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+      const phone = body2.phone;
+      const text = body2.text ?? body2.message;
+      const from = body2.from ?? body2.sender ?? "operator";
       if (!phone || !text || !String(text).trim()) {
         return res.status(400).json({ error: "Telefone e texto da mensagem s\xE3o obrigat\xF3rios." });
       }
@@ -1122,7 +1158,7 @@ async function handler3(req, res) {
         return res.status(400).json({ error: "Este contato solicitou Opt-Out (LGPD). O envio de novas mensagens est\xE1 bloqueado." });
       }
       let sendResult = { success: true, messageId: `direct-${Date.now()}` };
-      if (!body.directOnly) {
+      if (!body2.directOnly) {
         const config = await db.getConfig();
         if ((config.activeGateway || "direct_pairing") === "direct_pairing") {
           sendResult = await sendEvolutionText(cleanPhone, String(text).trim(), 2e3);
@@ -1233,14 +1269,14 @@ async function handler5(req, res) {
   }
   if (req.method === "POST") {
     try {
-      const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-      const identifier = body?.identifier || body?.phone || body?.user_id;
+      const body2 = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+      const identifier = body2?.identifier || body2?.phone || body2?.user_id;
       if (!identifier) {
         return res.status(400).json({
           error: "Identificador (n\xFAmero de telefone ou e-mail) obrigat\xF3rio para exclus\xE3o."
         });
       }
-      const deletionReq = await db.createDeletionRequest(identifier, body?.notes);
+      const deletionReq = await db.createDeletionRequest(identifier, body2?.notes);
       const result = await db.executeDataDeletion(identifier);
       const host = req.headers?.host || "prospectfy.vercel.app";
       const protocol = req.headers?.["x-forwarded-proto"] || "https";
@@ -1316,34 +1352,34 @@ async function handler7(req, res) {
       });
     }
     if (req.method === "POST") {
-      const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+      const body2 = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
       const updates = {};
-      if (typeof body.metaAccessToken === "string" && body.metaAccessToken.trim()) {
-        updates.metaAccessToken = body.metaAccessToken.trim().replace(/^Bearer\s+/i, "");
+      if (typeof body2.metaAccessToken === "string" && body2.metaAccessToken.trim()) {
+        updates.metaAccessToken = body2.metaAccessToken.trim().replace(/^Bearer\s+/i, "");
       }
-      if (typeof body.metaPhoneNumberId === "string" && body.metaPhoneNumberId.trim()) {
-        updates.metaPhoneNumberId = body.metaPhoneNumberId.trim();
+      if (typeof body2.metaPhoneNumberId === "string" && body2.metaPhoneNumberId.trim()) {
+        updates.metaPhoneNumberId = body2.metaPhoneNumberId.trim();
       }
-      if (typeof body.metaAppSecret === "string") {
-        updates.metaAppSecret = body.metaAppSecret.trim();
+      if (typeof body2.metaAppSecret === "string") {
+        updates.metaAppSecret = body2.metaAppSecret.trim();
       }
-      if (typeof body.webhookVerifyToken === "string" && body.webhookVerifyToken.trim()) {
-        updates.webhookVerifyToken = body.webhookVerifyToken.trim();
+      if (typeof body2.webhookVerifyToken === "string" && body2.webhookVerifyToken.trim()) {
+        updates.webhookVerifyToken = body2.webhookVerifyToken.trim();
       }
-      if (typeof body.geminiApiKey === "string" && body.geminiApiKey.trim()) {
-        updates.geminiApiKey = body.geminiApiKey.trim();
+      if (typeof body2.geminiApiKey === "string" && body2.geminiApiKey.trim()) {
+        updates.geminiApiKey = body2.geminiApiKey.trim();
       }
-      if (typeof body.geminiModel === "string" && body.geminiModel.trim()) {
-        updates.geminiModel = body.geminiModel.trim();
+      if (typeof body2.geminiModel === "string" && body2.geminiModel.trim()) {
+        updates.geminiModel = body2.geminiModel.trim();
       }
-      if (typeof body.autoReplyEnabled === "boolean") {
-        updates.autoReplyEnabled = body.autoReplyEnabled;
+      if (typeof body2.autoReplyEnabled === "boolean") {
+        updates.autoReplyEnabled = body2.autoReplyEnabled;
       }
-      if (body.activeGateway === "direct_pairing" || body.activeGateway === "meta_cloud_api") {
-        updates.activeGateway = body.activeGateway;
+      if (body2.activeGateway === "direct_pairing" || body2.activeGateway === "meta_cloud_api") {
+        updates.activeGateway = body2.activeGateway;
       }
-      if (typeof body.directPairingPhone === "string" && body.directPairingPhone.trim()) {
-        updates.directPairingPhone = body.directPairingPhone.trim();
+      if (typeof body2.directPairingPhone === "string" && body2.directPairingPhone.trim()) {
+        updates.directPairingPhone = body2.directPairingPhone.trim();
       }
       const updated = await db.saveConfig(updates);
       const meta = getMetaConfig();
@@ -1397,12 +1433,12 @@ async function handler8(req, res) {
       });
     }
     if (req.method === "POST") {
-      const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
-      const { action, phoneNumber, gateway } = body;
+      const body2 = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+      const { action, phoneNumber, gateway } = body2;
       if (action === "request_code") {
         const rawPhone = phoneNumber || config.directPairingPhone || "557488126578";
         const cleanPhone = formatPhoneNumber(rawPhone);
-        const { evolutionUrl, evolutionKey, instanceName = "prospectfy" } = body;
+        const { evolutionUrl, evolutionKey, instanceName = "prospectfy" } = body2;
         let code = "";
         let isRealSocketCode = false;
         let gatewayNotice = "";
@@ -1560,8 +1596,8 @@ async function handler9(req, res) {
       });
     }
     if (req.method === "POST") {
-      const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
-      const leads = Array.isArray(body.leads) ? body.leads : [];
+      const body2 = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+      const leads = Array.isArray(body2.leads) ? body2.leads : [];
       if (leads.length === 0) {
         return res.status(400).json({ error: "Envie uma lista de contatos para enfileirar." });
       }
@@ -1888,11 +1924,11 @@ async function handler10(req, res) {
   if (expected && token !== expected) {
     return res.status(401).json({ error: "Token inv\xE1lido" });
   }
-  const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+  const body2 = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
   res.status(200).json({ ok: true });
-  const event = String(body.event || "").toLowerCase().replace(/_/g, ".");
+  const event = String(body2.event || "").toLowerCase().replace(/_/g, ".");
   if (event !== "messages.upsert") return;
-  const items = Array.isArray(body.data) ? body.data : [body.data];
+  const items = Array.isArray(body2.data) ? body2.data : [body2.data];
   for (const item of items) {
     try {
       await handleUpsert(item);
@@ -1951,12 +1987,12 @@ async function handler11(req, res) {
   if (tooManyAttempts(ip)) {
     return res.status(429).json({ error: "Muitas tentativas. Espere 15 minutos." });
   }
-  const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+  const body2 = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
   const token = issueToken();
   if (!token) {
     return res.status(503).json({ error: "Painel sem senha configurada (ADMIN_PASSWORD no servidor)." });
   }
-  if (!checkPassword(String(body.password || ""))) {
+  if (!checkPassword(String(body2.password || ""))) {
     return res.status(401).json({ error: "Senha incorreta." });
   }
   return res.status(200).json({ token });
@@ -1972,6 +2008,50 @@ async function handler12(req, res) {
     return res.status(200).json({ funnel: stats, byOutcome, learnings });
   } catch (err) {
     return res.status(500).json({ error: err?.message || "Falha ao ler aprendizado." });
+  }
+}
+
+// api/_handlers/knowledge.ts
+var MAX_DOC_CHARS = 6e4;
+function body(req) {
+  return typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+}
+async function handler13(req, res) {
+  const path3 = String(req.url || "").split("?")[0].replace(/\/+$/, "");
+  try {
+    if (req.method === "GET") {
+      const docs = await db.listKnowledge();
+      const totalChars = docs.filter((d) => d.active).reduce((n, d) => n + d.content.length, 0);
+      return res.status(200).json({ docs, totalChars });
+    }
+    if (req.method === "POST" && path3 === "/api/knowledge") {
+      const b = body(req);
+      const title = String(b.title || "").trim().slice(0, 120);
+      const content = String(b.content || "").trim();
+      if (!title || !content) return res.status(400).json({ error: "D\xEA um t\xEDtulo e cole ou envie o conte\xFAdo." });
+      if (content.length > MAX_DOC_CHARS) {
+        return res.status(400).json({ error: `Documento muito grande (m\xE1ximo ${MAX_DOC_CHARS} caracteres). Divida em partes.` });
+      }
+      await db.saveKnowledge(title, content);
+      clearKnowledgeCache();
+      return res.status(200).json({ success: true });
+    }
+    if (req.method === "POST" && path3 === "/api/knowledge/toggle") {
+      const b = body(req);
+      await db.setKnowledgeActive(Number(b.id), Boolean(b.active));
+      clearKnowledgeCache();
+      return res.status(200).json({ success: true });
+    }
+    if (req.method === "POST" && path3 === "/api/knowledge/delete") {
+      const b = body(req);
+      await db.deleteKnowledge(Number(b.id));
+      clearKnowledgeCache();
+      return res.status(200).json({ success: true });
+    }
+    return res.status(405).json({ error: "Method Not Allowed" });
+  } catch (err) {
+    console.error("[Knowledge API]", err);
+    return res.status(500).json({ error: err?.message || "Falha na base de conhecimento." });
   }
 }
 
@@ -1993,7 +2073,8 @@ var PROTECTED_ROUTES = {
   "/api/config": handler7,
   "/api/pairing": handler8,
   "/api/campaign": handler9,
-  "/api/learnings": handler12
+  "/api/learnings": handler12,
+  "/api/knowledge": handler13
 };
 var PUBLIC_GET_ROUTES = {
   "/api/prospector": handler10
@@ -2005,7 +2086,7 @@ function match(table, urlPath) {
   }
   return null;
 }
-async function handler13(req, res) {
+async function handler14(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-hub-signature-256");
   if (req.method === "OPTIONS") {
@@ -2173,7 +2254,7 @@ var server = http.createServer(async (req, res) => {
         req.body = bodyData;
       }
       try {
-        await handler13(req, resCompat);
+        await handler14(req, resCompat);
       } catch (err) {
         console.error("[Server API Error]:", err);
         if (!res.writableEnded) {
