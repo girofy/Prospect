@@ -947,6 +947,63 @@ SUA TENTATIVA ANTERIOR FOI RECUSADA: ${lastProblem}. Escreva outra mensagem, com
     return fail("error");
   }
 }
+function parseOwnerJson(raw) {
+  const m = raw.match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  try {
+    const j = JSON.parse(m[0]);
+    const reply = String(j.reply || "").trim();
+    if (!reply) return null;
+    const action = ["pause", "resume", "status"].includes(j.action) ? j.action : "none";
+    return { reply, action };
+  } catch {
+    return null;
+  }
+}
+async function generateOwnerReply(text, history, snapshot2) {
+  const cfg = await db.getConfig();
+  const geminiKey = (cfg.geminiApiKey || process.env.GEMINI_API_KEY || "").trim();
+  const groqKey = (cfg.groqApiKey || process.env.GROQ_API_KEY || "").trim();
+  const transcript2 = history.slice(-8).map((m) => `${m.from === "owner" ? "C\xE9sar" : "Voc\xEA"}: ${m.text}`).join("\n");
+  const prompt = `Voc\xEA \xE9 o agente de prospec\xE7\xE3o da Girofy e est\xE1 falando com o C\xC9SAR, o dono. Ele te configurou e ningu\xE9m mais tem esse n\xFAmero.
+
+COMO FALAR: portugu\xEAs do Brasil, natural, direto, curto, como um assistente de confian\xE7a conversando no WhatsApp. N\xE3o \xE9 lead: n\xE3o venda, n\xE3o fale de pre\xE7o, n\xE3o use "tudo bem?" de abertura de prospec\xE7\xE3o.
+
+O QUE VOC\xCA FAZ DE VERDADE (uma a\xE7\xE3o por resposta, escolhida desta lista):
+- "status": mostrar o estado atual (os n\xFAmeros est\xE3o em ESTADO AGORA; use-os na resposta)
+- "pause": pausar a prospec\xE7\xE3o de novos contatos (respostas aos leads continuam)
+- "resume": come\xE7ar/retomar a prospec\xE7\xE3o. O sistema pede confirma\xE7\xE3o de "sim" antes; ent\xE3o na resposta, pergunte se ele confirma.
+- "none": s\xF3 conversar, explicar, responder d\xFAvidas
+Se ele pedir algo fora dessa lista, diga com honestidade que ainda n\xE3o faz isso e o que faz. Nunca diga que fez algo que n\xE3o est\xE1 na a\xE7\xE3o escolhida.
+
+ESTADO AGORA:
+${snapshot2}
+
+CONVERSA RECENTE COM O C\xC9SAR:
+${transcript2 || "(in\xEDcio)"}
+
+MENSAGEM DO C\xC9SAR AGORA:
+"${text}"
+
+Responda SOMENTE um JSON, sem texto fora dele: {"reply":"texto para o WhatsApp","action":"none|status|pause|resume"}`;
+  for (const item of chainFrom(cfg)) {
+    if (isPaused(cfg, item)) continue;
+    if (item.provider === "gemini" && !geminiKey) continue;
+    if (item.provider === "groq" && !groqKey) continue;
+    if (!await reserveAiCall()) return null;
+    try {
+      const raw = item.provider === "gemini" ? await callGemini(geminiKey, item.model, prompt) : await callGroq(groqKey, item.model, prompt);
+      const parsed = parseOwnerJson(raw);
+      if (parsed) return parsed;
+      console.warn("[Dono] resposta sem JSON v\xE1lido:", raw.slice(0, 160));
+    } catch (err) {
+      const msg = String(err?.message || err);
+      console.error(`[Dono] ${item.model} falhou:`, msg.slice(0, 200));
+      if (err?.status === 429 || /429|RESOURCE_EXHAUSTED/i.test(msg)) await pauseModel(item, err?.pauseMs ?? pauseMsFrom(msg));
+    }
+  }
+  return null;
+}
 
 // api/_handlers/webhook.ts
 var OPT_OUT_REGEX = /(não tenho interesse|nao tenho interesse|pare de mandar|para de mandar|remove meu contato|remover contato|tirar da lista|não me mande|nao me mande|denunciar|spam|sair|desinscrever|bloqueado|nunca mais)/i;
@@ -2052,48 +2109,54 @@ async function transcribeAudio(media) {
 
 // api/lib/owner.ts
 var OWNER_PHONE = (process.env.OWNER_PHONE || "5574981017188").replace(/\D/g, "");
-var UNLOCK_MIN = 30;
+var CONFIRM_MIN = 10;
+var MAX_TURNS = 8;
+var ownerTurns = [];
 function isOwner(phone) {
   return last8(phone) === last8(OWNER_PHONE);
 }
 var norm = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
-var HELP = 'Comandos: "status", "pausa" (para a prospec\xE7\xE3o), "senha 123456" (libera 30 min), "come\xE7a" (retoma a prospec\xE7\xE3o, precisa de senha), "trava" (fecha o modo dono).';
+async function snapshot() {
+  const s = await getProspectStats();
+  const bahia2 = (/* @__PURE__ */ new Date()).toLocaleString("pt-BR", { timeZone: "America/Bahia" });
+  return [
+    `- Hora em Salvador: ${bahia2}`,
+    `- Prospec\xE7\xE3o: ${s.paused ? "PAUSADA" : "ativa"}`,
+    `- Janela de envio (8h-19h): ${s.inWindow ? "dentro" : "fora"}`,
+    `- Hoje: ${s.sentToday} de ${s.dailyCap} abordagens enviadas`,
+    `- Fila com telefone v\xE1lido: ${s.queue}${s.queue === 0 ? " (vazia: falta lista com telefone)" : ""}`,
+    `- Leads em conversa: ${s.inConversation}; responderam: ${s.replied}`
+  ].join("\n");
+}
 async function handleOwnerMessage(raw) {
-  const n = norm(raw);
+  const text = raw.trim();
+  const n = norm(text);
   const cfg = await db.getConfig();
-  const unlocked = !!cfg.ownerUnlockedUntil && Date.parse(cfg.ownerUnlockedUntil) > Date.now();
-  const pin = n.match(/(?:senha|pin)\D{0,3}(\d{4,8})/);
-  if (pin) {
-    const expected = (process.env.OWNER_PIN || "").trim();
-    if (!expected) return "Modo dono desligado: falta a vari\xE1vel OWNER_PIN no Render.";
-    if (pin[1] !== expected) {
-      await db.addAuditLog({ type: "error", phone: OWNER_PHONE, summary: "Senha errada no modo dono." });
-      return "Senha errada.";
+  const pendingOk = cfg.ownerPending === "resume" && Date.parse(cfg.ownerPendingUntil || "") > Date.now();
+  if (pendingOk) {
+    if (/^(sim|s|pode|confirma|confirmo|isso|bora|manda|vai|claro|ok|beleza)\b/.test(n)) {
+      await db.saveConfig({ prospectorPaused: false, ownerPending: "", ownerPendingUntil: "" });
+      await db.addAuditLog({ type: "status_change", summary: "Dono confirmou: prospec\xE7\xE3o retomada." });
+      return "Feito. Prospec\xE7\xE3o retomada, dentro do hor\xE1rio e do limite do dia.";
     }
-    await db.saveConfig({ ownerUnlockedUntil: new Date(Date.now() + UNLOCK_MIN * 6e4).toISOString() });
-    return `Liberado por ${UNLOCK_MIN} minutos. Pode mandar "come\xE7a" ou "pausa".`;
+    if (/^(nao|não|cancela|deixa|para|nem)\b/.test(n)) {
+      await db.saveConfig({ ownerPending: "", ownerPendingUntil: "" });
+      return "Ok, a prospec\xE7\xE3o continua pausada.";
+    }
   }
-  if (/\b(trava|travar|fecha|bloqueia)\b/.test(n)) {
-    await db.saveConfig({ ownerUnlockedUntil: "" });
-    return "Travado. Para come\xE7ar a prospec\xE7\xE3o de novo, mande a senha.";
+  const ai = await generateOwnerReply(text, ownerTurns, await snapshot());
+  if (!ai) return "N\xE3o consegui pensar agora (IA indispon\xEDvel ou sem cota). Tenta de novo daqui a pouco.";
+  const action = ai.action;
+  if (action === "pause") {
+    await db.saveConfig({ prospectorPaused: true, ownerPending: "", ownerPendingUntil: "" });
+    await db.addAuditLog({ type: "status_change", summary: "Dono pediu pausa da prospec\xE7\xE3o (conversa)." });
+  } else if (action === "resume") {
+    await db.saveConfig({ ownerPending: "resume", ownerPendingUntil: new Date(Date.now() + CONFIRM_MIN * 6e4).toISOString() });
+    await db.addAuditLog({ type: "status_change", summary: 'Dono pediu retomada da prospec\xE7\xE3o: aguardando "sim".' });
   }
-  if (/^(ajuda|comandos|help)\b/.test(n)) return HELP;
-  if (/\b(status|resumo|como esta|quantos)\b/.test(n)) {
-    const s = await getProspectStats();
-    const prosp = s.paused ? "PAUSADA" : "ativa";
-    const fila = s.queue === 0 ? "fila vazia (nada para prospectar; falta lista com telefone)" : `${s.queue} na fila`;
-    return `Prospec\xE7\xE3o ${prosp}. Hoje: ${s.sentToday}/${s.dailyCap} abordagens. ${fila}. Em conversa: ${s.inConversation}. Responderam: ${s.replied}. Janela: ${s.window}${s.inWindow ? " (dentro do hor\xE1rio)" : " (fora do hor\xE1rio)"}.`;
-  }
-  if (/\b(pausa|pausar|pausa tudo|para tudo|para a prospeccao|para prospeccao|para de prospectar)\b/.test(n)) {
-    await db.saveConfig({ prospectorPaused: true });
-    return "Prospec\xE7\xE3o pausada. As respostas aos leads continuam normais.";
-  }
-  if (/\b(comeca|inicia|iniciar|retoma|retomar|continua|roda|liga)\b/.test(n)) {
-    if (!unlocked) return "Pra come\xE7ar a prospec\xE7\xE3o, mande a senha primeiro.";
-    await db.saveConfig({ prospectorPaused: false });
-    return "Prospec\xE7\xE3o retomada. Ela s\xF3 envia dentro da janela de hor\xE1rio e respeitando o limite do dia.";
-  }
-  return `N\xE3o entendi. ${HELP}`;
+  ownerTurns.push({ from: "owner", text }, { from: "bot", text: ai.reply });
+  while (ownerTurns.length > MAX_TURNS * 2) ownerTurns.shift();
+  return ai.reply;
 }
 
 // api/_handlers/evolution-webhook.ts

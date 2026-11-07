@@ -1,13 +1,18 @@
-// Modo dono: você controla o agente pelo seu WhatsApp pessoal. Comandos fixos, nunca texto livre.
-// - pausar / status: livres (são ações seguras e de leitura).
-// - começar a prospecção: só depois de mandar a senha (OWNER_PIN), liberada por 30 minutos.
-// O modelo de IA nunca executa nada: a mensagem é lida aqui, por regras fixas.
+// Modo dono: você conversa com o agente pelo seu WhatsApp pessoal.
+// - Quem é você: pelo número. Só o número tem essa função; a conversa não muda isso.
+// - O modelo conversa e escolhe UMA ação de uma lista fixa. Quem executa é este código.
+// - Começar a prospecção exige um "sim" seu logo depois do pedido (confirmação de 10 min), sem senha.
 import { db } from './db';
 import { getProspectStats } from './prospector';
 import { last8 } from './phone';
+import { generateOwnerReply, OwnerAction } from './gemini';
 
 export const OWNER_PHONE = (process.env.OWNER_PHONE || '5574981017188').replace(/\D/g, '');
-const UNLOCK_MIN = 30;
+const CONFIRM_MIN = 10;
+const MAX_TURNS = 8;
+
+// Memória curta da conversa com você (some ao reiniciar o servidor; é só para contexto imediato).
+const ownerTurns: { from: 'owner' | 'bot'; text: string }[] = [];
 
 export function isOwner(phone: string): boolean {
   return last8(phone) === last8(OWNER_PHONE);
@@ -15,49 +20,51 @@ export function isOwner(phone: string): boolean {
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 
-const HELP = 'Comandos: "status", "pausa" (para a prospecção), "senha 123456" (libera 30 min), "começa" (retoma a prospecção, precisa de senha), "trava" (fecha o modo dono).';
+async function snapshot(): Promise<string> {
+  const s = await getProspectStats();
+  const bahia = new Date().toLocaleString('pt-BR', { timeZone: 'America/Bahia' });
+  return [
+    `- Hora em Salvador: ${bahia}`,
+    `- Prospecção: ${s.paused ? 'PAUSADA' : 'ativa'}`,
+    `- Janela de envio (8h-19h): ${s.inWindow ? 'dentro' : 'fora'}`,
+    `- Hoje: ${s.sentToday} de ${s.dailyCap} abordagens enviadas`,
+    `- Fila com telefone válido: ${s.queue}${s.queue === 0 ? ' (vazia: falta lista com telefone)' : ''}`,
+    `- Leads em conversa: ${s.inConversation}; responderam: ${s.replied}`,
+  ].join('\n');
+}
 
 export async function handleOwnerMessage(raw: string): Promise<string> {
-  const n = norm(raw);
+  const text = raw.trim();
+  const n = norm(text);
   const cfg = await db.getConfig();
-  const unlocked = !!cfg.ownerUnlockedUntil && Date.parse(cfg.ownerUnlockedUntil) > Date.now();
 
-  const pin = n.match(/(?:senha|pin)\D{0,3}(\d{4,8})/);
-  if (pin) {
-    const expected = (process.env.OWNER_PIN || '').trim();
-    if (!expected) return 'Modo dono desligado: falta a variável OWNER_PIN no Render.';
-    if (pin[1] !== expected) {
-      await db.addAuditLog({ type: 'error', phone: OWNER_PHONE, summary: 'Senha errada no modo dono.' });
-      return 'Senha errada.';
+  // Confirmação pendente (ex.: "começar a prospecção"): só um sim/não resolve.
+  const pendingOk = cfg.ownerPending === 'resume' && Date.parse(cfg.ownerPendingUntil || '') > Date.now();
+  if (pendingOk) {
+    if (/^(sim|s|pode|confirma|confirmo|isso|bora|manda|vai|claro|ok|beleza)\b/.test(n)) {
+      await db.saveConfig({ prospectorPaused: false, ownerPending: '', ownerPendingUntil: '' });
+      await db.addAuditLog({ type: 'status_change', summary: 'Dono confirmou: prospecção retomada.' });
+      return 'Feito. Prospecção retomada, dentro do horário e do limite do dia.';
     }
-    await db.saveConfig({ ownerUnlockedUntil: new Date(Date.now() + UNLOCK_MIN * 60_000).toISOString() });
-    return `Liberado por ${UNLOCK_MIN} minutos. Pode mandar "começa" ou "pausa".`;
+    if (/^(nao|não|cancela|deixa|para|nem)\b/.test(n)) {
+      await db.saveConfig({ ownerPending: '', ownerPendingUntil: '' });
+      return 'Ok, a prospecção continua pausada.';
+    }
   }
 
-  if (/\b(trava|travar|fecha|bloqueia)\b/.test(n)) {
-    await db.saveConfig({ ownerUnlockedUntil: '' });
-    return 'Travado. Para começar a prospecção de novo, mande a senha.';
+  const ai = await generateOwnerReply(text, ownerTurns, await snapshot());
+  if (!ai) return 'Não consegui pensar agora (IA indisponível ou sem cota). Tenta de novo daqui a pouco.';
+
+  const action: OwnerAction = ai.action;
+  if (action === 'pause') {
+    await db.saveConfig({ prospectorPaused: true, ownerPending: '', ownerPendingUntil: '' });
+    await db.addAuditLog({ type: 'status_change', summary: 'Dono pediu pausa da prospecção (conversa).' });
+  } else if (action === 'resume') {
+    await db.saveConfig({ ownerPending: 'resume', ownerPendingUntil: new Date(Date.now() + CONFIRM_MIN * 60_000).toISOString() });
+    await db.addAuditLog({ type: 'status_change', summary: 'Dono pediu retomada da prospecção: aguardando "sim".' });
   }
 
-  if (/^(ajuda|comandos|help)\b/.test(n)) return HELP;
-
-  if (/\b(status|resumo|como esta|quantos)\b/.test(n)) {
-    const s = await getProspectStats();
-    const prosp = s.paused ? 'PAUSADA' : 'ativa';
-    const fila = s.queue === 0 ? 'fila vazia (nada para prospectar; falta lista com telefone)' : `${s.queue} na fila`;
-    return `Prospecção ${prosp}. Hoje: ${s.sentToday}/${s.dailyCap} abordagens. ${fila}. Em conversa: ${s.inConversation}. Responderam: ${s.replied}. Janela: ${s.window}${s.inWindow ? ' (dentro do horário)' : ' (fora do horário)'}.`;
-  }
-
-  if (/\b(pausa|pausar|pausa tudo|para tudo|para a prospeccao|para prospeccao|para de prospectar)\b/.test(n)) {
-    await db.saveConfig({ prospectorPaused: true });
-    return 'Prospecção pausada. As respostas aos leads continuam normais.';
-  }
-
-  if (/\b(comeca|inicia|iniciar|retoma|retomar|continua|roda|liga)\b/.test(n)) {
-    if (!unlocked) return 'Pra começar a prospecção, mande a senha primeiro.';
-    await db.saveConfig({ prospectorPaused: false });
-    return 'Prospecção retomada. Ela só envia dentro da janela de horário e respeitando o limite do dia.';
-  }
-
-  return `Não entendi. ${HELP}`;
+  ownerTurns.push({ from: 'owner', text }, { from: 'bot', text: ai.reply });
+  while (ownerTurns.length > MAX_TURNS * 2) ownerTurns.shift();
+  return ai.reply;
 }
