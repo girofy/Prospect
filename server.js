@@ -2922,6 +2922,164 @@ async function handler18(req, res) {
   }
 }
 
+// api/_handlers/personal-export.ts
+var job = null;
+var MAX_AGE_MS = 60 * 6e4;
+var MAX_PAGES_PER_CHAT = 50;
+async function evo(method, path3, body2) {
+  const cfg = getEvolutionCfg();
+  if (!cfg) throw new Error("Evolution n\xE3o configurada no servidor.");
+  const res = await fetch(`${cfg.url}${path3}`, {
+    method,
+    headers: { "Content-Type": "application/json", apikey: cfg.apiKey },
+    body: body2 === void 0 ? void 0 : JSON.stringify(body2),
+    signal: AbortSignal.timeout(3e4)
+  });
+  const text = await res.text();
+  let json = null;
+  try {
+    json = JSON.parse(text);
+  } catch {
+  }
+  if (!res.ok) throw new Error(`Evolution ${res.status}: ${String(json?.message || text).slice(0, 160)}`);
+  return json;
+}
+async function closeJob() {
+  if (!job) return;
+  const name = job.instance;
+  job = null;
+  try {
+    await evo("DELETE", `/instance/logout/${encodeURIComponent(name)}`);
+  } catch {
+  }
+  try {
+    await evo("DELETE", `/instance/delete/${encodeURIComponent(name)}`);
+  } catch (err) {
+    console.error("[Export] n\xE3o consegui apagar a inst\xE2ncia tempor\xE1ria:", err?.message);
+  }
+}
+function textOf(message) {
+  if (!message) return null;
+  if (message.conversation) return String(message.conversation);
+  if (message.extendedTextMessage?.text) return String(message.extendedTextMessage.text);
+  if (message.audioMessage) return "[\xC1udio]";
+  if (message.imageMessage) return message.imageMessage.caption ? `[Imagem] ${message.imageMessage.caption}` : "[Imagem]";
+  if (message.videoMessage) return message.videoMessage.caption ? `[V\xEDdeo] ${message.videoMessage.caption}` : "[V\xEDdeo]";
+  if (message.documentMessage) return `[Documento] ${message.documentMessage.fileName || ""}`.trim();
+  if (message.stickerMessage) return "[Figurinha]";
+  return null;
+}
+async function build() {
+  if (!job) return;
+  const current = job;
+  current.status = "building";
+  try {
+    const name = current.instance;
+    const chatsRes = await evo("POST", `/chat/findChats/${encodeURIComponent(name)}`, {});
+    const chats = Array.isArray(chatsRes) ? chatsRes : chatsRes?.chats || [];
+    const conversas = [];
+    let total = 0;
+    for (const chat of chats) {
+      const jid = String(chat.remoteJid || chat.id || "");
+      if (!jid || jid.endsWith("@g.us") || jid === "status@broadcast") continue;
+      const mensagens = [];
+      let page = 1;
+      let pages = 1;
+      do {
+        const r = await evo("POST", `/chat/findMessages/${encodeURIComponent(name)}`, { where: { key: { remoteJid: jid } }, page });
+        pages = r?.messages?.pages || 1;
+        for (const m of r?.messages?.records || []) {
+          const text = textOf(m.message);
+          if (!text) continue;
+          mensagens.push({
+            de: m.key?.fromMe ? "eu" : "contato",
+            quando: m.messageTimestamp ? new Date(Number(m.messageTimestamp) * 1e3).toISOString() : null,
+            texto: text
+          });
+        }
+        page++;
+      } while (page <= pages && page <= MAX_PAGES_PER_CHAT);
+      if (mensagens.length === 0) continue;
+      total += mensagens.length;
+      mensagens.sort((a, b) => String(a.quando).localeCompare(String(b.quando)));
+      conversas.push({ contato: jid, nome: chat.name || chat.pushName || "", mensagens });
+    }
+    current.chats = conversas.length;
+    current.messages = total;
+    current.file = JSON.stringify({ exportado_em: (/* @__PURE__ */ new Date()).toISOString(), conversas: conversas.length, mensagens: total, conversas_lista: conversas }, null, 2);
+    current.status = "ready";
+  } catch (err) {
+    current.status = "error";
+    current.error = String(err?.message || err).slice(0, 200);
+  }
+}
+function view(j) {
+  if (!j) return { status: "none" };
+  return {
+    status: j.status,
+    qr: j.qr || "",
+    pairingCode: j.pairingCode || "",
+    chats: j.chats ?? null,
+    messages: j.messages ?? null,
+    error: j.error || ""
+  };
+}
+async function handler19(req, res) {
+  if (job && Date.now() - job.startedAt > MAX_AGE_MS) await closeJob();
+  const url = new URL(req.url || "/", "http://localhost");
+  if (req.method === "GET" && url.searchParams.get("download") === "1") {
+    if (!job || job.status !== "ready" || !job.file) return res.status(404).json({ error: "Nada pronto para baixar." });
+    const file = job.file;
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Content-Disposition", 'attachment; filename="conversas-whatsapp.json"');
+    res.status(200).end(file);
+    await closeJob();
+    return;
+  }
+  try {
+    if (req.method === "GET") {
+      if (job && job.status === "waiting_qr") {
+        const st = await evo("GET", `/instance/connectionState/${encodeURIComponent(job.instance)}`);
+        if (st?.instance?.state === "open") job.status = "connected";
+      }
+      return res.status(200).json(view(job));
+    }
+    if (req.method === "POST") {
+      const body2 = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+      const action = String(body2.action || "");
+      if (action === "start") {
+        if (job) await closeJob();
+        const name = `export-${Date.now().toString(36)}`;
+        await evo("POST", "/instance/create", { instanceName: name, integration: "WHATSAPP-BAILEYS", qrcode: true });
+        const c = await evo("GET", `/instance/connect/${encodeURIComponent(name)}`);
+        const qr = c?.base64 || c?.qrcode?.base64 || "";
+        job = {
+          instance: name,
+          status: "waiting_qr",
+          qr: qr ? String(qr).startsWith("data:") ? String(qr) : `data:image/png;base64,${qr}` : "",
+          pairingCode: c?.pairingCode || c?.code || "",
+          startedAt: Date.now()
+        };
+        return res.status(200).json(view(job));
+      }
+      if (action === "build") {
+        if (!job || job.status !== "connected") return res.status(400).json({ error: "Conecte o WhatsApp primeiro." });
+        build();
+        return res.status(202).json(view(job));
+      }
+      if (action === "cancel") {
+        await closeJob();
+        return res.status(200).json({ status: "none" });
+      }
+      return res.status(400).json({ error: "A\xE7\xE3o inv\xE1lida." });
+    }
+    return res.status(405).json({ error: "Method Not Allowed" });
+  } catch (err) {
+    console.error("[Export] erro:", err?.message);
+    return res.status(500).json({ error: err?.message || "Falha na exporta\xE7\xE3o." });
+  }
+}
+
 // api/index.ts
 var PUBLIC_ROUTES = {
   "/api/login": handler11,
@@ -2946,7 +3104,8 @@ var PROTECTED_ROUTES = {
   "/api/export": handler15,
   "/api/ai-test": handler16,
   "/api/ai-models": handler17,
-  "/api/followups": handler18
+  "/api/followups": handler18,
+  "/api/personal-export": handler19
 };
 var PUBLIC_GET_ROUTES = {
   "/api/prospector": handler10
@@ -2958,7 +3117,7 @@ function match(table, urlPath) {
   }
   return null;
 }
-async function handler19(req, res) {
+async function handler20(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-hub-signature-256");
   if (req.method === "OPTIONS") {
@@ -3056,7 +3215,7 @@ var server = http.createServer(async (req, res) => {
         req.body = bodyData;
       }
       try {
-        await handler19(req, resCompat);
+        await handler20(req, resCompat);
       } catch (err) {
         console.error("[Server API Error]:", err);
         if (!res.writableEnded) {
