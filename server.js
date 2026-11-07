@@ -3216,31 +3216,38 @@ async function build() {
     const chats = Array.isArray(chatsRes) ? chatsRes : chatsRes?.chats || [];
     const conversas = [];
     let total = 0;
+    if (chats.length === 0) throw new Error("nenhuma conversa chegou desse n\xFAmero ainda. Desconecte e tente de novo, esperando uns minutos.");
     for (const chat of chats) {
       const jid = String(chat.remoteJid || chat.id || "");
       if (!jid || jid.endsWith("@g.us") || jid === "status@broadcast") continue;
       const mensagens = [];
       let page = 1;
       let pages = 1;
-      do {
-        const r = await retry(() => evo("POST", `/chat/findMessages/${encodeURIComponent(name)}`, { where: { key: { remoteJid: jid } }, page }, 12e4));
-        pages = r?.messages?.pages || 1;
-        for (const m of r?.messages?.records || []) {
-          const text = m.message?.audioMessage ? await audioText(name, m, budget) : textOf(m.message);
-          if (!text) continue;
-          mensagens.push({
-            de: m.key?.fromMe ? "eu" : "contato",
-            quando: m.messageTimestamp ? new Date(Number(m.messageTimestamp) * 1e3).toISOString() : null,
-            texto: text
-          });
-        }
-        page++;
-      } while (page <= pages && page <= MAX_PAGES_PER_CHAT);
+      try {
+        do {
+          const r = await retry(() => evo("POST", `/chat/findMessages/${encodeURIComponent(name)}`, { where: { key: { remoteJid: jid } }, page }, 12e4));
+          pages = r?.messages?.pages || 1;
+          for (const m of r?.messages?.records || []) {
+            const text = m.message?.audioMessage ? await audioText(name, m, budget) : textOf(m.message);
+            if (!text) continue;
+            mensagens.push({
+              de: m.key?.fromMe ? "eu" : "contato",
+              quando: m.messageTimestamp ? new Date(Number(m.messageTimestamp) * 1e3).toISOString() : null,
+              texto: text
+            });
+          }
+          page++;
+        } while (page <= pages && page <= MAX_PAGES_PER_CHAT);
+      } catch (err) {
+        console.error("[Export] conversa ignorada:", jid, err?.message);
+        continue;
+      }
       if (mensagens.length === 0) continue;
       total += mensagens.length;
       mensagens.sort((a, b) => String(a.quando).localeCompare(String(b.quando)));
       conversas.push({ contato: jid, nome: chat.name || chat.pushName || "", mensagens });
     }
+    if (total === 0) throw new Error("as conversas chegaram vazias. Desconecte e tente de novo.");
     current.chats = conversas.length;
     current.messages = total;
     current.file = JSON.stringify({ exportado_em: (/* @__PURE__ */ new Date()).toISOString(), conversas: conversas.length, mensagens: total, conversas_lista: conversas }, null, 2);
@@ -3291,7 +3298,7 @@ async function handler19(req, res) {
         }
         if (job) await closeJob();
         const name = `export-${Date.now().toString(36)}`;
-        await evo("POST", "/instance/create", { instanceName: name, integration: "WHATSAPP-BAILEYS", qrcode: !number, ...number ? { number } : {} });
+        await evo("POST", "/instance/create", { instanceName: name, integration: "WHATSAPP-BAILEYS", qrcode: !number, syncFullHistory: true, ...number ? { number } : {} });
         const c = await evo("GET", `/instance/connect/${encodeURIComponent(name)}${number ? `?number=${number}` : ""}`);
         const qr = c?.base64 || c?.qrcode?.base64 || "";
         job = {
