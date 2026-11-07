@@ -10,6 +10,7 @@ import campaignHandler from './_handlers/campaign';
 import evolutionWebhookHandler from './_handlers/evolution-webhook';
 import loginHandler from './_handlers/login';
 import learningsHandler from './_handlers/learnings';
+import knowledgeHandler from './_handlers/knowledge';
 import { isAuthorized } from './lib/auth';
 
 type Handler = (req: any, res: any) => Promise<any> | any;
@@ -35,6 +36,7 @@ const PROTECTED_ROUTES: Record<string, Handler> = {
   '/api/pairing': pairingHandler,
   '/api/campaign': campaignHandler,
   '/api/learnings': learningsHandler,
+  '/api/knowledge': knowledgeHandler,
 };
 
 // Stats do agente: só GET e sem dado pessoal (contagens). Pode ser público.

@@ -383,6 +383,33 @@ export const db = {
     return { success: true, deletedCount };
   },
 
+  // --- Base de conhecimento (documentos que a IA lê) ---
+  async listKnowledge(): Promise<{ id: number; title: string; content: string; active: boolean; created_at: string }[]> {
+    const res = await supabase().from('knowledge_docs').select('id, title, content, active, created_at').order('created_at', { ascending: false });
+    return mustOk(res, 'listKnowledge') || [];
+  },
+
+  async getActiveKnowledge(): Promise<{ title: string; content: string }[]> {
+    const res = await supabase().from('knowledge_docs').select('title, content').eq('active', true).order('created_at', { ascending: true });
+    if (res.error) throw new Error(res.error.message);
+    return res.data || [];
+  },
+
+  async saveKnowledge(title: string, content: string): Promise<void> {
+    const res = await supabase().from('knowledge_docs').insert({ title, content, active: true, updated_at: new Date().toISOString() });
+    mustOk(res, 'saveKnowledge');
+  },
+
+  async setKnowledgeActive(id: number, active: boolean): Promise<void> {
+    const res = await supabase().from('knowledge_docs').update({ active, updated_at: new Date().toISOString() }).eq('id', id);
+    mustOk(res, 'setKnowledgeActive');
+  },
+
+  async deleteKnowledge(id: number): Promise<void> {
+    const res = await supabase().from('knowledge_docs').delete().eq('id', id);
+    mustOk(res, 'deleteKnowledge');
+  },
+
   // --- Uso da IA (cota) — grava sem gerar log de auditoria a cada chamada ---
   async saveAiUsage(patch: Partial<Pick<AppConfig, 'aiUsageDay' | 'aiUsageCount' | 'aiPausedUntil'>>): Promise<void> {
     await ensureConfigLoaded();

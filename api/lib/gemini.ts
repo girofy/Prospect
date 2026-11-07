@@ -49,23 +49,40 @@ REGRAS FIXAS:
 - Não invente preço, prazo, cliente ou resultado. Se não souber, diga que o César confirma.
 `;
 
-const KNOWLEDGE_MAX_CHARS = 12000;
+const KNOWLEDGE_MAX_CHARS = 30000; // ~8k tokens por mensagem; ajuste se a cota gratuita apertar
 
-// Lê a base de conhecimento (todos os .md em knowledge/). Lido a cada chamada.
-export function loadKnowledge(): string {
+// Base de conhecimento = documentos do painel (banco, ativos) + arquivos .md da pasta knowledge/ do repo.
+// Lido com cache de 60 s para não consultar o banco a cada mensagem.
+let knowledgeCache: { at: number; text: string } | null = null;
+
+export async function loadKnowledge(): Promise<string> {
+  if (knowledgeCache && Date.now() - knowledgeCache.at < 60_000) return knowledgeCache.text;
+
+  let out = '';
+  try {
+    const docs = await db.getActiveKnowledge();
+    for (const d of docs) out += `\n\n# ${d.title}\n${d.content}`;
+  } catch (err) {
+    console.warn('[Knowledge] falha ao ler documentos do banco:', err);
+  }
   try {
     const dir = path.resolve(process.cwd(), 'knowledge');
-    if (!fs.existsSync(dir)) return '';
-    const files = fs.readdirSync(dir).filter(f => f.toLowerCase().endsWith('.md')).sort();
-    let out = '';
-    for (const f of files) {
-      out += `\n\n# ${f}\n${fs.readFileSync(path.join(dir, f), 'utf-8')}`;
+    if (fs.existsSync(dir)) {
+      const files = fs.readdirSync(dir).filter(f => f.toLowerCase().endsWith('.md')).sort();
+      for (const f of files) out += `\n\n# ${f}\n${fs.readFileSync(path.join(dir, f), 'utf-8')}`;
     }
-    return out.slice(0, KNOWLEDGE_MAX_CHARS).trim();
   } catch (err) {
     console.warn('[Knowledge] falha ao ler knowledge/:', err);
-    return '';
   }
+
+  const text = out.slice(0, KNOWLEDGE_MAX_CHARS).trim();
+  knowledgeCache = { at: Date.now(), text };
+  return text;
+}
+
+// Chamado pelo painel ao salvar conhecimento, para a IA usar já na próxima mensagem.
+export function clearKnowledgeCache() {
+  knowledgeCache = null;
 }
 
 export interface IncomingMedia {
@@ -139,7 +156,7 @@ export async function generateGirofyCommercialReply(
       })
       .join('\n');
 
-    const knowledge = loadKnowledge();
+    const knowledge = await loadKnowledge();
     const learnings = await db.getTopLearnings(8);
 
     const promptText = `
