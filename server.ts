@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import apiHandler from './api/index';
 import { startProspector } from './api/lib/prospector';
+import { startLearning } from './api/lib/learning';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -116,4 +117,5 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`[Prospectfy Production Server] running on http://0.0.0.0:${PORT}`);
   startProspector();
+  startLearning();
 });

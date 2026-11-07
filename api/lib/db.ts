@@ -19,6 +19,9 @@ export interface AppConfig {
   directPairingConnectedAt?: string;
   prospectDay?: string; // dia (America/Bahia) da contagem de abordagens
   prospectSentToday?: number;
+  aiUsageDay?: string; // dia da contagem de chamadas da IA (cota gratuita)
+  aiUsageCount?: number;
+  aiPausedUntil?: string; // ISO: IA pausada até (após erro de cota)
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -378,6 +381,48 @@ export const db = {
     });
 
     return { success: true, deletedCount };
+  },
+
+  // --- Uso da IA (cota) — grava sem gerar log de auditoria a cada chamada ---
+  async saveAiUsage(patch: Partial<Pick<AppConfig, 'aiUsageDay' | 'aiUsageCount' | 'aiPausedUntil'>>): Promise<void> {
+    await ensureConfigLoaded();
+    const updated: AppConfig = { ...configCache, ...patch };
+    const res = await supabase().from('app_config').upsert({ id: true, data: updated }, { onConflict: 'id' });
+    if (res.error) console.warn('[DB] saveAiUsage:', res.error.message);
+    configCache = updated;
+  },
+
+  // --- Aprendizado: lições gravadas a partir de conversas encerradas ---
+  async saveLearning(l: { contactPhone: string; outcome: string; worked: string; failed: string; why: string; openerStyle?: string }): Promise<void> {
+    const res = await supabase().from('learnings').insert({
+      contact_phone: l.contactPhone,
+      outcome: l.outcome,
+      worked: l.worked,
+      failed: l.failed,
+      why: l.why,
+      opener_style: l.openerStyle ?? null,
+    });
+    if (res.error) console.warn('[DB] saveLearning:', res.error.message);
+  },
+
+  async getRecentLearnings(n: number): Promise<any[]> {
+    const res = await supabase().from('learnings').select('*').order('created_at', { ascending: false }).limit(n);
+    if (res.error || !res.data) return [];
+    return res.data;
+  },
+
+  // Telefones que já têm lição gravada desde uma data (evita aprender a mesma conversa duas vezes).
+  async getLearnedPhonesSince(sinceIso: string): Promise<Set<string>> {
+    const res = await supabase().from('learnings').select('contact_phone').gte('created_at', sinceIso);
+    if (res.error || !res.data) return new Set();
+    return new Set(res.data.map((r: any) => r.contact_phone).filter(Boolean));
+  },
+
+  // Lições mais recentes em forma de frase, para o prompt. Se a tabela ainda não existir, devolve [].
+  async getTopLearnings(n: number): Promise<string[]> {
+    const res = await supabase().from('learnings').select('outcome, worked, failed, why').order('created_at', { ascending: false }).limit(n);
+    if (res.error || !res.data) return [];
+    return res.data.map((r: any) => `[${r.outcome}] funcionou: ${r.worked || '-'} | não funcionou: ${r.failed || '-'} | porquê: ${r.why || '-'}`);
   },
 
   // --- Dynamic App Configuration ---

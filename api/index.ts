@@ -7,30 +7,51 @@ import auditLogsHandler from './_handlers/audit-logs';
 import configHandler from './_handlers/config';
 import pairingHandler from './_handlers/pairing';
 import campaignHandler from './_handlers/campaign';
-import evolutionProxyHandler from './_handlers/evolution-proxy';
 import evolutionWebhookHandler from './_handlers/evolution-webhook';
+import loginHandler from './_handlers/login';
+import learningsHandler from './_handlers/learnings';
+import { isAuthorized } from './lib/auth';
 
-const handlers: Record<string, (req: any, res: any) => Promise<any> | any> = {
+type Handler = (req: any, res: any) => Promise<any> | any;
+
+// Rotas públicas: cada uma tem a própria proteção (token do webhook, assinatura Meta, ou pedido LGPD).
+const PUBLIC_ROUTES: Record<string, Handler> = {
+  '/api/login': loginHandler,
   '/api/evolution/webhook': evolutionWebhookHandler,
-  '/api/prospector': evolutionWebhookHandler, // GET = stats do agente (fila, enviados hoje, respostas)
   '/api/webhook': webhookHandler,
+  '/api/data-deletion': dataDeletionHandler,
+};
+
+// Rotas do painel: exigem login. Sem ADMIN_PASSWORD configurado, ninguém entra.
+const PROTECTED_ROUTES: Record<string, Handler> = {
   '/api/contacts': contactsHandler,
   '/api/contacts/create': contactsHandler,
   '/api/contacts/update-agent': contactsHandler,
   '/api/messages': messagesHandler,
   '/api/messages/send': messagesHandler,
   '/api/whatsapp-status': whatsappStatusHandler,
-  '/api/data-deletion': dataDeletionHandler,
   '/api/audit-logs': auditLogsHandler,
   '/api/config': configHandler,
   '/api/pairing': pairingHandler,
   '/api/campaign': campaignHandler,
-  '/api/evolution/proxy': evolutionProxyHandler,
+  '/api/learnings': learningsHandler,
 };
 
+// Stats do agente: só GET e sem dado pessoal (contagens). Pode ser público.
+const PUBLIC_GET_ROUTES: Record<string, Handler> = {
+  '/api/prospector': evolutionWebhookHandler,
+};
+
+function match(table: Record<string, Handler>, urlPath: string): Handler | null {
+  if (table[urlPath]) return table[urlPath];
+  for (const [route, fn] of Object.entries(table)) {
+    if (urlPath.startsWith(`${route}/`)) return fn;
+  }
+  return null;
+}
+
 export default async function handler(req: any, res: any) {
-  // CORS setup
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // Mesma origem apenas: o painel é servido pelo próprio app. Sem CORS aberto.
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-hub-signature-256');
 
@@ -42,23 +63,21 @@ export default async function handler(req: any, res: any) {
   const pathname = rawUrl.split('?')[0];
   const urlPath = pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
 
-  // Route dispatching
-  const routeHandler = handlers[urlPath];
+  const pub = match(PUBLIC_ROUTES, urlPath);
+  if (pub) return pub(req, res);
 
-  if (routeHandler) {
-    return routeHandler(req, res);
+  if (req.method === 'GET') {
+    const pubGet = match(PUBLIC_GET_ROUTES, urlPath);
+    if (pubGet) return pubGet(req, res);
   }
 
-  // Prefix matching if exact match not found (e.g. /api/contacts/...)
-  for (const [route, fn] of Object.entries(handlers)) {
-    if (urlPath === route || urlPath.startsWith(`${route}/`)) {
-      return fn(req, res);
+  const prot = match(PROTECTED_ROUTES, urlPath);
+  if (prot) {
+    if (!isAuthorized(req)) {
+      return res.status(401).json({ error: 'Não autorizado. Faça login no painel.' });
     }
+    return prot(req, res);
   }
 
-  return res.status(404).json({
-    error: 'Endpoint não encontrado',
-    path: urlPath,
-    availableRoutes: Object.keys(handlers),
-  });
+  return res.status(404).json({ error: 'Endpoint não encontrado', path: urlPath });
 }
