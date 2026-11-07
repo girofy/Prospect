@@ -1,24 +1,48 @@
+import fs from 'fs';
+import path from 'path';
 import { GoogleGenAI } from '@google/genai';
 import { Contact, ChatMessage } from './types';
 import { db } from './db';
 
-// Girofy Commercial Knowledge & Authorized Parameters
+// Regras fixas do agente. Conhecimento do negócio entra pela pasta knowledge/ (arquivos .md).
 const GIROFY_SYSTEM_PROMPT = `
-Você é o Assistente Comercial da Girofy, agência de tecnologia, sites modernos e automações sob medida.
-Você atende contatos que responderam ao "Bom dia" ou à prospecção do proprietário da Girofy no WhatsApp.
+Você é o assistente de IA da Girofy, estúdio de engenharia digital que resolve problemas de negócio (sistemas, sites e automações).
+Você conversa por WhatsApp com negócios locais e regionais. O objetivo é entender a dor do negócio e marcar uma conversa curta de 15 minutos.
 
-DIRETRIZES DE CONVERSAÇÃO HUMANA (REGRA DE OURO):
-1. Fale EXATAMENTE como um ser humano digitando no WhatsApp do celular: direto, educado, natural e sem enrolação.
-2. LIMITE ESTRITO DE TAMANHO: Cada mensagem DEVE ter entre 10 e 15 palavras no máximo.
-3. NUNCA envie parágrafos longos, listas, tópicos ou frases corporativas artificiais.
-4. Envie 1 mensagem direta (ou no máximo 2 balões curtos e separados por quebra de linha).
-5. O foco é entender a dor da empresa e agendar uma conversa rápida de 15 minutos no Google Meet.
-6. Se perguntarem preço de Landing Page: "A partir de R$ 997, entregue pronta e rápida para gerar vendas."
-7. Se o contato pedir para falar com atendente ou humano, inclua a tag interna [TRANSF_HUMANO: motivo] e avise com gentileza.
+REGRAS DE CONVERSA:
+1. Escreva como gente no WhatsApp: curto, direto, sem enrolação e sem jargão.
+2. Cada mensagem tem no máximo 15 palavras. Se precisar, use no máximo 2 balões curtos.
+3. Nunca mande listas, tópicos ou parágrafos longos.
+4. Faça UMA pergunta por vez. Pergunte sobre a dor (como o cliente perde dinheiro ou tempo hoje), não sobre o produto.
+5. Não empurre preço cedo. Só fale valor quando perguntarem.
+6. IDENTIDADE: você é uma IA da Girofy. Se perguntarem se é robô ou IA, confirme com honestidade e diga que o César acompanha as conversas. Nunca diga que é humano.
+7. Se o contato pedir atendente ou humano, inclua a tag [TRANSF_HUMANO: motivo] e avise com gentileza.
+8. Se o contato pedir para parar, não insista.
+9. Não invente preço, prazo, cliente ou resultado. Se não souber, diga que o César confirma.
 `;
+
+const KNOWLEDGE_MAX_CHARS = 12000;
+
+// Lê a base de conhecimento (todos os .md em knowledge/). Lido a cada chamada, barato e sem cache.
+export function loadKnowledge(): string {
+  try {
+    const dir = path.resolve(process.cwd(), 'knowledge');
+    if (!fs.existsSync(dir)) return '';
+    const files = fs.readdirSync(dir).filter(f => f.toLowerCase().endsWith('.md')).sort();
+    let out = '';
+    for (const f of files) {
+      out += `\n\n# ${f}\n${fs.readFileSync(path.join(dir, f), 'utf-8')}`;
+    }
+    return out.slice(0, KNOWLEDGE_MAX_CHARS).trim();
+  } catch (err) {
+    console.warn('[Knowledge] falha ao ler knowledge/:', err);
+    return '';
+  }
+}
 
 export interface AiGenerationResult {
   replyText: string;
+  aiAvailable: boolean; // false = IA não rodou (sem chave ou erro). Nada deve ser enviado.
   transferToHuman: boolean;
   transferReason?: string;
   isMeetingRequested?: boolean;
@@ -29,43 +53,43 @@ export async function generateGirofyCommercialReply(
   incomingText: string,
   history: ChatMessage[]
 ): Promise<AiGenerationResult> {
-  const dynamicConfig = db.getConfigSync();
-  const apiKey = (dynamicConfig.geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
+  const unavailable: AiGenerationResult = { replyText: '', aiAvailable: false, transferToHuman: false };
 
-  // Fallback if Gemini key is not yet set in environment
+  const dynamicConfig = await db.getConfig();
+  const apiKey = (dynamicConfig.geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
   if (!apiKey) {
-    const firstName = contact.name ? contact.name.split(' ')[0] : 'tudo bem';
-    return {
-      replyText: `Olá, ${firstName}! Obrigado pelo retorno. Posso te apresentar brevemente nossas soluções para a ${contact.company || 'sua empresa'} ou prefere alinharmos 15 min no Meet?`,
-      transferToHuman: false,
-    };
+    console.error('[Gemini] GEMINI_API_KEY não configurada: resposta não enviada.');
+    return unavailable;
   }
 
   try {
     const ai = new GoogleGenAI({ apiKey });
 
     const recentHistory = history
-      .slice(-6)
-      .map(m => `${m.from === 'bot' ? 'Girofy (Você)' : m.from === 'operator' ? 'Atendente Humano' : contact.name || 'Cliente'}: ${m.text}`)
+      .slice(-12)
+      .map(m => {
+        const who = m.from === 'bot' ? 'Assistente Girofy' : m.from === 'operator' ? 'César (humano)' : contact.name || 'Contato';
+        return `${who}: ${m.text}`;
+      })
       .join('\n');
+
+    const knowledge = loadKnowledge();
 
     const prompt = `
 ${GIROFY_SYSTEM_PROMPT}
-
+${knowledge ? `\nBASE DE CONHECIMENTO DA GIROFY:\n${knowledge}\n` : ''}
 DADOS DO CONTATO:
 - Nome: ${contact.name || 'Não informado'}
-- Empresa: ${contact.company || 'Não informada'}
-- Nicho: ${contact.niche || 'Geral'}
-- Papel: ${contact.role || 'decisor'}
-- Status Atual: ${contact.status}
+- Empresa: ${contact.company && contact.company !== 'Em qualificação' ? contact.company : 'Não informada'}
+- Status: ${contact.status}
 
-HISTÓRICO RECENTE DA CONVERSA:
+HISTÓRICO RECENTE (inclui mensagens que o César mandou pessoalmente; respeite o que ele já disse):
 ${recentHistory || '(Sem histórico anterior)'}
 
-NOVA MENSAGEM RECEBIDA DO CONTATO:
+NOVA MENSAGEM DO CONTATO:
 "${incomingText}"
 
-Gere a resposta ideal para o WhatsApp:
+Gere só o texto da próxima mensagem para o WhatsApp:
 `;
 
     const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
@@ -73,14 +97,13 @@ Gere a resposta ideal para o WhatsApp:
       model: modelName,
       contents: prompt,
       config: {
-        temperature: 0.4,
-        maxOutputTokens: 100,
+        temperature: 0.5,
+        maxOutputTokens: 120,
       },
     });
 
     let rawText = response.text ? response.text.trim() : '';
 
-    // Check for human transfer trigger tag
     let transferToHuman = false;
     let transferReason: string | undefined;
 
@@ -91,30 +114,28 @@ Gere a resposta ideal para o WhatsApp:
       rawText = rawText.replace(/\[TRANSF_HUMANO:[^\]]+\]/gi, '').trim();
     }
 
-    // Direct detection of explicit human requests
     const directHumanPattern = /(falar com (humano|atendente|pessoa|alguém|proprietário|responsável)|me liga|passa para humano)/i;
     if (directHumanPattern.test(incomingText)) {
       transferToHuman = true;
       transferReason = 'Pedido explícito de atendimento humano pelo cliente';
-      if (!rawText || !rawText.toLowerCase().includes('humano')) {
-        rawText = 'Com certeza! Já estou transferindo nossa conversa para o nosso especialista humano da Girofy assumir agora mesmo. Um instante.';
+      if (!rawText) {
+        rawText = 'Com certeza! Vou passar para o César te responder pessoalmente. Um instante.';
       }
     }
 
-    const isMeetingRequested = /meet\.google\.com|reunião|amanhã às|alinhamento de 15/i.test(rawText);
+    if (!rawText) return unavailable;
+
+    const isMeetingRequested = /meet\.google\.com|reunião|alinhamento de 15|15 min/i.test(rawText);
 
     return {
-      replyText: rawText || 'Perfeito! Você teria disponibilidade amanhã para conversarmos 15 minutos no Google Meet?',
+      replyText: rawText,
+      aiAvailable: true,
       transferToHuman,
       transferReason,
       isMeetingRequested,
     };
   } catch (err: any) {
     console.error('[Gemini AI Server Error]:', err?.message);
-    const firstName = contact.name ? contact.name.split(' ')[0] : '';
-    return {
-      replyText: `Olá${firstName ? ` ${firstName}` : ''}! Recebemos sua mensagem e já vamos te responder com mais detalhes. Se preferir, qual o melhor horário amanhã para um diagnóstico rápido?`,
-      transferToHuman: false,
-    };
+    return unavailable;
   }
 }

@@ -14,13 +14,10 @@ export default async function handler(req: any, res: any) {
   try {
     if (req.method === 'GET') {
       const contacts = await db.getContacts();
-      const messages = await db.getMessages();
+      const repliedPhones = await db.getRepliedPhones();
 
       const microDispatched = contacts.filter(c => c.status === 'em_conversa' || c.status === 'novo' || c.status === 'qualificado');
-      const responded = microDispatched.filter(c => {
-        const msgs = messages.filter(m => m.contactPhone === c.phone);
-        return msgs.some(m => m.from === 'lead');
-      });
+      const responded = microDispatched.filter(c => repliedPhones.has(c.phone));
 
       return res.status(200).json({
         totalContacts: contacts.length,

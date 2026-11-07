@@ -30,16 +30,25 @@ function bahiaNow(d = new Date()) {
 
 const rand = (min: number, max: number) => min + Math.random() * (max - min);
 
-function firstNameOf(contact: Contact): string | null {
-  const name = (contact.name || '').trim();
-  if (!name || /^contato\s/i.test(name)) return null;
-  return name.split(' ')[0];
+// Palavras que denunciam nome comercial/genérico: nesses casos NÃO usa nome nenhum.
+const BUSINESS_WORDS = /(ltda|\bme\b|eireli|restaurante|pizza|burger|barbearia|festas?|buffet|loja|mercado|mec[aâ]nica|oficina|cl[ií]nica|studio|est[uú]dio|empresa|com[eé]rcio|constru|imobili|hotel|pousada|lanchonete|padaria|academia|sal[aã]o|distribuidora|contab|advoc|escola|farm[aá]cia|auto|motos?|tech|digital|girofy|lead|contato|cliente|servi[cç]os?|solu[cç][oõ]es|atacado|varejo|bar\b|a[cç]ougue|pet|the\b)/i;
+
+// Só usa nome se parecer nome de pessoa: 1 a 2 palavras, só letras, sem palavra de empresa.
+export function personFirstName(name: string | undefined | null): string | null {
+  const n = (name || '').trim();
+  if (!n || n.length > 30) return null;
+  if (BUSINESS_WORDS.test(n)) return null;
+  if (!/^[A-Za-zÀ-ú]+( [A-Za-zÀ-ú]+)?$/.test(n)) return null;
+  const first = n.split(' ')[0];
+  if (first !== first[0].toUpperCase() + first.slice(1).toLowerCase() && first.toUpperCase() === first) return null; // CAIXA ALTA = empresa
+  return first;
 }
 
+// Abertura: só "Bom dia" ou "Boa tarde" + nome, sem "tudo bem" e sem nome comercial.
 export function buildOpener(contact: Contact, hour: number): string {
   const greeting = hour < 12 ? 'Bom dia' : 'Boa tarde';
-  const first = firstNameOf(contact);
-  return first ? `${greeting}, ${first}! Tudo bem?` : `${greeting}! Tudo bem?`;
+  const first = personFirstName(contact.name);
+  return first ? `${greeting}, ${first}!` : `${greeting}!`;
 }
 
 function isEligible(c: Contact): boolean {
@@ -56,9 +65,7 @@ export async function getProspectStats() {
   const cfg = await db.getConfig();
   const { day, hour } = bahiaNow();
   const sentToday = cfg.prospectDay === day ? cfg.prospectSentToday || 0 : 0;
-  const repliedPhones = new Set(
-    (await db.getMessages()).filter(m => m.from === 'lead').map(m => m.contactPhone)
-  );
+  const repliedPhones = await db.getRepliedPhones();
   return {
     enabled: process.env.PROSPECTOR_ENABLED !== 'false',
     evolutionConfigured: !!getEvolutionCfg(),
@@ -110,6 +117,7 @@ async function tick() {
     }
 
     nextAt = Date.now() + rand(MIN_GAP_S, MAX_GAP_S) * 1000;
+    if (res.messageId) await db.markMessageAsProcessed(res.messageId); // eco do envio não vira "mensagem manual"
 
     const now = new Date().toISOString();
     await db.saveMessage({
