@@ -8,8 +8,11 @@ import configHandler from './_handlers/config';
 import pairingHandler from './_handlers/pairing';
 import campaignHandler from './_handlers/campaign';
 import evolutionProxyHandler from './_handlers/evolution-proxy';
+import evolutionWebhookHandler from './_handlers/evolution-webhook';
 
 const handlers: Record<string, (req: any, res: any) => Promise<any> | any> = {
+  '/api/evolution/webhook': evolutionWebhookHandler,
+  '/api/prospector': evolutionWebhookHandler, // GET = stats do agente (fila, enviados hoje, respostas)
   '/api/webhook': webhookHandler,
   '/api/contacts': contactsHandler,
   '/api/contacts/create': contactsHandler,
