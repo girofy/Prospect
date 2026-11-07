@@ -3260,10 +3260,14 @@ async function handler19(req, res) {
       const body2 = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
       const action = String(body2.action || "");
       if (action === "start") {
+        const number = String(body2.number || "").replace(/\D/g, "");
+        if (number && !/^55[1-9][1-9](9\d{8}|[2-5]\d{7})$/.test(number)) {
+          return res.status(400).json({ error: "N\xFAmero inv\xE1lido. Use 55, DDD e n\xFAmero, ex.: 5574981017188." });
+        }
         if (job) await closeJob();
         const name = `export-${Date.now().toString(36)}`;
-        await evo("POST", "/instance/create", { instanceName: name, integration: "WHATSAPP-BAILEYS", qrcode: true });
-        const c = await evo("GET", `/instance/connect/${encodeURIComponent(name)}`);
+        await evo("POST", "/instance/create", { instanceName: name, integration: "WHATSAPP-BAILEYS", qrcode: !number, ...number ? { number } : {} });
+        const c = await evo("GET", `/instance/connect/${encodeURIComponent(name)}${number ? `?number=${number}` : ""}`);
         const qr = c?.base64 || c?.qrcode?.base64 || "";
         job = {
           instance: name,

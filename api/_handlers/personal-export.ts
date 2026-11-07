@@ -164,10 +164,15 @@ export default async function handler(req: any, res: any) {
       const action = String(body.action || '');
 
       if (action === 'start') {
+        // Pareamento por CÓDIGO no número informado (é como o celular cola o código). Sem número, cai no QR.
+        const number = String(body.number || '').replace(/\D/g, '');
+        if (number && !/^55[1-9][1-9](9\d{8}|[2-5]\d{7})$/.test(number)) {
+          return res.status(400).json({ error: 'Número inválido. Use 55, DDD e número, ex.: 5574981017188.' });
+        }
         if (job) await closeJob();
         const name = `export-${Date.now().toString(36)}`;
-        await evo('POST', '/instance/create', { instanceName: name, integration: 'WHATSAPP-BAILEYS', qrcode: true });
-        const c = await evo('GET', `/instance/connect/${encodeURIComponent(name)}`);
+        await evo('POST', '/instance/create', { instanceName: name, integration: 'WHATSAPP-BAILEYS', qrcode: !number, ...(number ? { number } : {}) });
+        const c = await evo('GET', `/instance/connect/${encodeURIComponent(name)}${number ? `?number=${number}` : ''}`);
         const qr = c?.base64 || c?.qrcode?.base64 || '';
         job = {
           instance: name,
