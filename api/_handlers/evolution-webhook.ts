@@ -12,15 +12,15 @@ function extractText(message: any): string | null {
   if (!message) return null;
   if (message.conversation) return String(message.conversation).trim();
   if (message.extendedTextMessage?.text) return String(message.extendedTextMessage.text).trim();
-  if (message.audioMessage) return '[Áudio recebido do contato]';
+  if (message.audioMessage) return '[Áudio recebido do contato: peça para escrever ou para marcar 15 min]';
   if (message.imageMessage) return message.imageMessage.caption ? `[Imagem: ${message.imageMessage.caption}]` : '[Imagem recebida]';
   if (message.documentMessage) return '[Documento recebido]';
-  return '[Mensagem recebida de tipo não suportado]';
+  return null;
 }
 
 async function handleUpsert(d: any) {
   const key = d?.key;
-  if (!key || key.fromMe) return;
+  if (!key) return;
 
   const jid = String(key.remoteJid || '');
   if (!jid || jid.endsWith('@g.us') || jid === 'status@broadcast') return; // ignora grupos e status
@@ -33,11 +33,26 @@ async function handleUpsert(d: any) {
 
   const phone = formatPhoneNumber(sourceJid.split('@')[0]);
   const msgId = String(key.id || '');
-  if (!msgId || (await db.hasProcessedMessage(msgId))) return;
+  if (!msgId || (await db.hasProcessedMessage(msgId))) return; // já tratada (inclui eco das mensagens do bot)
   await db.markMessageAsProcessed(msgId);
 
   const text = extractText(d.message);
   if (!text) return;
+
+  // Mensagem que VOCÊ mandou pelo celular: entra no histórico como humano, a IA não responde a ela.
+  if (key.fromMe) {
+    await db.saveMessage({
+      id: `op-${msgId}`,
+      contactPhone: phone,
+      from: 'operator',
+      text,
+      type: 'text',
+      timestamp: new Date().toISOString(),
+      metaMessageId: msgId,
+      status: 'sent',
+    } as ChatMessage);
+    return;
+  }
 
   // Histórico ANTES de salvar a mensagem atual (evita duplicar no prompt da IA)
   const history = await db.getMessages(phone);
@@ -92,6 +107,13 @@ async function handleUpsert(d: any) {
 
   const ai = await generateGirofyCommercialReply(contact, text, history);
 
+  if (!ai.aiAvailable) {
+    // IA não rodou: não manda nada improvisado. Fica sinalizado para você responder.
+    await db.saveContact({ ...contact, status: 'aguardando_humano', lastInteractionAt: now });
+    await db.addAuditLog({ type: 'error', phone, summary: `IA indisponível: ${phone} aguardando resposta sua.` });
+    return;
+  }
+
   if (ai.transferToHuman) {
     await db.saveContact({ ...contact, agentState: 'human_takeover', status: 'aguardando_humano', lastInteractionAt: now });
     await db.addAuditLog({
@@ -106,6 +128,7 @@ async function handleUpsert(d: any) {
   // Envio real pela Evolution, com presença "digitando" de 3s
   const send = await sendEvolutionText(phone, ai.replyText, 3000);
   if (send.success) {
+    if (send.messageId) await db.markMessageAsProcessed(send.messageId); // eco do envio não vira "manual"
     await db.saveMessage({
       id: `out-${send.messageId || Date.now()}`,
       contactPhone: phone,

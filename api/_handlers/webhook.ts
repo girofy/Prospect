@@ -254,6 +254,7 @@ export default async function handler(req: any, res: any) {
               }
 
               const aiResult = await generateGirofyCommercialReply(contact, promptText, history);
+              if (!aiResult.aiAvailable) continue; // IA indisponível: não envia texto improvisado
 
               // Se a IA identificou necessidade de transferência para atendente humano
               if (aiResult.transferToHuman) {
