@@ -92,13 +92,21 @@ NOVA MENSAGEM DO CONTATO:
 Gere só o texto da próxima mensagem para o WhatsApp:
 `;
 
-    const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    // gemini-2.5-flash foi descontinuado (404 "no longer available to new users").
+    // gemini-3.8-flash existe mas, em teste direto no SDK, voltou 503 "alta
+    // demanda" de forma consistente — usar 3.6-flash até a Google estabilizar
+    // o 3.8 (trocar via variável de ambiente GEMINI_MODEL quando resolver).
+    // Modelos 3.x "pensam" antes de responder e consomem maxOutputTokens nisso;
+    // thinkingBudget: 0 desliga esse raciocínio interno, que não serve pra uma
+    // resposta curta de WhatsApp e, sem isso, pode sair vazia.
+    const modelName = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
     const response = await ai.models.generateContent({
       model: modelName,
       contents: prompt,
       config: {
         temperature: 0.5,
-        maxOutputTokens: 120,
+        maxOutputTokens: 150,
+        thinkingConfig: { thinkingBudget: 0 },
       },
     });
 

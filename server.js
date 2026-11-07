@@ -599,13 +599,14 @@ NOVA MENSAGEM DO CONTATO:
 
 Gere s\xF3 o texto da pr\xF3xima mensagem para o WhatsApp:
 `;
-    const modelName = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    const modelName = process.env.GEMINI_MODEL || "gemini-3.6-flash";
     const response = await ai.models.generateContent({
       model: modelName,
       contents: prompt,
       config: {
         temperature: 0.5,
-        maxOutputTokens: 120
+        maxOutputTokens: 150,
+        thinkingConfig: { thinkingBudget: 0 }
       }
     });
     let rawText = response.text ? response.text.trim() : "";
