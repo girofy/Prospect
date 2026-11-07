@@ -22,6 +22,9 @@ export interface AppConfig {
   aiUsageDay?: string; // dia da contagem de chamadas da IA (cota gratuita)
   aiUsageCount?: number;
   aiPausedUntil?: string; // ISO: IA pausada até (após erro de cota)
+  aiPausedModels?: Record<string, string>; // 'provedor:modelo' -> ISO até quando pausado
+  aiChain?: { provider: 'gemini' | 'groq'; model: string }[]; // ordem de uso dos modelos
+  groqApiKey?: string;
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -411,7 +414,7 @@ export const db = {
   },
 
   // --- Uso da IA (cota) — grava sem gerar log de auditoria a cada chamada ---
-  async saveAiUsage(patch: Partial<Pick<AppConfig, 'aiUsageDay' | 'aiUsageCount' | 'aiPausedUntil'>>): Promise<void> {
+  async saveAiUsage(patch: Partial<Pick<AppConfig, 'aiUsageDay' | 'aiUsageCount' | 'aiPausedUntil' | 'aiPausedModels'>>): Promise<void> {
     await ensureConfigLoaded();
     const updated: AppConfig = { ...configCache, ...patch };
     const res = await supabase().from('app_config').upsert({ id: true, data: updated }, { onConflict: 'id' });

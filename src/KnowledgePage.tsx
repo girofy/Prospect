@@ -30,6 +30,101 @@ async function downloadExport(format: 'csv' | 'json') {
   URL.revokeObjectURL(a.href);
 }
 
+type ChainItem = {provider: 'gemini' | 'groq'; model: string};
+
+// Cartão "Modelos de IA": ordem de uso dos modelos (cada um com cota grátis própria) e a chave do Groq.
+function ModelsCard() {
+  const [chain, setChain] = useState<ChainItem[]>([]);
+  const [groqKey, setGroqKey] = useState('');
+  const [groqMasked, setGroqMasked] = useState('');
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    try {
+      const r = await fetch('/api/config');
+      const j = await r.json();
+      setChain(j.aiChain && j.aiChain.length ? j.aiChain : [{provider: 'gemini', model: j.geminiModel || 'gemini-3.6-flash'}]);
+      setGroqMasked(j.groqApiKeyMasked || '');
+    } catch {
+      setMsg('Sem conexão com o servidor.');
+    }
+  };
+  useEffect(() => {
+    load();
+  }, []);
+
+  const move = (i: number, d: number) => {
+    const c = [...chain];
+    const j = i + d;
+    if (j < 0 || j >= c.length) return;
+    [c[i], c[j]] = [c[j], c[i]];
+    setChain(c);
+  };
+  const update = (i: number, patch: Partial<ChainItem>) => setChain(chain.map((x, k) => (k === i ? {...x, ...patch} : x)));
+  const remove = (i: number) => setChain(chain.filter((_, k) => k !== i));
+  const add = () => setChain([...chain, {provider: 'groq', model: 'llama-3.3-70b-versatile'}]);
+
+  const save = async () => {
+    setBusy(true);
+    setMsg('');
+    const body: any = {aiChain: chain};
+    if (groqKey.trim()) body.groqApiKey = groqKey.trim();
+    try {
+      const r = await fetch('/api/config', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+      const j = await r.json();
+      if (r.ok) {
+        setMsg('Salvo. Vale na próxima mensagem.');
+        setGroqKey('');
+        await load();
+      } else {
+        setMsg(j.error || 'Não salvou.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const rowStyle: CSSProperties = {display: 'grid', gridTemplateColumns: '120px 1fr auto', gap: 8, alignItems: 'center'};
+  return (
+    <div style={card}>
+      <h2 style={{fontSize: 17, margin: '0 0 4px'}}>Modelos de IA</h2>
+      <p style={{margin: '0 0 12px', fontSize: 13, color: '#667'}}>
+        A IA usa o primeiro modelo da lista. Quando a cota grátis dele acaba, passa para o próximo. Cada um tem cota própria.
+      </p>
+      <div style={{display: 'grid', gap: 8}}>
+        {chain.map((it, i) => (
+          <div key={i} style={rowStyle}>
+            <select value={it.provider} onChange={e => update(i, {provider: e.target.value as ChainItem['provider']})} style={{...input, padding: '8px 10px'}}>
+              <option value="gemini">Gemini</option>
+              <option value="groq">Groq</option>
+            </select>
+            <input style={{...input, padding: '8px 10px'}} value={it.model} onChange={e => update(i, {model: e.target.value})} />
+            <div style={{display: 'flex', gap: 4}}>
+              <button style={ghost} onClick={() => move(i, -1)} aria-label="subir">↑</button>
+              <button style={ghost} onClick={() => move(i, 1)} aria-label="descer">↓</button>
+              <button style={danger} onClick={() => remove(i)} aria-label="remover">✕</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap'}}>
+        <button style={ghost} onClick={add}>+ Adicionar modelo</button>
+      </div>
+
+      <div style={{marginTop: 16, display: 'grid', gap: 8}}>
+        <label style={{fontSize: 13, color: '#667'}}>Chave do Groq (grátis em console.groq.com){groqMasked ? ` · salva: ${groqMasked}` : ''}</label>
+        <input type="password" style={input} placeholder={groqMasked ? 'Deixe em branco para manter a atual' : 'Cole a chave do Groq'} value={groqKey} onChange={e => setGroqKey(e.target.value)} />
+      </div>
+
+      <div style={{display: 'flex', gap: 10, alignItems: 'center', marginTop: 14, flexWrap: 'wrap'}}>
+        <button style={btn} onClick={save} disabled={busy || chain.length === 0}>{busy ? 'Salvando…' : 'Salvar modelos'}</button>
+        {msg && <span style={{fontSize: 14, color: msg.startsWith('Salvo') ? '#1a7f37' : '#b42318'}}>{msg}</span>}
+      </div>
+    </div>
+  );
+}
+
 // Dashboard de conversas: calculado no banco (sem IA, sem cota).
 function MetricsBlock() {
   const [m, setM] = useState<any>(null);
@@ -192,6 +287,8 @@ export default function KnowledgeSection() {
   return (
     <div style={{fontFamily: 'system-ui, sans-serif', color: '#1d1d1f'}}>
       <div>
+        <ModelsCard />
+
 
         <div style={card}>
           <h2 style={{fontSize: 17, margin: '0 0 4px'}}>Base de conhecimento</h2>
