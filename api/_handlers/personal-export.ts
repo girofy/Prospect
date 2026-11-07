@@ -22,14 +22,14 @@ const MAX_AGE_MS = 60 * 60_000;
 const MAX_PAGES_PER_CHAT = 50;
 const MAX_AUDIOS = 80; // teto de áudios transcritos por exportação (cota gratuita do Whisper)
 
-async function evo(method: string, path: string, body?: unknown): Promise<any> {
+async function evo(method: string, path: string, body?: unknown, timeoutMs = 90_000): Promise<any> {
   const cfg = getEvolutionCfg();
   if (!cfg) throw new Error('Evolution não configurada no servidor.');
   const res = await fetch(`${cfg.url}${path}`, {
     method,
     headers: { 'Content-Type': 'application/json', apikey: cfg.apiKey },
     body: body === undefined ? undefined : JSON.stringify(body),
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const text = await res.text();
   let json: any = null;
@@ -39,6 +39,15 @@ async function evo(method: string, path: string, body?: unknown): Promise<any> {
 }
 
 // Encerra a conexão do WhatsApp e apaga a instância temporária. Tenta sempre, mesmo se der erro antes.
+// Uma conexão nova demora para sincronizar os chats: tenta de novo antes de desistir.
+async function retry<T>(fn: () => Promise<T>, tries = 3): Promise<T> {
+  let last: any;
+  for (let i = 0; i < tries; i++) {
+    try { return await fn(); } catch (err: any) { last = err; await new Promise(r => setTimeout(r, 3000 * (i + 1))); }
+  }
+  throw last;
+}
+
 async function closeJob(): Promise<void> {
   if (!job) return;
   const name = job.instance;
@@ -82,7 +91,7 @@ async function build(): Promise<void> {
   current.status = 'building';
   try {
     const name = current.instance;
-    const chatsRes = await evo('POST', `/chat/findChats/${encodeURIComponent(name)}`, {});
+    const chatsRes = await retry(() => evo('POST', `/chat/findChats/${encodeURIComponent(name)}`, {}, 180_000));
     const chats: any[] = Array.isArray(chatsRes) ? chatsRes : chatsRes?.chats || [];
     const conversas: any[] = [];
     let total = 0;
@@ -94,7 +103,7 @@ async function build(): Promise<void> {
       let page = 1;
       let pages = 1;
       do {
-        const r = await evo('POST', `/chat/findMessages/${encodeURIComponent(name)}`, { where: { key: { remoteJid: jid } }, page });
+        const r = await retry(() => evo('POST', `/chat/findMessages/${encodeURIComponent(name)}`, { where: { key: { remoteJid: jid } }, page }, 120_000));
         pages = r?.messages?.pages || 1;
         for (const m of r?.messages?.records || []) {
           const text = m.message?.audioMessage ? await audioText(name, m, budget) : textOf(m.message);

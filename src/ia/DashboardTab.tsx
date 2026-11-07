@@ -66,17 +66,20 @@ export default function DashboardTab() {
   const [m, setM] = useState<Metrics | null>(null);
   const [err, setErr] = useState('');
 
+  // Atualiza sozinho a cada 10 s: cota, pausas e contagens acompanham a conversa sem recarregar a tela.
   useEffect(() => {
     let alive = true;
-    fetch('/api/metrics')
+    const load = () => fetch('/api/metrics')
       .then(async r => {
         const j = await r.json();
         if (!alive) return;
-        if (r.ok) setM(j);
+        if (r.ok) { setM(j); setErr(''); }
         else setErr(j.error || 'Falha ao carregar.');
       })
       .catch(() => alive && setErr('Sem conexão com o servidor.'));
-    return () => { alive = false; };
+    load();
+    const id = window.setInterval(load, 10_000);
+    return () => { alive = false; window.clearInterval(id); };
   }, []);
 
   if (err) return <Card><Empty title="Não consegui carregar" hint={err} /></Card>;
