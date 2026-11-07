@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { GoogleGenAI } from '@google/genai';
 import { Contact, ChatMessage } from './types';
-import { db } from './db';
+import { db, AppConfig } from './db';
 
 // Modelo de conversa: Flash 3.6 (3.8 deu 503 repetido). Thinking desligado, resposta curta.
 // Trocar com GEMINI_MODEL quando o 3.8 estabilizar.
@@ -163,6 +163,68 @@ export async function reserveAiCall(): Promise<boolean> {
   return true;
 }
 
+type ChainItem = { provider: 'gemini' | 'groq'; model: string };
+
+// Cadeia padrão: cada modelo tem cota grátis própria. Quando um estoura, o próximo responde.
+function defaultChain(cfg: AppConfig): ChainItem[] {
+  return [
+    { provider: 'gemini', model: resolveModel(cfg.geminiModel) },
+    { provider: 'gemini', model: 'gemini-3.1-flash-lite' },
+    { provider: 'groq', model: 'llama-3.3-70b-versatile' },
+  ];
+}
+
+function chainFrom(cfg: AppConfig): ChainItem[] {
+  const saved = Array.isArray(cfg.aiChain) ? cfg.aiChain : [];
+  const valid = saved.filter(x => x && (x.provider === 'gemini' || x.provider === 'groq') && typeof x.model === 'string' && x.model.trim());
+  return valid.length ? valid.map(x => ({ provider: x.provider, model: x.model.trim() })) : defaultChain(cfg);
+}
+
+function pauseKey(item: ChainItem): string {
+  return `${item.provider}:${item.model}`;
+}
+
+function isPaused(cfg: AppConfig, item: ChainItem): boolean {
+  const until = cfg.aiPausedModels?.[pauseKey(item)];
+  return !!until && Date.parse(until) > Date.now();
+}
+
+async function pauseModel(item: ChainItem): Promise<void> {
+  const cfg = await db.getConfig();
+  const until = new Date(Date.now() + 60 * 60_000).toISOString();
+  await db.saveAiUsage({ aiPausedModels: { ...(cfg.aiPausedModels || {}), [pauseKey(item)]: until } });
+}
+
+async function callGemini(apiKey: string, model: string, text: string, media?: IncomingMedia): Promise<string> {
+  const ai = new GoogleGenAI({ apiKey });
+  const parts: any[] = [];
+  if (media) parts.push({ inlineData: { mimeType: media.mimeType, data: media.data } });
+  parts.push({ text });
+  const response = await ai.models.generateContent({
+    model,
+    contents: [{ role: 'user', parts }],
+    config: { temperature: 0.7, maxOutputTokens: 200, thinkingConfig: { thinkingBudget: 0 } },
+  });
+  return response.text ? response.text.trim() : '';
+}
+
+// Groq usa o mesmo formato da OpenAI (chat/completions).
+async function callGroq(apiKey: string, model: string, text: string): Promise<string> {
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({ model, messages: [{ role: 'user', content: text }], temperature: 0.7, max_tokens: 200 }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    const err: any = new Error(`groq ${res.status}: ${body.slice(0, 200)}`);
+    err.status = res.status;
+    throw err;
+  }
+  const j: any = await res.json();
+  return String(j.choices?.[0]?.message?.content || '').trim();
+}
+
 export async function generateGirofyCommercialReply(
   contact: Contact,
   incoming: IncomingMessage,
@@ -176,20 +238,30 @@ export async function generateGirofyCommercialReply(
   });
 
   const cfg = await db.getConfig();
-  const apiKey = (cfg.geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
-  if (!apiKey) {
-    console.error('[Gemini] GEMINI_API_KEY não configurada: resposta não enviada.');
+  const geminiKey = (cfg.geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
+  const groqKey = (cfg.groqApiKey || process.env.GROQ_API_KEY || '').trim();
+  if (!geminiKey && !groqKey) {
+    console.error('[IA] nenhuma chave configurada (Gemini ou Groq): resposta não enviada.');
     return fail('no_key');
   }
 
+  // Modelos que podem responder agora: com chave, não pausados, e que aceitam o tipo de mensagem
+  // (imagem e áudio só vão para modelos Gemini).
+  const usable = chainFrom(cfg).filter(item => {
+    if (isPaused(cfg, item)) return false;
+    if (item.provider === 'gemini' && !geminiKey) return false;
+    if (item.provider === 'groq' && !groqKey) return false;
+    if (incoming.media && item.provider !== 'gemini') return false;
+    return true;
+  });
+  if (usable.length === 0) return fail('quota');
+
   if (!(await reserveAiCall())) {
-    console.warn('[Gemini] cota diária do agente atingida ou IA pausada: nada enviado.');
+    console.warn('[IA] cota diária do agente atingida: nada enviado.');
     return fail('quota');
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
-
     // Últimas mensagens, com as do bot marcadas para evitar repetição.
     const recent = history.slice(-12);
     const recentBot = recent.filter(m => m.from === 'bot').slice(-4).map(m => `- "${m.text}"`).join('\n');
@@ -225,35 +297,38 @@ Responda só com o texto da próxima mensagem para o WhatsApp.
 `;
 
     const recentBotTexts = recent.filter(m => m.from === 'bot').slice(-4).map(m => m.text);
-    const mediaPart: any[] = incoming.media ? [{ inlineData: { mimeType: incoming.media.mimeType, data: incoming.media.data } }] : [];
 
-    // Até duas tentativas: se a primeira falhar no validador, a segunda recebe o motivo.
+    // Percorre a cadeia. Em cada modelo: até duas tentativas (a segunda recebe o motivo da recusa).
+    // Erro de cota pausa só aquele modelo; erro comum passa para o próximo.
     let rawText = '';
     let lastProblem = '';
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const feedback = lastProblem
-        ? `\n\nSUA TENTATIVA ANTERIOR FOI RECUSADA: ${lastProblem}. Escreva outra mensagem, com outras palavras, seguindo as regras.`
-        : '';
-      const response = await ai.models.generateContent({
-        // Modelo: variável de ambiente manda; o valor gravado no banco só vale se não for um modelo descontinuado.
-        model: resolveModel(cfg.geminiModel),
-        contents: [{ role: 'user', parts: [...mediaPart, { text: promptText + feedback }] }],
-        config: {
-          temperature: 0.7,
-          maxOutputTokens: 200,
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-      });
-      const candidate = response.text ? response.text.trim() : '';
-      const problem = validateReply(candidate, recentBotTexts);
-      if (!problem) {
-        rawText = candidate;
-        break;
+    for (const item of usable) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const feedback = lastProblem
+          ? `\n\nSUA TENTATIVA ANTERIOR FOI RECUSADA: ${lastProblem}. Escreva outra mensagem, com outras palavras, seguindo as regras.`
+          : '';
+        let candidate = '';
+        try {
+          candidate = item.provider === 'gemini'
+            ? await callGemini(geminiKey, item.model, promptText + feedback, incoming.media)
+            : await callGroq(groqKey, item.model, promptText + feedback);
+        } catch (err: any) {
+          const msg = String(err?.message || err);
+          console.error(`[IA] ${item.provider}/${item.model} falhou:`, msg.slice(0, 300));
+          if (err?.status === 429 || /429|RESOURCE_EXHAUSTED|quota|rate limit/i.test(msg)) await pauseModel(item);
+          break; // próximo modelo da cadeia
+        }
+        const problem = validateReply(candidate, recentBotTexts);
+        if (!problem) {
+          rawText = candidate;
+          break;
+        }
+        lastProblem = problem;
+        console.warn(`[IA] ${item.model} recusado pelo validador:`, problem, '|', candidate);
       }
-      lastProblem = problem;
-      console.warn('[Gemini] resposta recusada pelo validador:', problem, '|', candidate);
+      if (rawText) break;
     }
-    if (!rawText) return fail('invalid');
+    if (!rawText) return fail(lastProblem ? 'invalid' : 'error');
 
     let transferToHuman = false;
     let transferReason: string | undefined;
@@ -272,22 +347,9 @@ Responda só com o texto da próxima mensagem para o WhatsApp.
     if (!rawText) return fail('empty');
 
     const isMeetingRequested = /meet\.google\.com|reunião|15 min/i.test(rawText);
-
-    return {
-      replyText: rawText,
-      aiAvailable: true,
-      transferToHuman,
-      transferReason,
-      isMeetingRequested,
-    };
+    return { replyText: rawText, aiAvailable: true, transferToHuman, transferReason, isMeetingRequested };
   } catch (err: any) {
-    const msg = String(err?.message || err);
-    console.error('[Gemini AI Server Error]:', msg);
-    if (/429|RESOURCE_EXHAUSTED|quota/i.test(msg)) {
-      // Cota da API estourou: pausa a IA por 1 hora para não ficar batendo na cota.
-      await db.saveAiUsage({ aiPausedUntil: new Date(Date.now() + 60 * 60_000).toISOString() });
-      return fail('quota');
-    }
+    console.error('[IA] erro inesperado:', String(err?.message || err).slice(0, 300));
     return fail('error');
   }
 }

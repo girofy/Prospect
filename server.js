@@ -712,6 +712,57 @@ async function reserveAiCall() {
   await db.saveAiUsage({ aiUsageDay: day, aiUsageCount: used + 1 });
   return true;
 }
+function defaultChain(cfg) {
+  return [
+    { provider: "gemini", model: resolveModel(cfg.geminiModel) },
+    { provider: "gemini", model: "gemini-3.1-flash-lite" },
+    { provider: "groq", model: "llama-3.3-70b-versatile" }
+  ];
+}
+function chainFrom(cfg) {
+  const saved = Array.isArray(cfg.aiChain) ? cfg.aiChain : [];
+  const valid = saved.filter((x) => x && (x.provider === "gemini" || x.provider === "groq") && typeof x.model === "string" && x.model.trim());
+  return valid.length ? valid.map((x) => ({ provider: x.provider, model: x.model.trim() })) : defaultChain(cfg);
+}
+function pauseKey(item) {
+  return `${item.provider}:${item.model}`;
+}
+function isPaused(cfg, item) {
+  const until = cfg.aiPausedModels?.[pauseKey(item)];
+  return !!until && Date.parse(until) > Date.now();
+}
+async function pauseModel(item) {
+  const cfg = await db.getConfig();
+  const until = new Date(Date.now() + 60 * 6e4).toISOString();
+  await db.saveAiUsage({ aiPausedModels: { ...cfg.aiPausedModels || {}, [pauseKey(item)]: until } });
+}
+async function callGemini(apiKey, model, text, media) {
+  const ai = new GoogleGenAI({ apiKey });
+  const parts = [];
+  if (media) parts.push({ inlineData: { mimeType: media.mimeType, data: media.data } });
+  parts.push({ text });
+  const response = await ai.models.generateContent({
+    model,
+    contents: [{ role: "user", parts }],
+    config: { temperature: 0.7, maxOutputTokens: 200, thinkingConfig: { thinkingBudget: 0 } }
+  });
+  return response.text ? response.text.trim() : "";
+}
+async function callGroq(apiKey, model, text) {
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({ model, messages: [{ role: "user", content: text }], temperature: 0.7, max_tokens: 200 })
+  });
+  if (!res.ok) {
+    const body2 = await res.text();
+    const err = new Error(`groq ${res.status}: ${body2.slice(0, 200)}`);
+    err.status = res.status;
+    throw err;
+  }
+  const j = await res.json();
+  return String(j.choices?.[0]?.message?.content || "").trim();
+}
 async function generateGirofyCommercialReply(contact, incoming, history) {
   const fail = (reason) => ({
     replyText: "",
@@ -720,17 +771,25 @@ async function generateGirofyCommercialReply(contact, incoming, history) {
     transferToHuman: false
   });
   const cfg = await db.getConfig();
-  const apiKey = (cfg.geminiApiKey || process.env.GEMINI_API_KEY || "").trim();
-  if (!apiKey) {
-    console.error("[Gemini] GEMINI_API_KEY n\xE3o configurada: resposta n\xE3o enviada.");
+  const geminiKey = (cfg.geminiApiKey || process.env.GEMINI_API_KEY || "").trim();
+  const groqKey = (cfg.groqApiKey || process.env.GROQ_API_KEY || "").trim();
+  if (!geminiKey && !groqKey) {
+    console.error("[IA] nenhuma chave configurada (Gemini ou Groq): resposta n\xE3o enviada.");
     return fail("no_key");
   }
+  const usable = chainFrom(cfg).filter((item) => {
+    if (isPaused(cfg, item)) return false;
+    if (item.provider === "gemini" && !geminiKey) return false;
+    if (item.provider === "groq" && !groqKey) return false;
+    if (incoming.media && item.provider !== "gemini") return false;
+    return true;
+  });
+  if (usable.length === 0) return fail("quota");
   if (!await reserveAiCall()) {
-    console.warn("[Gemini] cota di\xE1ria do agente atingida ou IA pausada: nada enviado.");
+    console.warn("[IA] cota di\xE1ria do agente atingida: nada enviado.");
     return fail("quota");
   }
   try {
-    const ai = new GoogleGenAI({ apiKey });
     const recent = history.slice(-12);
     const recentBot = recent.filter((m) => m.from === "bot").slice(-4).map((m) => `- "${m.text}"`).join("\n");
     const transcript2 = recent.map((m) => {
@@ -766,33 +825,33 @@ NOVA MENSAGEM DA PESSOA:
 Responda s\xF3 com o texto da pr\xF3xima mensagem para o WhatsApp.
 `;
     const recentBotTexts = recent.filter((m) => m.from === "bot").slice(-4).map((m) => m.text);
-    const mediaPart = incoming.media ? [{ inlineData: { mimeType: incoming.media.mimeType, data: incoming.media.data } }] : [];
     let rawText = "";
     let lastProblem = "";
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const feedback = lastProblem ? `
+    for (const item of usable) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const feedback = lastProblem ? `
 
 SUA TENTATIVA ANTERIOR FOI RECUSADA: ${lastProblem}. Escreva outra mensagem, com outras palavras, seguindo as regras.` : "";
-      const response = await ai.models.generateContent({
-        // Modelo: variável de ambiente manda; o valor gravado no banco só vale se não for um modelo descontinuado.
-        model: resolveModel(cfg.geminiModel),
-        contents: [{ role: "user", parts: [...mediaPart, { text: promptText + feedback }] }],
-        config: {
-          temperature: 0.7,
-          maxOutputTokens: 200,
-          thinkingConfig: { thinkingBudget: 0 }
+        let candidate = "";
+        try {
+          candidate = item.provider === "gemini" ? await callGemini(geminiKey, item.model, promptText + feedback, incoming.media) : await callGroq(groqKey, item.model, promptText + feedback);
+        } catch (err) {
+          const msg = String(err?.message || err);
+          console.error(`[IA] ${item.provider}/${item.model} falhou:`, msg.slice(0, 300));
+          if (err?.status === 429 || /429|RESOURCE_EXHAUSTED|quota|rate limit/i.test(msg)) await pauseModel(item);
+          break;
         }
-      });
-      const candidate = response.text ? response.text.trim() : "";
-      const problem = validateReply(candidate, recentBotTexts);
-      if (!problem) {
-        rawText = candidate;
-        break;
+        const problem = validateReply(candidate, recentBotTexts);
+        if (!problem) {
+          rawText = candidate;
+          break;
+        }
+        lastProblem = problem;
+        console.warn(`[IA] ${item.model} recusado pelo validador:`, problem, "|", candidate);
       }
-      lastProblem = problem;
-      console.warn("[Gemini] resposta recusada pelo validador:", problem, "|", candidate);
+      if (rawText) break;
     }
-    if (!rawText) return fail("invalid");
+    if (!rawText) return fail(lastProblem ? "invalid" : "error");
     let transferToHuman = false;
     let transferReason;
     const transferMatch = rawText.match(/\[TRANSF_HUMANO:\s*([^\]]+)\]/i);
@@ -809,20 +868,9 @@ SUA TENTATIVA ANTERIOR FOI RECUSADA: ${lastProblem}. Escreva outra mensagem, com
     }
     if (!rawText) return fail("empty");
     const isMeetingRequested = /meet\.google\.com|reunião|15 min/i.test(rawText);
-    return {
-      replyText: rawText,
-      aiAvailable: true,
-      transferToHuman,
-      transferReason,
-      isMeetingRequested
-    };
+    return { replyText: rawText, aiAvailable: true, transferToHuman, transferReason, isMeetingRequested };
   } catch (err) {
-    const msg = String(err?.message || err);
-    console.error("[Gemini AI Server Error]:", msg);
-    if (/429|RESOURCE_EXHAUSTED|quota/i.test(msg)) {
-      await db.saveAiUsage({ aiPausedUntil: new Date(Date.now() + 60 * 6e4).toISOString() });
-      return fail("quota");
-    }
+    console.error("[IA] erro inesperado:", String(err?.message || err).slice(0, 300));
     return fail("error");
   }
 }
@@ -1395,6 +1443,8 @@ async function handler7(req, res) {
         metaAccessTokenMasked: maskSecret(meta.token),
         metaAppSecretMasked: maskSecret(meta.appSecret),
         geminiApiKeyMasked: maskSecret(geminiKey),
+        groqApiKeyMasked: maskSecret(cfg.groqApiKey || process.env.GROQ_API_KEY || ""),
+        aiChain: cfg.aiChain || null,
         geminiModel: cfg.geminiModel || process.env.GEMINI_MODEL || "gemini-3.6-flash",
         autoReplyEnabled: meta.autoReplyEnabled,
         activeGateway: cfg.activeGateway || "direct_pairing",
@@ -1420,6 +1470,12 @@ async function handler7(req, res) {
       }
       if (typeof body2.geminiApiKey === "string" && body2.geminiApiKey.trim()) {
         updates.geminiApiKey = body2.geminiApiKey.trim();
+      }
+      if (typeof body2.groqApiKey === "string" && body2.groqApiKey.trim()) {
+        updates.groqApiKey = body2.groqApiKey.trim();
+      }
+      if (Array.isArray(body2.aiChain)) {
+        updates.aiChain = body2.aiChain.filter((x) => x && (x.provider === "gemini" || x.provider === "groq") && typeof x.model === "string" && x.model.trim()).slice(0, 6).map((x) => ({ provider: x.provider, model: String(x.model).trim().slice(0, 80) }));
       }
       if (typeof body2.geminiModel === "string" && body2.geminiModel.trim()) {
         updates.geminiModel = body2.geminiModel.trim();

@@ -32,6 +32,8 @@ export default async function handler(req: any, res: any) {
         metaAccessTokenMasked: maskSecret(meta.token),
         metaAppSecretMasked: maskSecret(meta.appSecret),
         geminiApiKeyMasked: maskSecret(geminiKey),
+        groqApiKeyMasked: maskSecret(cfg.groqApiKey || process.env.GROQ_API_KEY || ''),
+        aiChain: cfg.aiChain || null,
         geminiModel: cfg.geminiModel || process.env.GEMINI_MODEL || 'gemini-3.6-flash',
         autoReplyEnabled: meta.autoReplyEnabled,
         activeGateway: cfg.activeGateway || 'direct_pairing',
@@ -59,6 +61,15 @@ export default async function handler(req: any, res: any) {
       }
       if (typeof body.geminiApiKey === 'string' && body.geminiApiKey.trim()) {
         updates.geminiApiKey = body.geminiApiKey.trim();
+      }
+      if (typeof body.groqApiKey === 'string' && body.groqApiKey.trim()) {
+        updates.groqApiKey = body.groqApiKey.trim();
+      }
+      if (Array.isArray(body.aiChain)) {
+        updates.aiChain = body.aiChain
+          .filter((x: any) => x && (x.provider === 'gemini' || x.provider === 'groq') && typeof x.model === 'string' && x.model.trim())
+          .slice(0, 6)
+          .map((x: any) => ({ provider: x.provider, model: String(x.model).trim().slice(0, 80) }));
       }
       if (typeof body.geminiModel === 'string' && body.geminiModel.trim()) {
         updates.geminiModel = body.geminiModel.trim();
