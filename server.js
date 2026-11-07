@@ -406,6 +406,13 @@ function formatPhoneNumber(phone) {
   if (cleaned.length === 10 || cleaned.length === 11) {
     cleaned = `55${cleaned}`;
   }
+  if (cleaned.length === 12 && cleaned.startsWith("55")) {
+    const ddd = cleaned.slice(2, 4);
+    const rest = cleaned.slice(4);
+    if (rest.length === 8 && /^[6-9]/.test(rest)) {
+      cleaned = `55${ddd}9${rest}`;
+    }
+  }
   return cleaned;
 }
 function isSelfMessage(from) {
