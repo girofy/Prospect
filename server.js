@@ -1404,6 +1404,11 @@ async function handler7(req, res) {
 }
 
 // api/_handlers/pairing.ts
+function exactPhone(raw) {
+  let d = String(raw || "").replace(/\D/g, "");
+  if (d.length === 10 || d.length === 11) d = `55${d}`;
+  return d;
+}
 function generatePairingCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let part1 = "";
@@ -1437,7 +1442,7 @@ async function handler8(req, res) {
       const { action, phoneNumber, gateway } = body2;
       if (action === "request_code") {
         const rawPhone = phoneNumber || config.directPairingPhone || "557488126578";
-        const cleanPhone = formatPhoneNumber(rawPhone);
+        const cleanPhone = exactPhone(rawPhone);
         const evolutionUrl = body2.evolutionUrl || process.env.EVOLUTION_URL || "";
         const evolutionKey = body2.evolutionKey || process.env.EVOLUTION_API_KEY || "";
         const instanceName = body2.instanceName || process.env.EVOLUTION_INSTANCE || "prospectfy";
@@ -1518,7 +1523,7 @@ async function handler8(req, res) {
         });
       }
       if (action === "confirm_paired") {
-        const cleanPhone = formatPhoneNumber(phoneNumber || config.directPairingPhone || "557488126578");
+        const cleanPhone = exactPhone(phoneNumber || config.directPairingPhone || "557488126578");
         const now = (/* @__PURE__ */ new Date()).toISOString();
         await db.saveConfig({
           directPairingPhone: cleanPhone,
