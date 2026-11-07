@@ -3,6 +3,8 @@
 import { db } from './db';
 import { getEvolutionCfg, sendEvolutionText } from './evolution';
 import { Contact } from './types';
+import { isRealBrPhone, last8 } from './phone';
+import { AUTHORIZED_BUSINESS_NUMBER } from './whatsapp';
 
 const TZ = 'America/Bahia';
 const WINDOW_START = Number(process.env.PROSPECTOR_START_HOUR ?? 8);
@@ -56,7 +58,8 @@ function isEligible(c: Contact): boolean {
     c.status === 'novo' &&
     c.agentState === 'ai_active' &&
     !c.optOutDetected &&
-    [12, 13].includes(c.phone.replace(/\D/g, '').length) // telefone real; identificador @lid (14 dígitos) nunca recebe abordagem
+    last8(c.phone) !== last8(AUTHORIZED_BUSINESS_NUMBER) && // nunca o próprio número da Girofy, em nenhum formato
+    isRealBrPhone(c.phone) // só telefone brasileiro válido; identificador interno (@lid) nunca recebe abordagem
   );
 }
 
@@ -102,6 +105,15 @@ async function tick() {
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     const contact = queue[0];
     if (!contact) return;
+
+    // Memória de contatos: se já houve qualquer conversa com esse número (mesmo em outro formato,
+    // mesmo sem resposta), não abordamos de novo. Sai da fila e fica registrado.
+    if (await db.hasHistoryWith(contact.phone)) {
+      await db.saveContact({ ...contact, status: 'esfriou', lastInteractionAt: new Date().toISOString() });
+      await db.addAuditLog({ type: 'status_change', phone: contact.phone, summary: `Pulado: já havia conversa com ${contact.phone}. Não abordado de novo.` });
+      nextAt = 0;
+      return;
+    }
 
     const text = buildOpener(contact, hour);
     const res = await sendEvolutionText(contact.phone, text, 2500);

@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { LayoutDashboard, BookOpen, Cpu, Sparkles } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Cpu, Sparkles, RotateCcw } from 'lucide-react';
 import DashboardTab from './DashboardTab';
 import KnowledgeTab from './KnowledgeTab';
 import ModelsTab from './ModelsTab';
 import LearningTab from './LearningTab';
+import FollowUpTab from './FollowUpTab';
 
 const TABS = [
   { id: 'resumo', label: 'Resumo', icon: LayoutDashboard },
+  { id: 'retomar', label: 'Retomar', icon: RotateCcw },
   { id: 'conhecimento', label: 'Conhecimento', icon: BookOpen },
   { id: 'modelos', label: 'Modelos', icon: Cpu },
   { id: 'aprendizado', label: 'Aprendizado', icon: Sparkles },
@@ -39,7 +41,7 @@ export default function IAHub() {
 
       {/* Controle segmentado, no estilo do iOS */}
       <div role="tablist" className="sticky top-0 z-20 -mx-1 px-1 py-1.5 bg-[#f5f5f7]/90 backdrop-blur-xl">
-        <div className="grid grid-cols-4 gap-1 p-1 rounded-2xl bg-[#767680]/[0.12]">
+        <div className="flex gap-1 p-1 rounded-2xl bg-[#767680]/[0.12] overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TABS.map(t => {
             const Icon = t.icon;
             const on = tab === t.id;
@@ -49,7 +51,7 @@ export default function IAHub() {
                 role="tab"
                 aria-selected={on}
                 onClick={() => choose(t.id)}
-                className={`flex flex-col items-center gap-0.5 py-2 rounded-xl text-[11px] sm:text-[13px] font-semibold transition-all ${on ? 'bg-white text-[#0071E3] shadow-[0_1px_3px_rgba(0,0,0,0.14)]' : 'text-[#6e6e73]'}`}
+                className={`flex-1 min-w-[84px] flex flex-col items-center gap-0.5 py-2 px-2 rounded-xl text-[11px] sm:text-[13px] font-semibold transition-all whitespace-nowrap ${on ? 'bg-white text-[#0071E3] shadow-[0_1px_3px_rgba(0,0,0,0.14)]' : 'text-[#6e6e73]'}`}
               >
                 <Icon className="w-[18px] h-[18px]" />
                 <span className="leading-none">{t.label}</span>
@@ -60,6 +62,7 @@ export default function IAHub() {
       </div>
 
       {tab === 'resumo' && <DashboardTab />}
+      {tab === 'retomar' && <FollowUpTab />}
       {tab === 'conhecimento' && <KnowledgeTab />}
       {tab === 'modelos' && <ModelsTab />}
       {tab === 'aprendizado' && <LearningTab />}

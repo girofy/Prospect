@@ -237,6 +237,16 @@ var db = {
     const res = await supabase().from("messages").upsert(messageToRow(toSave), { onConflict: "id" }).select().single();
     return messageFromRow(mustOk(res, "saveMessage"));
   },
+  // Já existe conversa com esse número (mesmo em outro formato, com ou sem o 9)? Conta qualquer mensagem
+  // guardada, de qualquer lado, e outro contato com os mesmos 8 últimos dígitos que já saiu da fila.
+  async hasHistoryWith(phone) {
+    const tail = String(phone || "").replace(/\D/g, "").slice(-8);
+    if (tail.length < 8) return false;
+    const msgs = await supabase().from("messages").select("id", { count: "exact", head: true }).like("contact_phone", `%${tail}`);
+    if ((msgs.count || 0) > 0) return true;
+    const others = await supabase().from("contacts").select("phone, status").like("phone", `%${tail}`).neq("phone", phone).neq("status", "novo");
+    return (others.data || []).length > 0;
+  },
   // Conjunto de telefones que já mandaram pelo menos 1 mensagem como lead.
   // Usado pelo prospector e pelo painel para medir taxa de resposta sem
   // carregar todas as mensagens.
@@ -819,8 +829,9 @@ ${recentBot || "(nenhuma ainda)"}
 CONVERSA RECENTE:
 ${transcript2 || "(in\xEDcio da conversa)"}
 
-NOVA MENSAGEM DA PESSOA:
-"${incoming.text}"
+${incoming.followup ? `SITUA\xC7\xC3O: a pessoa n\xE3o respondeu \xE0 sua \xFAltima mensagem. Escreva o follow-up n\xFAmero ${incoming.followup} (no m\xE1ximo 3 no total).
+Regras do follow-up: use um \xE2ngulo NOVO (n\xE3o repita a observa\xE7\xE3o anterior), termine com uma pergunta de escolha de duas sa\xEDdas, curto. Nunca escreva "s\xF3 passando pra lembrar" nem "voc\xEA viu minha mensagem?". Se ela j\xE1 tinha respondido antes, retome o ponto em que ela parou.` : `NOVA MENSAGEM DA PESSOA:
+"${incoming.text}"`}
 
 Responda s\xF3 com o texto da pr\xF3xima mensagem para o WhatsApp.
 `;
@@ -1292,10 +1303,11 @@ async function handler3(req, res) {
         metaMessageId: sendResult.messageId,
         status: sendResult.success ? "sent" : "failed"
       };
+      if (sendResult.success && sendResult.messageId) await db.markMessageAsProcessed(sendResult.messageId);
       await db.saveMessage(msg);
       if (contact) {
         contact.lastInteractionAt = (/* @__PURE__ */ new Date()).toISOString();
-        if (from === "operator") {
+        if (from === "operator" && !body2.keepAgent) {
           contact.agentState = "human_takeover";
         }
         await db.saveContact(contact);
@@ -1711,6 +1723,15 @@ async function handler8(req, res) {
   }
 }
 
+// api/lib/phone.ts
+var BR_PHONE = /^55[1-9][1-9](9\d{8}|[2-5]\d{7})$/;
+function isRealBrPhone(phone) {
+  return BR_PHONE.test(String(phone || "").replace(/\D/g, ""));
+}
+function last8(phone) {
+  return String(phone || "").replace(/\D/g, "").slice(-8);
+}
+
 // api/_handlers/campaign.ts
 async function handler9(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -1745,9 +1766,16 @@ async function handler9(req, res) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       for (const item of leads) {
         const cleanPhone = formatPhoneNumber(String(item.phone || ""));
-        if (!cleanPhone || cleanPhone.length < 12) {
-          skipped.push({ phone: String(item.phone || ""), motivo: "telefone inv\xE1lido" });
+        if (!isRealBrPhone(cleanPhone)) {
+          skipped.push({ phone: String(item.phone || ""), motivo: "telefone inv\xE1lido (precisa ser um n\xFAmero brasileiro com DDD)" });
           continue;
+        }
+        if (await db.hasHistoryWith(cleanPhone)) {
+          const known = await db.getContactByPhone(cleanPhone);
+          if (!known || known.status === "novo") {
+            skipped.push({ phone: cleanPhone, motivo: "j\xE1 houve conversa com esse n\xFAmero" });
+            continue;
+          }
         }
         const existing = await db.getContactByPhone(cleanPhone);
         if (existing?.optOutDetected || existing?.status === "bloqueado") {
@@ -1831,7 +1859,8 @@ function buildOpener(contact, hour) {
   return first ? `${greeting}, ${first}!` : `${greeting}!`;
 }
 function isEligible(c) {
-  return c.status === "novo" && c.agentState === "ai_active" && !c.optOutDetected && [12, 13].includes(c.phone.replace(/\D/g, "").length);
+  return c.status === "novo" && c.agentState === "ai_active" && !c.optOutDetected && last8(c.phone) !== last8(AUTHORIZED_BUSINESS_NUMBER) && // nunca o próprio número da Girofy, em nenhum formato
+  isRealBrPhone(c.phone);
 }
 async function getProspectStats() {
   const contacts = await db.getContacts();
@@ -1868,6 +1897,12 @@ async function tick() {
     const queue = (await db.getContacts()).filter(isEligible).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     const contact = queue[0];
     if (!contact) return;
+    if (await db.hasHistoryWith(contact.phone)) {
+      await db.saveContact({ ...contact, status: "esfriou", lastInteractionAt: (/* @__PURE__ */ new Date()).toISOString() });
+      await db.addAuditLog({ type: "status_change", phone: contact.phone, summary: `Pulado: j\xE1 havia conversa com ${contact.phone}. N\xE3o abordado de novo.` });
+      nextAt = 0;
+      return;
+    }
     const text = buildOpener(contact, hour);
     const res = await sendEvolutionText(contact.phone, text, 2500);
     if (!res.success) {
@@ -2522,6 +2557,77 @@ async function handler16(req, res) {
   });
 }
 
+// api/_handlers/followups.ts
+var MIN_HOURS = 24;
+var MAX_TOUCHES = 3;
+async function allMessages() {
+  const rows = [];
+  for (let from = 0; ; from += 1e3) {
+    const { data, error } = await supabase().from("messages").select('contact_phone, "from", text, "timestamp"').order("timestamp", { ascending: true }).range(from, from + 999);
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) break;
+    rows.push(...data);
+    if (data.length < 1e3) break;
+  }
+  return rows;
+}
+async function handler17(req, res) {
+  try {
+    if (req.method === "GET") {
+      const [contacts, messages] = await Promise.all([db.getContacts(), allMessages()]);
+      const byPhone = /* @__PURE__ */ new Map();
+      for (const m of messages) {
+        const arr = byPhone.get(m.contact_phone) || [];
+        arr.push(m);
+        byPhone.set(m.contact_phone, arr);
+      }
+      const now = Date.now();
+      const list = contacts.filter((c) => c.status === "em_conversa" && !c.optOutDetected && isRealBrPhone(c.phone) && last8(c.phone) !== last8(AUTHORIZED_BUSINESS_NUMBER)).map((c) => {
+        const msgs = byPhone.get(c.phone) || [];
+        const last = msgs[msgs.length - 1];
+        if (!last || last.from === "lead") return null;
+        const hours = (now - Date.parse(last.timestamp)) / 36e5;
+        if (hours < MIN_HOURS) return null;
+        let touches = 0;
+        for (let i = msgs.length - 1; i >= 0 && msgs[i].from !== "lead"; i--) touches++;
+        if (touches >= MAX_TOUCHES) return null;
+        return {
+          phone: c.phone,
+          name: c.name,
+          company: c.company,
+          last_text: String(last.text || "").slice(0, 140),
+          last_from: last.from,
+          horas: Math.round(hours),
+          toques: touches,
+          ja_respondeu: msgs.some((m) => m.from === "lead")
+        };
+      }).filter(Boolean).sort((a, b) => b.horas - a.horas).slice(0, 50);
+      const semNumero = contacts.filter((c) => c.status === "em_conversa" && !isRealBrPhone(c.phone)).length;
+      return res.status(200).json({ candidatos: list, sem_numero: semNumero, regras: { horas_minimas: MIN_HOURS, toques_maximos: MAX_TOUCHES } });
+    }
+    if (req.method === "POST") {
+      const body2 = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+      const phone = String(body2.phone || "").replace(/\D/g, "");
+      const contact = await db.getContactByPhone(phone);
+      if (!contact) return res.status(404).json({ error: "Contato n\xE3o encontrado." });
+      if (contact.optOutDetected || contact.status === "bloqueado") return res.status(400).json({ error: "Esse contato pediu para sair. Nada ser\xE1 enviado." });
+      const history = await db.getMessages(phone);
+      let touches = 0;
+      for (let i = history.length - 1; i >= 0 && history[i].from !== "lead"; i--) touches++;
+      if (touches >= MAX_TOUCHES) return res.status(400).json({ error: `J\xE1 s\xE3o ${touches} mensagens sem resposta. Melhor parar.` });
+      const r = await generateGirofyCommercialReply(contact, { text: "", followup: touches + 1 }, history);
+      if (!r.aiAvailable) {
+        const why = r.unavailableReason === "quota" ? "A cota da IA acabou por agora." : r.unavailableReason === "invalid" ? "A IA gerou textos que o validador recusou. Tente de novo." : "A IA n\xE3o respondeu.";
+        return res.status(503).json({ error: why });
+      }
+      return res.status(200).json({ draft: r.replyText, toque: touches + 1 });
+    }
+    return res.status(405).json({ error: "Method Not Allowed" });
+  } catch (err) {
+    return res.status(500).json({ error: err?.message || "Falha nos follow-ups." });
+  }
+}
+
 // api/index.ts
 var PUBLIC_ROUTES = {
   "/api/login": handler11,
@@ -2544,7 +2650,8 @@ var PROTECTED_ROUTES = {
   "/api/knowledge": handler13,
   "/api/metrics": handler14,
   "/api/export": handler15,
-  "/api/ai-test": handler16
+  "/api/ai-test": handler16,
+  "/api/followups": handler17
 };
 var PUBLIC_GET_ROUTES = {
   "/api/prospector": handler10
@@ -2556,7 +2663,7 @@ function match(table, urlPath) {
   }
   return null;
 }
-async function handler17(req, res) {
+async function handler18(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-hub-signature-256");
   if (req.method === "OPTIONS") {
@@ -2654,7 +2761,7 @@ var server = http.createServer(async (req, res) => {
         req.body = bodyData;
       }
       try {
-        await handler17(req, resCompat);
+        await handler18(req, resCompat);
       } catch (err) {
         console.error("[Server API Error]:", err);
         if (!res.writableEnded) {

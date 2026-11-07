@@ -68,11 +68,13 @@ export default async function handler(req: any, res: any) {
         status: sendResult.success ? 'sent' : 'failed',
       };
 
+      // O eco da Evolution (fromMe) não pode virar uma segunda cópia no histórico.
+      if (sendResult.success && sendResult.messageId) await db.markMessageAsProcessed(sendResult.messageId);
       await db.saveMessage(msg);
 
       if (contact) {
         contact.lastInteractionAt = new Date().toISOString();
-        if (from === 'operator') {
+        if (from === 'operator' && !body.keepAgent) {
           // When human operator replies, switch to human_takeover to avoid bot interrupting
           contact.agentState = 'human_takeover';
         }

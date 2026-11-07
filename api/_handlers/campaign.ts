@@ -1,6 +1,7 @@
 import { db } from '../lib/db';
 import { formatPhoneNumber } from '../lib/whatsapp';
 import { Contact } from '../lib/types';
+import { isRealBrPhone } from '../lib/phone';
 
 // Disparo manual agora só ENFILEIRA. Quem envia é o agendador (prospector), com
 // janela de horário, intervalo aleatório, teto diário e checagem de opt-out.
@@ -46,9 +47,16 @@ export default async function handler(req: any, res: any) {
 
       for (const item of leads) {
         const cleanPhone = formatPhoneNumber(String(item.phone || ''));
-        if (!cleanPhone || cleanPhone.length < 12) {
-          skipped.push({ phone: String(item.phone || ''), motivo: 'telefone inválido' });
+        if (!isRealBrPhone(cleanPhone)) {
+          skipped.push({ phone: String(item.phone || ''), motivo: 'telefone inválido (precisa ser um número brasileiro com DDD)' });
           continue;
+        }
+        if (await db.hasHistoryWith(cleanPhone)) {
+          const known = await db.getContactByPhone(cleanPhone);
+          if (!known || known.status === 'novo') {
+            skipped.push({ phone: cleanPhone, motivo: 'já houve conversa com esse número' });
+            continue;
+          }
         }
 
         const existing = await db.getContactByPhone(cleanPhone);
