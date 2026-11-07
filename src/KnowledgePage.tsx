@@ -1,7 +1,6 @@
 import {useEffect, useState, ChangeEvent, FormEvent, CSSProperties} from 'react';
 
-// Página "Girofy IA": base de conhecimento (sem deploy) e painel de aprendizado.
-// Acesso: /#girofy-ia (só depois do login).
+// Seção da aba "Girofy IA": base de conhecimento (sem deploy) e painel de aprendizado.
 
 const LIMIT = 30000;
 
@@ -14,7 +13,7 @@ const btn: CSSProperties = {padding: '10px 14px', borderRadius: 10, border: 0, b
 const ghost: CSSProperties = {...btn, background: '#eef1f6', color: '#334'};
 const danger: CSSProperties = {...btn, background: '#fbe9e9', color: '#b42318'};
 
-export default function KnowledgePage({onBack}: {onBack: () => void}) {
+export default function KnowledgeSection() {
   const [docs, setDocs] = useState<Doc[]>([]);
   const [totalChars, setTotalChars] = useState(0);
   const [title, setTitle] = useState('');
@@ -98,12 +97,8 @@ export default function KnowledgePage({onBack}: {onBack: () => void}) {
   const pct = Math.min(100, Math.round((totalChars / LIMIT) * 100));
 
   return (
-    <div style={{minHeight: '100dvh', background: '#f5f7fb', padding: 16, fontFamily: 'system-ui, sans-serif', color: '#1d1d1f'}}>
-      <div style={{maxWidth: 760, margin: '0 auto'}}>
-        <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14}}>
-          <h1 style={{fontSize: 22, margin: 0}}>Girofy IA</h1>
-          <button style={ghost} onClick={onBack}>Voltar ao painel</button>
-        </div>
+    <div style={{fontFamily: 'system-ui, sans-serif', color: '#1d1d1f'}}>
+      <div>
 
         <div style={card}>
           <h2 style={{fontSize: 17, margin: '0 0 4px'}}>Base de conhecimento</h2>
