@@ -7,6 +7,13 @@ import { db } from './db';
 // Modelo de conversa: Flash 3.6 (3.8 deu 503 repetido). Thinking desligado, resposta curta.
 // Trocar com GEMINI_MODEL quando o 3.8 estabilizar.
 const DEFAULT_MODEL = 'gemini-3.6-flash';
+const RETIRED_MODEL = /^gemini-2\.5-/; // 2.5 foi descontinuado pela Google (404)
+
+function resolveModel(fromDb?: string): string {
+  if (process.env.GEMINI_MODEL) return process.env.GEMINI_MODEL;
+  if (fromDb && !RETIRED_MODEL.test(fromDb)) return fromDb;
+  return DEFAULT_MODEL;
+}
 
 // Teto de chamadas por dia para ficar dentro da cota gratuita (sem gasto em dólar).
 // Acima disso a IA para e nada é enviado no automático.
@@ -163,7 +170,8 @@ Responda só com o texto da próxima mensagem para o WhatsApp.
     parts.push({ text: promptText });
 
     const response = await ai.models.generateContent({
-      model: cfg.geminiModel || process.env.GEMINI_MODEL || DEFAULT_MODEL,
+      // Modelo: variável de ambiente manda; o valor gravado no banco só vale se não for um modelo descontinuado.
+      model: resolveModel(cfg.geminiModel),
       contents: [{ role: 'user', parts }],
       config: {
         temperature: 0.7,

@@ -26,7 +26,7 @@ function supabase() {
 var DEFAULT_CONFIG = {
   metaPhoneNumberId: "1221241567748320",
   webhookVerifyToken: "impossivel2008",
-  geminiModel: "gemini-2.5-flash",
+  geminiModel: "gemini-3.6-flash",
   autoReplyEnabled: true,
   activeGateway: "direct_pairing",
   directPairingPhone: "557488126578",
@@ -569,6 +569,12 @@ import fs from "fs";
 import path from "path";
 import { GoogleGenAI } from "@google/genai";
 var DEFAULT_MODEL = "gemini-3.6-flash";
+var RETIRED_MODEL = /^gemini-2\.5-/;
+function resolveModel(fromDb) {
+  if (process.env.GEMINI_MODEL) return process.env.GEMINI_MODEL;
+  if (fromDb && !RETIRED_MODEL.test(fromDb)) return fromDb;
+  return DEFAULT_MODEL;
+}
 var DAILY_CALL_LIMIT = Number(process.env.GEMINI_DAILY_CALL_LIMIT ?? 200);
 var SYSTEM_PROMPT = `
 Voc\xEA responde no WhatsApp pela Girofy, um est\xFAdio de engenharia digital que resolve problemas de neg\xF3cio (sistemas, sites, automa\xE7\xF5es). Voc\xEA conversa com donos e gerentes de neg\xF3cios locais e regionais.
@@ -689,7 +695,8 @@ Responda s\xF3 com o texto da pr\xF3xima mensagem para o WhatsApp.
     }
     parts.push({ text: promptText });
     const response = await ai.models.generateContent({
-      model: cfg.geminiModel || process.env.GEMINI_MODEL || DEFAULT_MODEL,
+      // Modelo: variável de ambiente manda; o valor gravado no banco só vale se não for um modelo descontinuado.
+      model: resolveModel(cfg.geminiModel),
       contents: [{ role: "user", parts }],
       config: {
         temperature: 0.7,

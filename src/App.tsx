@@ -148,7 +148,7 @@ export default function App() {
     metaAccessTokenMasked: '',
     metaAppSecretMasked: '',
     geminiApiKeyMasked: '',
-    geminiModel: 'gemini-2.5-flash',
+    geminiModel: 'gemini-3.6-flash',
     autoReplyEnabled: true,
   });
 
