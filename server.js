@@ -665,7 +665,8 @@ SA\xCDDA: responda SOMENTE com o texto da mensagem que vai para o WhatsApp.
 Se for passar a conversa para o C\xE9sar, escreva a mensagem e, no fim, [TRANSF_HUMANO: motivo].
 Se a pessoa pedir para parar, confirme em uma frase e n\xE3o escreva mais nada.
 `;
-var GROQ_KNOWLEDGE_CHARS = 6e3;
+var GROQ_KNOWLEDGE_CHARS = 2500;
+var GROQ_LESSONS = 4;
 var KNOWLEDGE_MAX_CHARS = 3e4;
 var knowledgeCache = null;
 async function loadKnowledge() {
@@ -707,10 +708,10 @@ function validateReply(text, recentBot) {
   if (/reunião|sem pressão|sem compromisso|se não for o momento|só passando/i.test(t)) return "usou frase proibida";
   if (t.split(/\s+/).length > 22) return "mensagem longa demais";
   if ((t.match(/\?/g) || []).length > 1) return "mais de uma pergunta";
-  const norm = (x) => new Set(x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 2));
-  const a = norm(t);
+  const norm2 = (x) => new Set(x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 2));
+  const a = norm2(t);
   for (const b of recentBot) {
-    const bs = norm(b);
+    const bs = norm2(b);
     const inter = [...a].filter((w) => bs.has(w)).length;
     const uni = (/* @__PURE__ */ new Set([...a, ...bs])).size;
     if (uni > 0 && inter / uni > 0.6) return "parecida demais com mensagem j\xE1 enviada";
@@ -790,6 +791,7 @@ async function callGroq(apiKey, model, text) {
     const body2 = await res.text();
     const err = new Error(`groq ${res.status}: ${body2.slice(0, 200)}`);
     err.status = res.status;
+    err.pauseMs = pauseMsFrom(body2);
     throw err;
   }
   const j = await res.json();
@@ -818,6 +820,16 @@ Responda s\xF3 com o texto da pr\xF3xima mensagem para o WhatsApp.`;
   }
 }
 async function generateGirofyCommercialReply(contact, incoming, history) {
+  const first = await generateOnce(contact, incoming, history);
+  if (first.aiAvailable || first.unavailableReason !== "quota" && first.unavailableReason !== "error") return first;
+  const cfg = await db.getConfig();
+  const waits = chainFrom(cfg).map((it) => Date.parse(cfg.aiPausedModels?.[pauseKey(it)] || "") - Date.now()).filter((ms) => ms > 0);
+  const shortest = waits.length ? Math.min(...waits) : Infinity;
+  if (shortest > 2e4) return first;
+  await new Promise((r) => setTimeout(r, shortest + 500));
+  return generateOnce(contact, incoming, history);
+}
+async function generateOnce(contact, incoming, history) {
   const fail = (reason) => ({
     replyText: "",
     aiAvailable: false,
@@ -845,6 +857,7 @@ async function generateGirofyCommercialReply(contact, incoming, history) {
   }
   try {
     const recent = history.slice(-12);
+    const opening = history.length > 12 ? history.slice(0, 3) : [];
     const recentBot = recent.filter((m) => m.from === "bot").slice(-4).map((m) => `- "${m.text}"`).join("\n");
     const transcript2 = recent.map((m) => {
       const who = m.from === "bot" ? "Voc\xEA" : m.from === "operator" ? "C\xE9sar (humano)" : "Pessoa";
@@ -852,21 +865,24 @@ async function generateGirofyCommercialReply(contact, incoming, history) {
     }).join("\n");
     const knowledge = await loadKnowledge();
     const learnings = await db.getTopLearnings(8);
-    const buildPrompt = (knowledge2) => `
+    const buildPrompt = (knowledge2, lessons) => `
 ${SYSTEM_PROMPT}
 ${knowledge2 ? `
 BASE DE CONHECIMENTO DA GIROFY:
 ${knowledge2}
 ` : ""}
-${learnings.length ? `
+${lessons.length ? `
 O QUE J\xC1 FUNCIONOU E N\xC3O FUNCIONOU (aprendido de conversas anteriores, use como guia):
-${learnings.map((l) => `- ${l}`).join("\n")}
+${lessons.map((l) => `- ${l}`).join("\n")}
 ` : ""}
-DADOS DA PESSOA:
+DADOS DA PESSOA (use S\xD3 isto; nunca cite nome, neg\xF3cio, cidade ou ramo que n\xE3o esteja aqui):
 - Nome: ${contact.name && !/^(lead|contato)/i.test(contact.name) ? contact.name : "n\xE3o sei o nome"}
 - Neg\xF3cio: ${contact.company && contact.company !== "Em qualifica\xE7\xE3o" ? contact.company : "n\xE3o sei o nome do neg\xF3cio"}
 - Nicho: ${contact.niche || "n\xE3o informado"}
-
+${opening.length ? `
+COMO A CONVERSA COME\xC7OU (primeiras mensagens, para voc\xEA lembrar quem falou o qu\xEA):
+${opening.map((m) => `${m.from === "bot" ? "Voc\xEA" : m.from === "operator" ? "C\xE9sar (humano)" : "Pessoa"}: ${m.text}`).join("\n")}
+` : ""}
 SUAS \xDALTIMAS MENSAGENS (n\xE3o repita nenhuma destas ideias):
 ${recentBot || "(nenhuma ainda)"}
 
@@ -879,8 +895,8 @@ Regras do follow-up: use um \xE2ngulo NOVO (n\xE3o repita a observa\xE7\xE3o ant
 
 Responda s\xF3 com o texto da pr\xF3xima mensagem para o WhatsApp.
 `;
-    const promptFull = buildPrompt(knowledge);
-    const promptSlim = buildPrompt(knowledge.slice(0, GROQ_KNOWLEDGE_CHARS));
+    const promptFull = buildPrompt(knowledge, learnings);
+    const promptSlim = buildPrompt(knowledge.slice(0, GROQ_KNOWLEDGE_CHARS), learnings.slice(0, GROQ_LESSONS).map((l) => l.slice(0, 220)));
     const recentBotTexts = recent.filter((m) => m.from === "bot").slice(-4).map((m) => m.text);
     let rawText = "";
     let lastProblem = "";
@@ -895,7 +911,7 @@ SUA TENTATIVA ANTERIOR FOI RECUSADA: ${lastProblem}. Escreva outra mensagem, com
         } catch (err) {
           const msg = String(err?.message || err);
           console.error(`[IA] ${item.provider}/${item.model} falhou:`, msg.slice(0, 300));
-          if (err?.status === 429 || /429|RESOURCE_EXHAUSTED|quota|rate limit/i.test(msg)) await pauseModel(item, pauseMsFrom(msg));
+          if (err?.status === 429 || /429|RESOURCE_EXHAUSTED|quota|rate limit/i.test(msg)) await pauseModel(item, err?.pauseMs ?? pauseMsFrom(msg));
           break;
         }
         const problem = validateReply(candidate, recentBotTexts);
@@ -1920,6 +1936,7 @@ async function getProspectStats() {
     inWindow: hour >= WINDOW_START && hour < WINDOW_END,
     window: `${WINDOW_START}h-${WINDOW_END}h (America/Bahia)`,
     sentToday,
+    paused: !!cfg.prospectorPaused,
     dailyCap: DAILY_CAP,
     queue: contacts.filter(isEligible).length,
     inConversation: contacts.filter((c) => c.status === "em_conversa").length,
@@ -1938,6 +1955,7 @@ async function tick() {
     const { day, hour } = bahiaNow();
     if (hour < WINDOW_START || hour >= WINDOW_END) return;
     const cfg = await db.getConfig();
+    if (cfg.prospectorPaused) return;
     const sentToday = cfg.prospectDay === day ? cfg.prospectSentToday || 0 : 0;
     if (sentToday >= DAILY_CAP) return;
     const queue = (await db.getContacts()).filter(isEligible).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
@@ -2000,6 +2018,84 @@ function startProspector() {
   );
 }
 
+// api/lib/transcribe.ts
+async function transcribeAudio(media) {
+  const cfg = await db.getConfig();
+  const key = (cfg.groqApiKey || process.env.GROQ_API_KEY || "").trim();
+  if (!key) return "";
+  try {
+    const form = new FormData();
+    form.append("file", new Blob([Buffer.from(media.data, "base64")], { type: media.mimeType || "audio/ogg" }), "audio.ogg");
+    form.append("model", "whisper-large-v3-turbo");
+    form.append("language", "pt");
+    form.append("response_format", "verbose_json");
+    form.append("temperature", "0");
+    const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}` },
+      body: form,
+      signal: AbortSignal.timeout(25e3)
+    });
+    if (!res.ok) {
+      console.error("[Audio] transcri\xE7\xE3o falhou:", res.status, (await res.text()).slice(0, 200));
+      return "";
+    }
+    const j = await res.json();
+    const segs = Array.isArray(j.segments) ? j.segments : [];
+    if (!segs.length || segs.every((x) => Number(x.no_speech_prob ?? 0) > 0.5)) return "";
+    return String(j.text || "").trim();
+  } catch (err) {
+    console.error("[Audio] erro na transcri\xE7\xE3o:", String(err?.message || err).slice(0, 200));
+    return "";
+  }
+}
+
+// api/lib/owner.ts
+var OWNER_PHONE = (process.env.OWNER_PHONE || "5574981017188").replace(/\D/g, "");
+var UNLOCK_MIN = 30;
+function isOwner(phone) {
+  return last8(phone) === last8(OWNER_PHONE);
+}
+var norm = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+var HELP = 'Comandos: "status", "pausa" (para a prospec\xE7\xE3o), "senha 123456" (libera 30 min), "come\xE7a" (retoma a prospec\xE7\xE3o, precisa de senha), "trava" (fecha o modo dono).';
+async function handleOwnerMessage(raw) {
+  const n = norm(raw);
+  const cfg = await db.getConfig();
+  const unlocked = !!cfg.ownerUnlockedUntil && Date.parse(cfg.ownerUnlockedUntil) > Date.now();
+  const pin = n.match(/(?:senha|pin)\D{0,3}(\d{4,8})/);
+  if (pin) {
+    const expected = (process.env.OWNER_PIN || "").trim();
+    if (!expected) return "Modo dono desligado: falta a vari\xE1vel OWNER_PIN no Render.";
+    if (pin[1] !== expected) {
+      await db.addAuditLog({ type: "error", phone: OWNER_PHONE, summary: "Senha errada no modo dono." });
+      return "Senha errada.";
+    }
+    await db.saveConfig({ ownerUnlockedUntil: new Date(Date.now() + UNLOCK_MIN * 6e4).toISOString() });
+    return `Liberado por ${UNLOCK_MIN} minutos. Pode mandar "come\xE7a" ou "pausa".`;
+  }
+  if (/\b(trava|travar|fecha|bloqueia)\b/.test(n)) {
+    await db.saveConfig({ ownerUnlockedUntil: "" });
+    return "Travado. Para come\xE7ar a prospec\xE7\xE3o de novo, mande a senha.";
+  }
+  if (/^(ajuda|comandos|help)\b/.test(n)) return HELP;
+  if (/\b(status|resumo|como esta|quantos)\b/.test(n)) {
+    const s = await getProspectStats();
+    const prosp = s.paused ? "PAUSADA" : "ativa";
+    const fila = s.queue === 0 ? "fila vazia (nada para prospectar; falta lista com telefone)" : `${s.queue} na fila`;
+    return `Prospec\xE7\xE3o ${prosp}. Hoje: ${s.sentToday}/${s.dailyCap} abordagens. ${fila}. Em conversa: ${s.inConversation}. Responderam: ${s.replied}. Janela: ${s.window}${s.inWindow ? " (dentro do hor\xE1rio)" : " (fora do hor\xE1rio)"}.`;
+  }
+  if (/\b(pausa|pausar|pausa tudo|para tudo|para a prospeccao|para prospeccao|para de prospectar)\b/.test(n)) {
+    await db.saveConfig({ prospectorPaused: true });
+    return "Prospec\xE7\xE3o pausada. As respostas aos leads continuam normais.";
+  }
+  if (/\b(comeca|inicia|iniciar|retoma|retomar|continua|roda|liga)\b/.test(n)) {
+    if (!unlocked) return "Pra come\xE7ar a prospec\xE7\xE3o, mande a senha primeiro.";
+    await db.saveConfig({ prospectorPaused: false });
+    return "Prospec\xE7\xE3o retomada. Ela s\xF3 envia dentro da janela de hor\xE1rio e respeitando o limite do dia.";
+  }
+  return `N\xE3o entendi. ${HELP}`;
+}
+
 // api/_handlers/evolution-webhook.ts
 function labelOf(message) {
   if (!message) return null;
@@ -2029,7 +2125,7 @@ async function handleUpsert(d) {
   const msgId = String(key.id || "");
   if (!msgId || await db.hasProcessedMessage(msgId)) return;
   await db.markMessageAsProcessed(msgId);
-  const text = labelOf(d.message);
+  let text = labelOf(d.message);
   if (!text) return;
   const mediaKind = mediaKindOf(d.message);
   if (key.fromMe) {
@@ -2043,6 +2139,21 @@ async function handleUpsert(d) {
       metaMessageId: msgId,
       status: "sent"
     });
+    return;
+  }
+  let media;
+  let transcript2 = "";
+  if (mediaKind) {
+    const got = await fetchEvolutionMedia({ id: msgId, remoteJid: jid, fromMe: false }, d.message);
+    if (got && mediaKind === "audio") transcript2 = await transcribeAudio(got);
+    if (got && !transcript2) media = got;
+  }
+  if (transcript2) text = `[\xC1udio] ${transcript2}`;
+  const aiInput = transcript2 || text;
+  if (isOwner(phone)) {
+    const reply = await handleOwnerMessage(aiInput);
+    await sendEvolutionText(OWNER_PHONE, reply, 1e3);
+    await db.addAuditLog({ type: "status_change", phone, summary: `Comando do dono: "${aiInput.slice(0, 80)}" \u2192 ${reply.slice(0, 120)}` });
     return;
   }
   const history = await db.getMessages(phone);
@@ -2088,12 +2199,7 @@ async function handleUpsert(d) {
   if (contact.status === "novo") {
     contact = await db.saveContact({ ...contact, status: "em_conversa", lastInteractionAt: now });
   }
-  let media;
-  if (mediaKind) {
-    const got = await fetchEvolutionMedia({ id: msgId, remoteJid: jid, fromMe: false }, d.message);
-    if (got) media = got;
-  }
-  const ai = await generateGirofyCommercialReply(contact, { text, media }, history);
+  const ai = await generateGirofyCommercialReply(contact, { text: aiInput, media }, history);
   if (!ai.aiAvailable) {
     await db.saveContact({ ...contact, status: "aguardando_humano", lastInteractionAt: now });
     const why = ai.unavailableReason === "quota" ? "cota di\xE1ria da IA atingida" : ai.unavailableReason === "no_key" ? "chave da IA n\xE3o configurada" : "erro da IA";
@@ -2110,7 +2216,8 @@ async function handleUpsert(d) {
   } else if (ai.isMeetingRequested) {
     await db.saveContact({ ...contact, status: "reuniao_marcada", lastInteractionAt: now });
   }
-  const send = await sendEvolutionText(phone, ai.replyText, 3e3);
+  const typingMs = Math.min(7e3, Math.max(2e3, ai.replyText.length * 45));
+  const send = await sendEvolutionText(phone, ai.replyText, typingMs);
   if (send.success) {
     if (send.messageId) await db.markMessageAsProcessed(send.messageId);
     await db.saveMessage({

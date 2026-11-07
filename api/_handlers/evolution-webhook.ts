@@ -6,6 +6,8 @@ import { formatPhoneNumber } from '../lib/whatsapp';
 import { generateGirofyCommercialReply } from '../lib/gemini';
 import { sendEvolutionText, fetchEvolutionMedia, OPT_OUT_REGEX } from '../lib/evolution';
 import { getProspectStats } from '../lib/prospector';
+import { transcribeAudio } from '../lib/transcribe';
+import { isOwner, handleOwnerMessage, OWNER_PHONE } from '../lib/owner';
 import { Contact, ChatMessage } from '../lib/types';
 
 // Texto que vai para o histórico (o que o César vê no painel).
@@ -44,7 +46,7 @@ async function handleUpsert(d: any) {
   if (!msgId || (await db.hasProcessedMessage(msgId))) return; // já tratada (inclui eco das mensagens do bot)
   await db.markMessageAsProcessed(msgId);
 
-  const text = labelOf(d.message);
+  let text = labelOf(d.message);
   if (!text) return;
   const mediaKind = mediaKindOf(d.message);
 
@@ -60,6 +62,25 @@ async function handleUpsert(d: any) {
       metaMessageId: msgId,
       status: 'sent',
     } as ChatMessage);
+    return;
+  }
+
+  // Áudio: transcreve (Whisper, Groq). Se não der, a IA ouve o áudio direto (Gemini).
+  let media: { mimeType: string; data: string } | undefined;
+  let transcript = '';
+  if (mediaKind) {
+    const got = await fetchEvolutionMedia({ id: msgId, remoteJid: jid, fromMe: false }, d.message);
+    if (got && mediaKind === 'audio') transcript = await transcribeAudio(got);
+    if (got && !transcript) media = got;
+  }
+  if (transcript) text = `[Áudio] ${transcript}`;
+  const aiInput = transcript || text;
+
+  // Modo dono: seu WhatsApp pessoal dá comandos. Não entra no histórico de leads nem vai para a IA.
+  if (isOwner(phone)) {
+    const reply = await handleOwnerMessage(aiInput);
+    await sendEvolutionText(OWNER_PHONE, reply, 1000);
+    await db.addAuditLog({ type: 'status_change', phone, summary: `Comando do dono: "${aiInput.slice(0, 80)}" → ${reply.slice(0, 120)}` });
     return;
   }
 
@@ -114,14 +135,7 @@ async function handleUpsert(d: any) {
     contact = await db.saveContact({ ...contact, status: 'em_conversa', lastInteractionAt: now });
   }
 
-  // Imagem e áudio: baixa o arquivo e entrega para a IA ler de verdade.
-  let media: { mimeType: string; data: string } | undefined;
-  if (mediaKind) {
-    const got = await fetchEvolutionMedia({ id: msgId, remoteJid: jid, fromMe: false }, d.message);
-    if (got) media = got;
-  }
-
-  const ai = await generateGirofyCommercialReply(contact, { text, media }, history);
+  const ai = await generateGirofyCommercialReply(contact, { text: aiInput, media }, history);
 
   if (!ai.aiAvailable) {
     // IA não rodou (sem chave, cota ou erro): nada improvisado. Fica sinalizado para você.
@@ -145,8 +159,9 @@ async function handleUpsert(d: any) {
     await db.saveContact({ ...contact, status: 'reuniao_marcada', lastInteractionAt: now });
   }
 
-  // Envio real pela Evolution, com presença "digitando" de 3s
-  const send = await sendEvolutionText(phone, ai.replyText, 3000);
+  // Envio pela Evolution com "digitando" proporcional ao tamanho (≈ 45 ms por letra, entre 2 s e 7 s).
+  const typingMs = Math.min(7000, Math.max(2000, ai.replyText.length * 45));
+  const send = await sendEvolutionText(phone, ai.replyText, typingMs);
   if (send.success) {
     if (send.messageId) await db.markMessageAsProcessed(send.messageId); // eco do envio não vira "manual"
     await db.saveMessage({

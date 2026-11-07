@@ -75,6 +75,7 @@ export async function getProspectStats() {
     inWindow: hour >= WINDOW_START && hour < WINDOW_END,
     window: `${WINDOW_START}h-${WINDOW_END}h (America/Bahia)`,
     sentToday,
+    paused: !!cfg.prospectorPaused,
     dailyCap: DAILY_CAP,
     queue: contacts.filter(isEligible).length,
     inConversation: contacts.filter(c => c.status === 'em_conversa').length,
@@ -97,6 +98,7 @@ async function tick() {
     if (hour < WINDOW_START || hour >= WINDOW_END) return;
 
     const cfg = await db.getConfig();
+    if (cfg.prospectorPaused) return; // pausa do dono (WhatsApp ou painel)
     const sentToday = cfg.prospectDay === day ? cfg.prospectSentToday || 0 : 0;
     if (sentToday >= DAILY_CAP) return;
 
