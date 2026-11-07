@@ -71,7 +71,9 @@ Se for passar a conversa para o César, escreva a mensagem e, no fim, [TRANSF_HU
 Se a pessoa pedir para parar, confirme em uma frase e não escreva mais nada.
 `;
 
-const GROQ_KNOWLEDGE_CHARS = 4000; // cabe no limite por minuto do Groq grátis
+// Groq grátis: ~7-8 mil tokens por minuto e por requisição. Acima disso ele recusa (413), então a versão enxuta é curta.
+const GROQ_KNOWLEDGE_CHARS = 2500;
+const GROQ_LESSONS = 4;
 const KNOWLEDGE_MAX_CHARS = 30000; // ~8k tokens por mensagem; ajuste se a cota gratuita apertar
 
 // Base de conhecimento = documentos do painel (banco, ativos) + arquivos .md da pasta knowledge/ do repo.
@@ -323,6 +325,7 @@ async function generateOnce(
   try {
     // Últimas mensagens, com as do bot marcadas para evitar repetição.
     const recent = history.slice(-12);
+    const opening = history.length > 12 ? history.slice(0, 3) : [];
     const recentBot = recent.filter(m => m.from === 'bot').slice(-4).map(m => `- "${m.text}"`).join('\n');
     const transcript = recent
       .map(m => {
@@ -335,15 +338,18 @@ async function generateOnce(
     const learnings = await db.getTopLearnings(8);
 
     // O Groq grátis limita ~7 mil tokens por minuto: ele recebe uma versão enxuta da base de conhecimento.
-    const buildPrompt = (knowledge: string) => `
+    const buildPrompt = (knowledge: string, lessons: string[]) => `
 ${SYSTEM_PROMPT}
 ${knowledge ? `\nBASE DE CONHECIMENTO DA GIROFY:\n${knowledge}\n` : ''}
-${learnings.length ? `\nO QUE JÁ FUNCIONOU E NÃO FUNCIONOU (aprendido de conversas anteriores, use como guia):\n${learnings.map(l => `- ${l}`).join('\n')}\n` : ''}
-DADOS DA PESSOA:
+${lessons.length ? `\nO QUE JÁ FUNCIONOU E NÃO FUNCIONOU (aprendido de conversas anteriores, use como guia):\n${lessons.map(l => `- ${l}`).join('\n')}\n` : ''}
+DADOS DA PESSOA (use SÓ isto; nunca cite nome, negócio, cidade ou ramo que não esteja aqui):
 - Nome: ${contact.name && !/^(lead|contato)/i.test(contact.name) ? contact.name : 'não sei o nome'}
 - Negócio: ${contact.company && contact.company !== 'Em qualificação' ? contact.company : 'não sei o nome do negócio'}
 - Nicho: ${contact.niche || 'não informado'}
-
+${opening.length ? `
+COMO A CONVERSA COMEÇOU (primeiras mensagens, para você lembrar quem falou o quê):
+${opening.map(m => `${m.from === 'bot' ? 'Você' : m.from === 'operator' ? 'César (humano)' : 'Pessoa'}: ${m.text}`).join('\n')}
+` : ''}
 SUAS ÚLTIMAS MENSAGENS (não repita nenhuma destas ideias):
 ${recentBot || '(nenhuma ainda)'}
 
@@ -357,8 +363,8 @@ Regras do follow-up: use um ângulo NOVO (não repita a observação anterior), 
 
 Responda só com o texto da próxima mensagem para o WhatsApp.
 `;
-    const promptFull = buildPrompt(knowledge);
-    const promptSlim = buildPrompt(knowledge.slice(0, GROQ_KNOWLEDGE_CHARS));
+    const promptFull = buildPrompt(knowledge, learnings);
+    const promptSlim = buildPrompt(knowledge.slice(0, GROQ_KNOWLEDGE_CHARS), learnings.slice(0, GROQ_LESSONS).map(l => l.slice(0, 220)));
 
     const recentBotTexts = recent.filter(m => m.from === 'bot').slice(-4).map(m => m.text);
 

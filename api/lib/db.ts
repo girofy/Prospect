@@ -25,6 +25,8 @@ export interface AppConfig {
   aiPausedModels?: Record<string, string>; // 'provedor:modelo' -> ISO até quando pausado
   aiChain?: { provider: 'gemini' | 'groq'; model: string }[]; // ordem de uso dos modelos
   groqApiKey?: string;
+  prospectorPaused?: boolean; // dono pausou a prospecção (respostas a leads continuam)
+  ownerUnlockedUntil?: string; // ISO: modo dono liberado por senha até quando
 }
 
 const DEFAULT_CONFIG: AppConfig = {
