@@ -13,6 +13,77 @@ const btn: CSSProperties = {padding: '10px 14px', borderRadius: 10, border: 0, b
 const ghost: CSSProperties = {...btn, background: '#eef1f6', color: '#334'};
 const danger: CSSProperties = {...btn, background: '#fbe9e9', color: '#b42318'};
 
+
+// Dashboard de conversas: calculado no banco (sem IA, sem cota).
+function MetricsBlock() {
+  const [m, setM] = useState<any>(null);
+  const [erro, setErro] = useState('');
+  useEffect(() => {
+    fetch('/api/metrics')
+      .then(r => r.json().then(j => (r.ok ? setM(j) : setErro(j.error || 'Falha'))))
+      .catch(() => setErro('Sem conexão.'));
+  }, []);
+  if (erro) return <div style={card}><p style={{color: '#b42318', fontSize: 14}}>{erro}</p></div>;
+  if (!m) return <div style={card}><p style={{fontSize: 14, color: '#667'}}>Calculando métricas…</p></div>;
+  const r = m.resumo;
+  const cards: [string, string | number][] = [
+    ['Conversas iniciadas', r.conversas_iniciadas],
+    ['Responderam', r.conversas_com_resposta],
+    ['Taxa de resposta', `${r.taxa_de_resposta}%`],
+    ['Mediana até 1ª resposta', r.mediana_minutos_ate_resposta === null ? '—' : `${r.mediana_minutos_ate_resposta} min`],
+    ['Conversas com troca', r.conversas_com_troca],
+    ['Mensagens no histórico', r.mensagens_totais],
+    ['Áudios recebidos', r.audios_recebidos],
+    ['Imagens recebidas', r.imagens_recebidas],
+    ['Pediram para sair', r.opt_outs],
+  ];
+  const maxHora = Math.max(1, ...m.porHora);
+  const statusEntries = Object.entries(m.status as Record<string, number>).sort((a, b) => b[1] - a[1]);
+  return (
+    <div style={card}>
+      <h2 style={{fontSize: 17, margin: '0 0 10px'}}>Dashboard de conversas</h2>
+      <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, marginBottom: 14}}>
+        {cards.map(([k, v]) => (
+          <div key={k} style={{background: '#f5f7fb', borderRadius: 10, padding: 10}}>
+            <div style={{fontSize: 12, color: '#667'}}>{k}</div>
+            <div style={{fontSize: 18, fontWeight: 700}}>{v}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{fontSize: 13, color: '#667', marginBottom: 6}}>Respostas de leads por hora (horário da Bahia)</div>
+      <div style={{display: 'flex', alignItems: 'flex-end', gap: 3, height: 90, marginBottom: 4}}>
+        {m.porHora.map((v: number, h: number) => (
+          <div key={h} title={`${h}h: ${v}`} style={{flex: 1, height: `${Math.round((v / maxHora) * 100)}%`, minHeight: v ? 2 : 0, background: h >= 17 || h < 7 ? '#0b5cad' : '#8fb4e3', borderRadius: 2}} />
+        ))}
+      </div>
+      <div style={{display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#889', marginBottom: 14}}>
+        <span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>23h</span>
+      </div>
+
+      <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14}}>
+        <div>
+          <div style={{fontSize: 13, color: '#667', marginBottom: 6}}>Situação dos contatos</div>
+          {statusEntries.map(([k, v]) => (
+            <div key={k} style={{display: 'flex', justifyContent: 'space-between', fontSize: 14, padding: '3px 0'}}>
+              <span>{k}</span><b>{v}</b>
+            </div>
+          ))}
+        </div>
+        <div>
+          <div style={{fontSize: 13, color: '#667', marginBottom: 6}}>Desfechos analisados pela IA</div>
+          {Object.keys(m.desfechos).length === 0 && <p style={{fontSize: 13, color: '#889', margin: 0}}>Ainda sem análise.</p>}
+          {Object.entries(m.desfechos as Record<string, number>).map(([k, v]) => (
+            <div key={k} style={{display: 'flex', justifyContent: 'space-between', fontSize: 14, padding: '3px 0'}}>
+              <span>{k}</span><b>{v}</b>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function KnowledgeSection() {
   const [docs, setDocs] = useState<Doc[]>([]);
   const [totalChars, setTotalChars] = useState(0);
@@ -142,6 +213,8 @@ export default function KnowledgeSection() {
             ))}
           </div>
         </div>
+
+        <MetricsBlock />
 
         <div style={card}>
           <h2 style={{fontSize: 17, margin: '0 0 10px'}}>O que a IA aprendeu</h2>

@@ -56,7 +56,7 @@ function isEligible(c: Contact): boolean {
     c.status === 'novo' &&
     c.agentState === 'ai_active' &&
     !c.optOutDetected &&
-    c.phone.replace(/\D/g, '').length >= 12
+    [12, 13].includes(c.phone.replace(/\D/g, '').length) // telefone real; identificador @lid (14 dígitos) nunca recebe abordagem
   );
 }
 
