@@ -8,6 +8,18 @@ import { sendEvolutionText, fetchEvolutionMedia, OPT_OUT_REGEX } from '../lib/ev
 import { getProspectStats } from '../lib/prospector';
 import { transcribeAudio } from '../lib/transcribe';
 import { isOwner, handleOwnerMessage, OWNER_PHONE } from '../lib/owner';
+
+// Aviso para o dono quando um lead mostra interesse de compra (no máximo um aviso a cada 30 min por contato).
+const HOT_RE = /(quanto (custa|fica|sai|e|é)|pre[cç]o|valor|pr[eé]via|or[cç]amento|quero (fechar|contratar|comprar)|fechar (o )?neg[oó]cio|contratar)/i;
+const lastHotAlert = new Map<string, number>();
+
+async function alertOwnerIfHot(phone: string, name: string, text: string): Promise<void> {
+  if (!HOT_RE.test(text)) return;
+  if (Date.now() - (lastHotAlert.get(phone) || 0) < 30 * 60_000) return;
+  lastHotAlert.set(phone, Date.now());
+  const who = name && !/^(contato|lead)/i.test(name) ? `${name} (${phone})` : phone;
+  await sendEvolutionText(OWNER_PHONE, `Lead quente: ${who}\nDisse: "${text.slice(0, 200)}"\nPara eu resumir, mande: resumo ${phone.slice(-8)}`, 1000);
+}
 import { Contact, ChatMessage } from '../lib/types';
 
 // Texto que vai para o histórico (o que o César vê no painel).
@@ -135,6 +147,8 @@ async function handleUpsert(d: any) {
     contact = await db.saveContact({ ...contact, status: 'em_conversa', lastInteractionAt: now });
   }
 
+  await alertOwnerIfHot(phone, contact.name, aiInput);
+
   const ai = await generateGirofyCommercialReply(contact, { text: aiInput, media }, history);
 
   if (!ai.aiAvailable) {
@@ -160,7 +174,9 @@ async function handleUpsert(d: any) {
   }
 
   // Envio pela Evolution com "digitando" proporcional ao tamanho (≈ 45 ms por letra, entre 2 s e 7 s).
+  // Ritmo de gente: espera o dobro do "digitando" antes de começar a digitar (total ≈ 3x).
   const typingMs = Math.min(7000, Math.max(2000, ai.replyText.length * 45));
+  await new Promise(r => setTimeout(r, typingMs * 2));
   const send = await sendEvolutionText(phone, ai.replyText, typingMs);
   if (send.success) {
     if (send.messageId) await db.markMessageAsProcessed(send.messageId); // eco do envio não vira "manual"

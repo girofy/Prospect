@@ -1,4 +1,5 @@
 import { getEvolutionCfg } from '../lib/evolution';
+import { transcribeAudio } from '../lib/transcribe';
 
 // Exportação ÚNICA das conversas de um WhatsApp pessoal (o seu).
 // Regras: nada vai para o banco. O arquivo fica só na memória deste processo, sai UMA vez no download,
@@ -19,6 +20,7 @@ type Job = {
 let job: Job | null = null;
 const MAX_AGE_MS = 60 * 60_000;
 const MAX_PAGES_PER_CHAT = 50;
+const MAX_AUDIOS = 80; // teto de áudios transcritos por exportação (cota gratuita do Whisper)
 
 async function evo(method: string, path: string, body?: unknown): Promise<any> {
   const cfg = getEvolutionCfg();
@@ -59,9 +61,24 @@ function textOf(message: any): string | null {
   return null; // protocolo, reações e outros eventos sem conteúdo
 }
 
+// Baixa e transcreve um áudio da exportação. Sem transcrição, fica só o marcador.
+async function audioText(name: string, m: any, budget: { left: number }): Promise<string> {
+  if (budget.left <= 0) return '[Áudio não transcrito: limite da exportação]';
+  budget.left--;
+  try {
+    const r = await evo('POST', `/chat/getBase64FromMediaMessage/${encodeURIComponent(name)}`, { message: { key: m.key, message: m.message }, convertToMp4: false });
+    if (!r?.base64) return '[Áudio]';
+    const t = await transcribeAudio({ mimeType: String(r.mimetype || 'audio/ogg').split(';')[0], data: String(r.base64).replace(/^data:[^;]+;base64,/, '') });
+    return t ? `[Áudio] ${t}` : '[Áudio sem fala reconhecida]';
+  } catch {
+    return '[Áudio]';
+  }
+}
+
 async function build(): Promise<void> {
   if (!job) return;
   const current = job;
+  const budget = { left: MAX_AUDIOS };
   current.status = 'building';
   try {
     const name = current.instance;
@@ -80,7 +97,7 @@ async function build(): Promise<void> {
         const r = await evo('POST', `/chat/findMessages/${encodeURIComponent(name)}`, { where: { key: { remoteJid: jid } }, page });
         pages = r?.messages?.pages || 1;
         for (const m of r?.messages?.records || []) {
-          const text = textOf(m.message);
+          const text = m.message?.audioMessage ? await audioText(name, m, budget) : textOf(m.message);
           if (!text) continue;
           mensagens.push({
             de: m.key?.fromMe ? 'eu' : 'contato',
