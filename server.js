@@ -1202,6 +1202,22 @@ async function sendEvolutionText(phone, text, delayMs = 3e3) {
     return { success: false, error: err?.message || "Falha de rede na Evolution" };
   }
 }
+async function getEvolutionState() {
+  const cfg = getEvolutionCfg();
+  if (!cfg) return "unknown";
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 5e3);
+    const res = await fetch(`${cfg.url}/instance/connectionState/${encodeURIComponent(cfg.instance)}`, { headers: { apikey: cfg.apiKey }, signal: ctrl.signal });
+    clearTimeout(t);
+    if (!res.ok) return "unknown";
+    const j = await res.json();
+    const st = j?.instance?.state;
+    return st === "open" || st === "connecting" || st === "close" ? st : "unknown";
+  } catch {
+    return "unknown";
+  }
+}
 async function fetchEvolutionMedia(messageKey, message) {
   const cfg = getEvolutionCfg();
   if (!cfg) return null;
@@ -1537,12 +1553,17 @@ async function handler8(req, res) {
   try {
     const config = await db.getConfig();
     if (req.method === "GET") {
+      const live = await getEvolutionState();
+      const mapped = live === "open" ? "connected" : live === "connecting" ? "pairing" : live === "close" ? "disconnected" : null;
+      if (mapped && mapped !== config.directPairingStatus) {
+        await db.saveConfig({ directPairingStatus: mapped, ...mapped === "connected" ? { directPairingConnectedAt: (/* @__PURE__ */ new Date()).toISOString() } : {} });
+      }
       return res.status(200).json({
         activeGateway: config.activeGateway || "direct_pairing",
-        status: config.directPairingStatus || "connected",
-        phoneNumber: config.directPairingPhone || "557488126578",
+        status: mapped || config.directPairingStatus || "disconnected",
+        phoneNumber: config.directPairingPhone || "",
         pairingCode: config.directPairingCode || "",
-        connectedAt: config.directPairingConnectedAt || (/* @__PURE__ */ new Date()).toISOString()
+        connectedAt: config.directPairingConnectedAt || ""
       });
     }
     if (req.method === "POST") {
@@ -2113,8 +2134,87 @@ async function handler11(req, res) {
   return res.status(200).json({ token });
 }
 
+// api/lib/learning.ts
+import { GoogleGenAI as GoogleGenAI2 } from "@google/genai";
+var LEARNING_MODEL = "gemini-3.6-flash";
+var MAX_PER_PASS = Number(process.env.LEARNING_MAX_PER_PASS ?? 5);
+var CLOSED_STATUSES = /* @__PURE__ */ new Set(["reuniao_marcada", "aguardando_humano", "esfriou", "bloqueado"]);
+function transcript(msgs) {
+  return msgs.slice(-30).map((m) => `${m.from === "bot" ? "Assistente" : m.from === "operator" ? "C\xE9sar" : "Pessoa"}: ${m.text}`).join("\n");
+}
+function outcomeOf(c, msgs) {
+  if (c.status === "reuniao_marcada") return "reuniao";
+  if (c.optOutDetected || c.status === "bloqueado") return "opt_out";
+  if (!msgs.some((m) => m.from === "lead")) return "sem_resposta";
+  if (c.status === "aguardando_humano") return "passou_para_humano";
+  return "esfriou";
+}
+async function runLearningPass() {
+  const contacts = await db.getContacts();
+  const learned = await db.getLearnedPhonesSince(new Date(Date.now() - 14 * 864e5).toISOString());
+  const candidates = contacts.filter((c) => CLOSED_STATUSES.has(c.status) || c.status === "em_conversa").filter((c) => !learned.has(c.phone));
+  if (candidates.length === 0) return 0;
+  const cfg = await db.getConfig();
+  const apiKey = (cfg.geminiApiKey || process.env.GEMINI_API_KEY || "").trim();
+  if (!apiKey) return 0;
+  const ai = new GoogleGenAI2({ apiKey });
+  let saved = 0;
+  for (const c of candidates) {
+    if (saved >= MAX_PER_PASS) break;
+    const msgs = await db.getMessages(c.phone);
+    if (msgs.length < 2 || !msgs.some((m) => m.from === "lead")) continue;
+    if (!await reserveAiCall()) break;
+    const outcome = outcomeOf(c, msgs);
+    const prompt = `Voc\xEA analisa uma conversa de prospec\xE7\xE3o por WhatsApp feita por um assistente de IA da Girofy (engenharia digital para neg\xF3cios locais). Desfecho registrado: ${outcome}.
+
+Conversa:
+${transcript(msgs)}
+
+Responda SOMENTE um JSON com as chaves:
+- "worked": o que na conversa funcionou (frase curta, ou "-")
+- "failed": o ponto exato em que a conversa travou ou a pessoa recuou, citando a mensagem do assistente que veio antes entre aspas, e por que isso afastou (ou "-")
+- "why": por que voc\xEA acha que aconteceu (uma frase)
+- "opener_style": o estilo da primeira mensagem que deu resposta (uma frase, ou "-")
+Sem texto fora do JSON. Sem inventar fatos que n\xE3o est\xE3o na conversa.`;
+    try {
+      const res = await ai.models.generateContent({
+        model: LEARNING_MODEL,
+        contents: prompt,
+        config: { temperature: 0.2, maxOutputTokens: 400, responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 } }
+      });
+      const parsed = JSON.parse(res.text || "{}");
+      await db.saveLearning({
+        contactPhone: c.phone,
+        outcome,
+        worked: String(parsed.worked || "-").slice(0, 300),
+        failed: String(parsed.failed || "-").slice(0, 300),
+        why: String(parsed.why || "-").slice(0, 300),
+        openerStyle: String(parsed.opener_style || "-").slice(0, 200)
+      });
+      saved += 1;
+    } catch (err) {
+      console.warn("[Learning] falha numa conversa:", err?.message || err);
+    }
+  }
+  return saved;
+}
+function startLearning(everyMs = 6 * 36e5) {
+  if (process.env.LEARNING_ENABLED === "false") return;
+  setInterval(() => {
+    runLearningPass().catch((err) => console.warn("[Learning] passe falhou:", err));
+  }, everyMs);
+}
+
 // api/_handlers/learnings.ts
 async function handler12(req, res) {
+  if (req.method === "POST") {
+    try {
+      const saved = await runLearningPass();
+      return res.status(200).json({ saved });
+    } catch (err) {
+      return res.status(500).json({ error: err?.message || "Falha na an\xE1lise." });
+    }
+  }
   if (req.method !== "GET") return res.status(405).json({ error: "Method Not Allowed" });
   try {
     const [learnings, stats] = await Promise.all([db.getRecentLearnings(50), getProspectStats()]);
@@ -2124,6 +2224,29 @@ async function handler12(req, res) {
   } catch (err) {
     return res.status(500).json({ error: err?.message || "Falha ao ler aprendizado." });
   }
+}
+
+// api/lib/extract.ts
+import { extractText, getDocumentProxy } from "unpdf";
+import mammoth from "mammoth";
+var MAX_FILE_BYTES = 8 * 1024 * 1024;
+async function extractFromFile(filename, buf) {
+  const name = filename.toLowerCase();
+  if (name.endsWith(".pdf")) {
+    const pdf = await getDocumentProxy(new Uint8Array(buf));
+    const { text } = await extractText(pdf, { mergePages: true });
+    return { text: String(text || "").replace(/\r/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(), kind: "pdf" };
+  }
+  if (name.endsWith(".docx")) {
+    const r = await mammoth.extractRawText({ buffer: buf });
+    return { text: r.value.replace(/\n{3,}/g, "\n\n").trim(), kind: "docx" };
+  }
+  if (/\.(md|markdown|txt|csv|json|html?)$/.test(name)) {
+    let t = buf.toString("utf-8");
+    if (/\.html?$/.test(name)) t = t.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, " ").replace(/[ \t]+/g, " ");
+    return { text: t.replace(/\r/g, "").trim(), kind: "texto" };
+  }
+  throw new Error("Tipo de arquivo n\xE3o suportado. Use PDF, Word (.docx), .md, .txt, .csv, .json ou .html.");
 }
 
 // api/_handlers/knowledge.ts
@@ -2150,6 +2273,22 @@ async function handler13(req, res) {
       await db.saveKnowledge(title, content);
       clearKnowledgeCache();
       return res.status(200).json({ success: true });
+    }
+    if (req.method === "POST" && path3 === "/api/knowledge/extract") {
+      const b = body(req);
+      const filename = String(b.filename || "arquivo");
+      const buf = Buffer.from(String(b.data || ""), "base64");
+      if (buf.length === 0) return res.status(400).json({ error: "Arquivo vazio." });
+      if (buf.length > MAX_FILE_BYTES) return res.status(400).json({ error: "Arquivo grande demais (m\xE1ximo 8 MB)." });
+      try {
+        const { text, kind } = await extractFromFile(filename, buf);
+        if (!text) {
+          return res.status(422).json({ error: kind === "pdf" ? "Esse PDF n\xE3o tem texto (parece escaneado, s\xF3 imagem). Cole o texto \xE0 m\xE3o." : "N\xE3o encontrei texto nesse arquivo." });
+        }
+        return res.status(200).json({ title: filename.replace(/\.[^.]+$/, ""), text: text.slice(0, MAX_DOC_CHARS), truncated: text.length > MAX_DOC_CHARS, kind, chars: text.length });
+      } catch (e) {
+        return res.status(422).json({ error: e?.message || "N\xE3o consegui ler o arquivo." });
+      }
     }
     if (req.method === "POST" && path3 === "/api/knowledge/toggle") {
       const b = body(req);
@@ -2255,7 +2394,23 @@ async function handler14(req, res) {
     const mediana = tempos.length ? Math.round(tempos[Math.floor(tempos.length / 2)]) : null;
     const audios = messages.filter((m) => m.type === "audio" && m.from === "lead").length;
     const imagens = messages.filter((m) => m.type === "image" && m.from === "lead").length;
+    const [whatsapp, cfg, stats] = await Promise.all([getEvolutionState(), db.getConfig(), getProspectStats()]);
+    const hoje = bahiaDay((/* @__PURE__ */ new Date()).toISOString());
+    const limite = Number(process.env.GEMINI_DAILY_CALL_LIMIT ?? 200);
+    const pausados = Object.entries(cfg.aiPausedModels || {}).filter(([, until]) => Date.parse(String(until)) > Date.now()).map(([k]) => k);
+    const cadeia = cfg.aiChain && cfg.aiChain.length ? cfg.aiChain : null;
     return res.status(200).json({
+      agente: {
+        whatsapp,
+        ia_usadas_hoje: cfg.aiUsageDay === hoje ? cfg.aiUsageCount || 0 : 0,
+        ia_limite: limite,
+        modelos_pausados: pausados,
+        modelos: cadeia,
+        enviados_hoje: stats.sentToday,
+        teto_diario: stats.dailyCap,
+        na_fila: stats.queue,
+        dentro_da_janela: stats.inWindow
+      },
       resumo: {
         contatos: contacts.length,
         conversas_iniciadas: iniciadasPorNos,
@@ -2351,6 +2506,22 @@ async function handler15(req, res) {
   }
 }
 
+// api/_handlers/ai-test.ts
+async function handler16(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
+  const body2 = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+  const text = String(body2.text || "Oi, quem \xE9?").slice(0, 300);
+  const contact = { phone: "000", name: "", company: "Em qualifica\xE7\xE3o", niche: String(body2.niche || "barbearia"), status: "novo", agentState: "ai_active", optOutDetected: false };
+  const t0 = Date.now();
+  const r = await generateGirofyCommercialReply(contact, { text }, []);
+  return res.status(200).json({
+    ok: r.aiAvailable,
+    reply: r.replyText,
+    motivo: r.aiAvailable ? null : r.unavailableReason,
+    ms: Date.now() - t0
+  });
+}
+
 // api/index.ts
 var PUBLIC_ROUTES = {
   "/api/login": handler11,
@@ -2372,7 +2543,8 @@ var PROTECTED_ROUTES = {
   "/api/learnings": handler12,
   "/api/knowledge": handler13,
   "/api/metrics": handler14,
-  "/api/export": handler15
+  "/api/export": handler15,
+  "/api/ai-test": handler16
 };
 var PUBLIC_GET_ROUTES = {
   "/api/prospector": handler10
@@ -2384,7 +2556,7 @@ function match(table, urlPath) {
   }
   return null;
 }
-async function handler16(req, res) {
+async function handler17(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-hub-signature-256");
   if (req.method === "OPTIONS") {
@@ -2407,77 +2579,6 @@ async function handler16(req, res) {
     return prot(req, res);
   }
   return res.status(404).json({ error: "Endpoint n\xE3o encontrado", path: urlPath });
-}
-
-// api/lib/learning.ts
-import { GoogleGenAI as GoogleGenAI2 } from "@google/genai";
-var LEARNING_MODEL = "gemini-3.6-flash";
-var MAX_PER_PASS = Number(process.env.LEARNING_MAX_PER_PASS ?? 5);
-var CLOSED_STATUSES = /* @__PURE__ */ new Set(["reuniao_marcada", "aguardando_humano", "esfriou", "bloqueado"]);
-function transcript(msgs) {
-  return msgs.slice(-30).map((m) => `${m.from === "bot" ? "Assistente" : m.from === "operator" ? "C\xE9sar" : "Pessoa"}: ${m.text}`).join("\n");
-}
-function outcomeOf(c, msgs) {
-  if (c.status === "reuniao_marcada") return "reuniao";
-  if (c.optOutDetected || c.status === "bloqueado") return "opt_out";
-  if (!msgs.some((m) => m.from === "lead")) return "sem_resposta";
-  if (c.status === "aguardando_humano") return "passou_para_humano";
-  return "esfriou";
-}
-async function runLearningPass() {
-  const contacts = await db.getContacts();
-  const learned = await db.getLearnedPhonesSince(new Date(Date.now() - 14 * 864e5).toISOString());
-  const candidates = contacts.filter((c) => CLOSED_STATUSES.has(c.status) || c.status === "em_conversa").filter((c) => !learned.has(c.phone));
-  if (candidates.length === 0) return 0;
-  const cfg = await db.getConfig();
-  const apiKey = (cfg.geminiApiKey || process.env.GEMINI_API_KEY || "").trim();
-  if (!apiKey) return 0;
-  const ai = new GoogleGenAI2({ apiKey });
-  let saved = 0;
-  for (const c of candidates) {
-    if (saved >= MAX_PER_PASS) break;
-    const msgs = await db.getMessages(c.phone);
-    if (msgs.length < 2 || !msgs.some((m) => m.from === "lead")) continue;
-    if (!await reserveAiCall()) break;
-    const outcome = outcomeOf(c, msgs);
-    const prompt = `Voc\xEA analisa uma conversa de prospec\xE7\xE3o por WhatsApp feita por um assistente de IA da Girofy (engenharia digital para neg\xF3cios locais). Desfecho registrado: ${outcome}.
-
-Conversa:
-${transcript(msgs)}
-
-Responda SOMENTE um JSON com as chaves:
-- "worked": o que na conversa funcionou (frase curta, ou "-")
-- "failed": o que n\xE3o funcionou ou afastou a pessoa (frase curta, ou "-")
-- "why": por que voc\xEA acha que aconteceu (uma frase)
-- "opener_style": o estilo da primeira mensagem que deu resposta (uma frase, ou "-")
-Sem texto fora do JSON. Sem inventar fatos que n\xE3o est\xE3o na conversa.`;
-    try {
-      const res = await ai.models.generateContent({
-        model: LEARNING_MODEL,
-        contents: prompt,
-        config: { temperature: 0.2, maxOutputTokens: 400, responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 } }
-      });
-      const parsed = JSON.parse(res.text || "{}");
-      await db.saveLearning({
-        contactPhone: c.phone,
-        outcome,
-        worked: String(parsed.worked || "-").slice(0, 300),
-        failed: String(parsed.failed || "-").slice(0, 300),
-        why: String(parsed.why || "-").slice(0, 300),
-        openerStyle: String(parsed.opener_style || "-").slice(0, 200)
-      });
-      saved += 1;
-    } catch (err) {
-      console.warn("[Learning] falha numa conversa:", err?.message || err);
-    }
-  }
-  return saved;
-}
-function startLearning(everyMs = 6 * 36e5) {
-  if (process.env.LEARNING_ENABLED === "false") return;
-  setInterval(() => {
-    runLearningPass().catch((err) => console.warn("[Learning] passe falhou:", err));
-  }, everyMs);
 }
 
 // server.ts
@@ -2553,7 +2654,7 @@ var server = http.createServer(async (req, res) => {
         req.body = bodyData;
       }
       try {
-        await handler16(req, resCompat);
+        await handler17(req, resCompat);
       } catch (err) {
         console.error("[Server API Error]:", err);
         if (!res.writableEnded) {

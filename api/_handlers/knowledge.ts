@@ -1,5 +1,6 @@
 import { db } from '../lib/db';
 import { clearKnowledgeCache } from '../lib/gemini';
+import { extractFromFile, MAX_FILE_BYTES } from '../lib/extract';
 
 // Base de conhecimento do painel. Protegida pelo login (ver api/index.ts).
 // Rotas: GET lista · POST cria · POST /toggle ativa/desativa · POST /delete remove.
@@ -29,6 +30,24 @@ export default async function handler(req: any, res: any) {
       await db.saveKnowledge(title, content);
       clearKnowledgeCache();
       return res.status(200).json({ success: true });
+    }
+
+    // Recebe o arquivo em base64, devolve o texto extraído para o César revisar antes de salvar.
+    if (req.method === 'POST' && path === '/api/knowledge/extract') {
+      const b = body(req);
+      const filename = String(b.filename || 'arquivo');
+      const buf = Buffer.from(String(b.data || ''), 'base64');
+      if (buf.length === 0) return res.status(400).json({ error: 'Arquivo vazio.' });
+      if (buf.length > MAX_FILE_BYTES) return res.status(400).json({ error: 'Arquivo grande demais (máximo 8 MB).' });
+      try {
+        const { text, kind } = await extractFromFile(filename, buf);
+        if (!text) {
+          return res.status(422).json({ error: kind === 'pdf' ? 'Esse PDF não tem texto (parece escaneado, só imagem). Cole o texto à mão.' : 'Não encontrei texto nesse arquivo.' });
+        }
+        return res.status(200).json({ title: filename.replace(/\.[^.]+$/, ''), text: text.slice(0, MAX_DOC_CHARS), truncated: text.length > MAX_DOC_CHARS, kind, chars: text.length });
+      } catch (e: any) {
+        return res.status(422).json({ error: e?.message || 'Não consegui ler o arquivo.' });
+      }
     }
 
     if (req.method === 'POST' && path === '/api/knowledge/toggle') {

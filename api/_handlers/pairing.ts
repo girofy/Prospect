@@ -1,4 +1,5 @@
 import { db } from '../lib/db';
+import { getEvolutionState } from '../lib/evolution';
 // Pareamento usa o número EXATO como o WhatsApp registrou (ex.: 557488126578).
 // Não aplica a normalização de 9º dígito: ela serve só para casar contatos, não para o número da conta.
 function exactPhone(raw: string): string {
@@ -31,12 +32,18 @@ export default async function handler(req: any, res: any) {
     const config = await db.getConfig();
 
     if (req.method === 'GET') {
+      // Estado REAL da conexão (Evolution). O valor gravado no banco pode estar velho.
+      const live = await getEvolutionState();
+      const mapped = live === 'open' ? 'connected' : live === 'connecting' ? 'pairing' : live === 'close' ? 'disconnected' : null;
+      if (mapped && mapped !== config.directPairingStatus) {
+        await db.saveConfig({ directPairingStatus: mapped as any, ...(mapped === 'connected' ? { directPairingConnectedAt: new Date().toISOString() } : {}) });
+      }
       return res.status(200).json({
         activeGateway: config.activeGateway || 'direct_pairing',
-        status: config.directPairingStatus || 'connected',
-        phoneNumber: config.directPairingPhone || '557488126578',
+        status: mapped || config.directPairingStatus || 'disconnected',
+        phoneNumber: config.directPairingPhone || '',
         pairingCode: config.directPairingCode || '',
-        connectedAt: config.directPairingConnectedAt || new Date().toISOString(),
+        connectedAt: config.directPairingConnectedAt || '',
       });
     }
 

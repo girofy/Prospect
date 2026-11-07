@@ -1,4 +1,7 @@
 import { supabase } from '../lib/supabaseClient';
+import { db } from '../lib/db';
+import { getEvolutionState } from '../lib/evolution';
+import { getProspectStats } from '../lib/prospector';
 
 // Métricas do painel, calculadas direto no banco. Não usa IA, então não gasta cota.
 // Protegida pelo login (ver api/index.ts).
@@ -100,7 +103,27 @@ export default async function handler(req: any, res: any) {
     const audios = messages.filter(m => m.type === 'audio' && m.from === 'lead').length;
     const imagens = messages.filter(m => m.type === 'image' && m.from === 'lead').length;
 
+    // Estado do agente: WhatsApp, cota da IA e prospecção do dia
+    const [whatsapp, cfg, stats] = await Promise.all([getEvolutionState(), db.getConfig(), getProspectStats()]);
+    const hoje = bahiaDay(new Date().toISOString());
+    const limite = Number(process.env.GEMINI_DAILY_CALL_LIMIT ?? 200);
+    const pausados = Object.entries(cfg.aiPausedModels || {})
+      .filter(([, until]) => Date.parse(String(until)) > Date.now())
+      .map(([k]) => k);
+    const cadeia = (cfg.aiChain && cfg.aiChain.length ? cfg.aiChain : null);
+
     return res.status(200).json({
+      agente: {
+        whatsapp,
+        ia_usadas_hoje: cfg.aiUsageDay === hoje ? cfg.aiUsageCount || 0 : 0,
+        ia_limite: limite,
+        modelos_pausados: pausados,
+        modelos: cadeia,
+        enviados_hoje: stats.sentToday,
+        teto_diario: stats.dailyCap,
+        na_fila: stats.queue,
+        dentro_da_janela: stats.inWindow,
+      },
       resumo: {
         contatos: contacts.length,
         conversas_iniciadas: iniciadasPorNos,
