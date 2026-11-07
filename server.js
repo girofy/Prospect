@@ -954,38 +954,46 @@ function parseOwnerJson(raw) {
     const j = JSON.parse(m[0]);
     const reply = String(j.reply || "").trim();
     if (!reply) return null;
-    const action = ["pause", "resume", "status"].includes(j.action) ? j.action : "none";
-    return { reply, action };
+    const actions = ["status", "pause", "resume", "summarize", "list", "send"];
+    const action = actions.includes(j.action) ? j.action : "none";
+    return { reply, action, target: String(j.target || "").trim(), message: String(j.message || "").trim() };
   } catch {
     return null;
   }
 }
-async function generateOwnerReply(text, history, snapshot2) {
+async function generateOwnerReply(text, history, snapshot2, context = "") {
   const cfg = await db.getConfig();
   const geminiKey = (cfg.geminiApiKey || process.env.GEMINI_API_KEY || "").trim();
   const groqKey = (cfg.groqApiKey || process.env.GROQ_API_KEY || "").trim();
   const transcript2 = history.slice(-8).map((m) => `${m.from === "owner" ? "C\xE9sar" : "Voc\xEA"}: ${m.text}`).join("\n");
   const prompt = `Voc\xEA \xE9 o agente de prospec\xE7\xE3o da Girofy e est\xE1 falando com o C\xC9SAR, o dono. Ele te configurou e ningu\xE9m mais tem esse n\xFAmero.
 
-COMO FALAR: portugu\xEAs do Brasil, natural, direto, curto, como um assistente de confian\xE7a conversando no WhatsApp. N\xE3o \xE9 lead: n\xE3o venda, n\xE3o fale de pre\xE7o, n\xE3o use "tudo bem?" de abertura de prospec\xE7\xE3o.
+COMO FALAR: portugu\xEAs do Brasil, natural, direto, como um assistente de confian\xE7a no WhatsApp. N\xE3o \xE9 lead: n\xE3o venda, n\xE3o fale de pre\xE7o com ele. N\xE3o invente n\xFAmero, nome nem resultado: use s\xF3 o que est\xE1 nos dados abaixo.
 
-O QUE VOC\xCA FAZ DE VERDADE (uma a\xE7\xE3o por resposta, escolhida desta lista):
-- "status": mostrar o estado atual (os n\xFAmeros est\xE3o em ESTADO AGORA; use-os na resposta)
-- "pause": pausar a prospec\xE7\xE3o de novos contatos (respostas aos leads continuam)
-- "resume": come\xE7ar/retomar a prospec\xE7\xE3o. O sistema pede confirma\xE7\xE3o de "sim" antes; ent\xE3o na resposta, pergunte se ele confirma.
+A\xC7\xD5ES (escolha UMA por resposta e preencha os campos certos):
+- "status": mostrar o estado (use os n\xFAmeros de ESTADO AGORA)
+- "pause": pausar a prospec\xE7\xE3o de novos contatos
+- "resume": retomar a prospec\xE7\xE3o (o sistema pede um "sim" antes; pergunte se ele confirma)
+- "list": listar leads. Em "target" coloque o filtro: "quentes" (responderam), "travados", "reuniao", "saida" (pediram para sair) ou "todos"
+- "summarize": resumir a conversa de um lead. Em "target" coloque o nome ou o n\xFAmero como ele disse
+- "send": mandar mensagem para um lead. Em "target" o nome ou n\xFAmero; em "message" o texto exato a enviar. O sistema pede confirma\xE7\xE3o antes de enviar.
 - "none": s\xF3 conversar, explicar, responder d\xFAvidas
-Se ele pedir algo fora dessa lista, diga com honestidade que ainda n\xE3o faz isso e o que faz. Nunca diga que fez algo que n\xE3o est\xE1 na a\xE7\xE3o escolhida.
+Se ele pedir algo fora dessas a\xE7\xF5es, diga com honestidade que ainda n\xE3o faz e o que faz. Nunca diga que fez algo que n\xE3o est\xE1 na a\xE7\xE3o escolhida.
 
 ESTADO AGORA:
 ${snapshot2}
-
+${context ? `
+DADOS PARA ESTA RESPOSTA:
+${context}
+` : ""}
 CONVERSA RECENTE COM O C\xC9SAR:
 ${transcript2 || "(in\xEDcio)"}
 
 MENSAGEM DO C\xC9SAR AGORA:
 "${text}"
 
-Responda SOMENTE um JSON, sem texto fora dele: {"reply":"texto para o WhatsApp","action":"none|status|pause|resume"}`;
+Responda SOMENTE um JSON, sem texto fora dele:
+{"reply":"texto para o WhatsApp","action":"none|status|pause|resume|list|summarize|send","target":"","message":""}`;
   for (const item of chainFrom(cfg)) {
     if (isPaused(cfg, item)) continue;
     if (item.provider === "gemini" && !geminiKey) continue;
@@ -1873,17 +1881,17 @@ async function handler9(req, res) {
     }
     if (req.method === "POST") {
       const body2 = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
-      const leads = Array.isArray(body2.leads) ? body2.leads : [];
-      if (leads.length === 0) {
+      const leads2 = Array.isArray(body2.leads) ? body2.leads : [];
+      if (leads2.length === 0) {
         return res.status(400).json({ error: "Envie uma lista de contatos para enfileirar." });
       }
-      if (leads.length > 500) {
+      if (leads2.length > 500) {
         return res.status(400).json({ error: "M\xE1ximo de 500 contatos por envio." });
       }
       const enqueued = [];
       const skipped = [];
       const now = (/* @__PURE__ */ new Date()).toISOString();
-      for (const item of leads) {
+      for (const item of leads2) {
         const cleanPhone = formatPhoneNumber(String(item.phone || ""));
         if (!isRealBrPhone(cleanPhone)) {
           skipped.push({ phone: String(item.phone || ""), motivo: "telefone inv\xE1lido (precisa ser um n\xFAmero brasileiro com DDD)" });
@@ -2116,8 +2124,31 @@ function isOwner(phone) {
   return last8(phone) === last8(OWNER_PHONE);
 }
 var norm = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+var YES = /^(sim|s|pode|confirma|confirmo|isso|bora|manda|vai|claro|ok|beleza|pode mandar)\b/;
+var NO = /^(nao|cancela|deixa|para|nem|cancelar)\b/;
+function readPending(cfg) {
+  if (!cfg.ownerPending || !(Date.parse(cfg.ownerPendingUntil || "") > Date.now())) return null;
+  try {
+    return JSON.parse(cfg.ownerPending);
+  } catch {
+    return cfg.ownerPending === "resume" ? { type: "resume" } : null;
+  }
+}
+async function setPending(p) {
+  await db.saveConfig({
+    ownerPending: p ? JSON.stringify(p) : "",
+    ownerPendingUntil: p ? new Date(Date.now() + CONFIRM_MIN * 6e4).toISOString() : ""
+  });
+}
 async function snapshot() {
   const s = await getProspectStats();
+  const all = await leads();
+  const replied = await db.getRepliedPhones();
+  const travados = all.filter((c) => c.status === "aguardando_humano" || c.status === "esfriou").length;
+  const reunioes = all.filter((c) => c.status === "reuniao_marcada").length;
+  const saidas = all.filter((c) => c.optOutDetected || c.status === "bloqueado").length;
+  const quentes = all.filter((c) => replied.has(c.phone) && c.status !== "bloqueado").length;
+  const semNumero = all.filter((c) => !isRealBrPhone(c.phone)).length;
   const bahia2 = (/* @__PURE__ */ new Date()).toLocaleString("pt-BR", { timeZone: "America/Bahia" });
   return [
     `- Hora em Salvador: ${bahia2}`,
@@ -2125,41 +2156,132 @@ async function snapshot() {
     `- Janela de envio (8h-19h): ${s.inWindow ? "dentro" : "fora"}`,
     `- Hoje: ${s.sentToday} de ${s.dailyCap} abordagens enviadas`,
     `- Fila com telefone v\xE1lido: ${s.queue}${s.queue === 0 ? " (vazia: falta lista com telefone)" : ""}`,
-    `- Leads em conversa: ${s.inConversation}; responderam: ${s.replied}`
+    `- Leads em conversa: ${s.inConversation}; responderam: ${s.replied}`,
+    `- Quentes (responderam): ${quentes}; travados: ${travados}; reuni\xF5es marcadas: ${reunioes}; pediram para sair: ${saidas}`,
+    `- Conversas sem n\xFAmero real (s\xF3 d\xE1 para ler, n\xE3o enviar): ${semNumero}`
   ].join("\n");
+}
+async function leads() {
+  return (await db.getContacts()).filter((c) => !isOwner(c.phone) && last8(c.phone) !== last8(AUTHORIZED_BUSINESS_NUMBER));
+}
+function findLead(all, target) {
+  const digits = target.replace(/\D/g, "");
+  if (digits.length >= 8) {
+    const hit2 = all.filter((c) => last8(c.phone) === last8(digits));
+    if (hit2.length === 1) return hit2[0];
+    if (hit2.length > 1) return "many";
+  }
+  const t = norm(target);
+  if (!t) return null;
+  const hit = all.filter((c) => norm(c.name || "").includes(t));
+  if (hit.length === 1) return hit[0];
+  if (hit.length > 1) return "many";
+  return null;
+}
+async function listFor(filter) {
+  const all = await leads();
+  const replied = await db.getRepliedPhones();
+  const f = norm(filter);
+  let list = all;
+  if (/quente|respond/.test(f)) list = all.filter((c) => replied.has(c.phone) && c.status !== "bloqueado");
+  else if (/trav|parad|esfri|humano/.test(f)) list = all.filter((c) => c.status === "aguardando_humano" || c.status === "esfriou");
+  else if (/reuni/.test(f)) list = all.filter((c) => c.status === "reuniao_marcada");
+  else if (/saida|sair|optout|bloque/.test(f)) list = all.filter((c) => c.optOutDetected || c.status === "bloqueado");
+  const comNumero = list.filter((c) => isRealBrPhone(c.phone));
+  const semNumero = list.length - comNumero.length;
+  list = [...comNumero].sort((a, b) => String(b.lastInteractionAt).localeCompare(String(a.lastInteractionAt)));
+  if (!list.length) return "Nenhum lead com n\xFAmero real nesse filtro.";
+  const linhas = list.slice(0, 15).map((c) => `- ${c.name || "sem nome"} (${c.phone}), ${c.status}, \xFAltimo contato ${String(c.lastInteractionAt).slice(0, 10)}`).join("\n");
+  return semNumero ? `${linhas}
+(${semNumero} sem n\xFAmero real ficaram de fora)` : linhas;
+}
+async function conversationFor(c) {
+  const msgs = await db.getMessages(c.phone);
+  const last = msgs.slice(-30).map((m) => `${m.from === "bot" ? "Agente" : m.from === "operator" ? "C\xE9sar" : "Lead"}: ${m.text}`).join("\n");
+  return `LEAD: ${c.name || "sem nome"} (${c.phone}), status ${c.status}
+CONVERSA (\xFAltimas mensagens):
+${last || "(sem mensagens)"}`;
+}
+async function executePending(p) {
+  if (p.type === "resume") {
+    await db.saveConfig({ prospectorPaused: false });
+    await db.addAuditLog({ type: "status_change", summary: "Dono confirmou: prospec\xE7\xE3o retomada." });
+    return "Feito. Prospec\xE7\xE3o retomada, dentro do hor\xE1rio e do limite do dia.";
+  }
+  const res = await sendEvolutionText(p.phone, p.text, 2e3);
+  if (!res.success) return `N\xE3o consegui enviar para ${p.name}: ${res.error}`;
+  if (res.messageId) await db.markMessageAsProcessed(res.messageId);
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  await db.saveMessage({ id: `owner-${res.messageId || Date.now()}`, contactPhone: p.phone, from: "operator", text: p.text, type: "text", timestamp: now, metaMessageId: res.messageId, status: "sent" });
+  const c = await db.getContactByPhone(p.phone);
+  if (c) await db.saveContact({ ...c, agentState: "human_takeover", lastInteractionAt: now });
+  await db.addAuditLog({ type: "human_message", phone: p.phone, summary: `Dono enviou para ${p.name}: "${p.text.slice(0, 80)}". IA pausada para esse lead.` });
+  return `Enviado para ${p.name}. A IA fica quieta nessa conversa at\xE9 voc\xEA liberar.`;
 }
 async function handleOwnerMessage(raw) {
   const text = raw.trim();
   const n = norm(text);
   const cfg = await db.getConfig();
-  const pendingOk = cfg.ownerPending === "resume" && Date.parse(cfg.ownerPendingUntil || "") > Date.now();
-  if (pendingOk) {
-    if (/^(sim|s|pode|confirma|confirmo|isso|bora|manda|vai|claro|ok|beleza)\b/.test(n)) {
-      await db.saveConfig({ prospectorPaused: false, ownerPending: "", ownerPendingUntil: "" });
-      await db.addAuditLog({ type: "status_change", summary: "Dono confirmou: prospec\xE7\xE3o retomada." });
-      return "Feito. Prospec\xE7\xE3o retomada, dentro do hor\xE1rio e do limite do dia.";
+  const pending = readPending(cfg);
+  if (pending) {
+    if (YES.test(n)) {
+      await setPending(null);
+      return executePending(pending);
     }
-    if (/^(nao|não|cancela|deixa|para|nem)\b/.test(n)) {
-      await db.saveConfig({ ownerPending: "", ownerPendingUntil: "" });
-      return "Ok, a prospec\xE7\xE3o continua pausada.";
+    if (NO.test(n)) {
+      await setPending(null);
+      return "Ok, cancelei.";
     }
   }
   const ai = await generateOwnerReply(text, ownerTurns, await snapshot());
   if (!ai) return "N\xE3o consegui pensar agora (IA indispon\xEDvel ou sem cota). Tenta de novo daqui a pouco.";
   const action = ai.action;
+  let reply = ai.reply;
   if (action === "pause") {
-    await db.saveConfig({ prospectorPaused: true, ownerPending: "", ownerPendingUntil: "" });
+    await db.saveConfig({ prospectorPaused: true });
+    await setPending(null);
     await db.addAuditLog({ type: "status_change", summary: "Dono pediu pausa da prospec\xE7\xE3o (conversa)." });
   } else if (action === "resume") {
-    await db.saveConfig({ ownerPending: "resume", ownerPendingUntil: new Date(Date.now() + CONFIRM_MIN * 6e4).toISOString() });
-    await db.addAuditLog({ type: "status_change", summary: 'Dono pediu retomada da prospec\xE7\xE3o: aguardando "sim".' });
+    await setPending({ type: "resume" });
+    if (!reply.includes("?")) reply += " Confirma? Responde sim.";
+  } else if (action === "list") {
+    reply = `${reply}
+${await listFor(ai.target)}`;
+  } else if (action === "summarize") {
+    const found = findLead(await leads(), ai.target);
+    if (!found) reply = "N\xE3o achei esse lead. Me manda o nome ou o n\xFAmero.";
+    else if (found === "many") reply = "Achei mais de um com esse nome. Me manda o n\xFAmero.";
+    else {
+      const second = await generateOwnerReply("Resuma esta conversa: quem \xE9, o que quer, em que ponto parou e o que voc\xEA sugere fazer. Curto.", ownerTurns, await snapshot(), await conversationFor(found));
+      reply = second?.reply || "N\xE3o consegui resumir agora. Tenta de novo.";
+    }
+  } else if (action === "send") {
+    const found = findLead(await leads(), ai.target);
+    if (!found) reply = "N\xE3o achei esse lead. Me manda o nome ou o n\xFAmero.";
+    else if (found === "many") reply = "Achei mais de um com esse nome. Me manda o n\xFAmero.";
+    else if (!ai.message) reply = `O que voc\xEA quer que eu mande para ${found.name || found.phone}?`;
+    else {
+      await setPending({ type: "send", phone: found.phone, name: found.name || found.phone, text: ai.message });
+      reply = `Vou mandar para ${found.name || found.phone}: "${ai.message}". Confirma? Responde sim.`;
+    }
   }
-  ownerTurns.push({ from: "owner", text }, { from: "bot", text: ai.reply });
+  ownerTurns.push({ from: "owner", text }, { from: "bot", text: reply });
   while (ownerTurns.length > MAX_TURNS * 2) ownerTurns.shift();
-  return ai.reply;
+  return reply;
 }
 
 // api/_handlers/evolution-webhook.ts
+var HOT_RE = /(quanto (custa|fica|sai|e|é)|pre[cç]o|valor|pr[eé]via|or[cç]amento|quero (fechar|contratar|comprar)|fechar (o )?neg[oó]cio|contratar)/i;
+var lastHotAlert = /* @__PURE__ */ new Map();
+async function alertOwnerIfHot(phone, name, text) {
+  if (!HOT_RE.test(text)) return;
+  if (Date.now() - (lastHotAlert.get(phone) || 0) < 30 * 6e4) return;
+  lastHotAlert.set(phone, Date.now());
+  const who = name && !/^(contato|lead)/i.test(name) ? `${name} (${phone})` : phone;
+  await sendEvolutionText(OWNER_PHONE, `Lead quente: ${who}
+Disse: "${text.slice(0, 200)}"
+Para eu resumir, mande: resumo ${phone.slice(-8)}`, 1e3);
+}
 function labelOf(message) {
   if (!message) return null;
   if (message.conversation) return String(message.conversation).trim();
@@ -2262,6 +2384,7 @@ async function handleUpsert(d) {
   if (contact.status === "novo") {
     contact = await db.saveContact({ ...contact, status: "em_conversa", lastInteractionAt: now });
   }
+  await alertOwnerIfHot(phone, contact.name, aiInput);
   const ai = await generateGirofyCommercialReply(contact, { text: aiInput, media }, history);
   if (!ai.aiAvailable) {
     await db.saveContact({ ...contact, status: "aguardando_humano", lastInteractionAt: now });
@@ -2280,6 +2403,7 @@ async function handleUpsert(d) {
     await db.saveContact({ ...contact, status: "reuniao_marcada", lastInteractionAt: now });
   }
   const typingMs = Math.min(7e3, Math.max(2e3, ai.replyText.length * 45));
+  await new Promise((r) => setTimeout(r, typingMs * 2));
   const send = await sendEvolutionText(phone, ai.replyText, typingMs);
   if (send.success) {
     if (send.messageId) await db.markMessageAsProcessed(send.messageId);
@@ -2926,6 +3050,7 @@ async function handler18(req, res) {
 var job = null;
 var MAX_AGE_MS = 60 * 6e4;
 var MAX_PAGES_PER_CHAT = 50;
+var MAX_AUDIOS = 80;
 async function evo(method, path3, body2) {
   const cfg = getEvolutionCfg();
   if (!cfg) throw new Error("Evolution n\xE3o configurada no servidor.");
@@ -2969,9 +3094,22 @@ function textOf(message) {
   if (message.stickerMessage) return "[Figurinha]";
   return null;
 }
+async function audioText(name, m, budget) {
+  if (budget.left <= 0) return "[\xC1udio n\xE3o transcrito: limite da exporta\xE7\xE3o]";
+  budget.left--;
+  try {
+    const r = await evo("POST", `/chat/getBase64FromMediaMessage/${encodeURIComponent(name)}`, { message: { key: m.key, message: m.message }, convertToMp4: false });
+    if (!r?.base64) return "[\xC1udio]";
+    const t = await transcribeAudio({ mimeType: String(r.mimetype || "audio/ogg").split(";")[0], data: String(r.base64).replace(/^data:[^;]+;base64,/, "") });
+    return t ? `[\xC1udio] ${t}` : "[\xC1udio sem fala reconhecida]";
+  } catch {
+    return "[\xC1udio]";
+  }
+}
 async function build() {
   if (!job) return;
   const current = job;
+  const budget = { left: MAX_AUDIOS };
   current.status = "building";
   try {
     const name = current.instance;
@@ -2989,7 +3127,7 @@ async function build() {
         const r = await evo("POST", `/chat/findMessages/${encodeURIComponent(name)}`, { where: { key: { remoteJid: jid } }, page });
         pages = r?.messages?.pages || 1;
         for (const m of r?.messages?.records || []) {
-          const text = textOf(m.message);
+          const text = m.message?.audioMessage ? await audioText(name, m, budget) : textOf(m.message);
           if (!text) continue;
           mensagens.push({
             de: m.key?.fromMe ? "eu" : "contato",

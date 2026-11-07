@@ -426,17 +426,19 @@ Responda só com o texto da próxima mensagem para o WhatsApp.
 
 // Conversa com o dono (seu WhatsApp pessoal). O modelo responde em linguagem natural e escolhe UMA ação
 // de uma lista fixa. Quem executa é o código (api/lib/owner.ts), nunca o modelo.
-export type OwnerAction = 'none' | 'pause' | 'resume' | 'status';
+export type OwnerAction = 'none' | 'status' | 'pause' | 'resume' | 'summarize' | 'list' | 'send';
+export type OwnerOut = { reply: string; action: OwnerAction; target: string; message: string };
 
-function parseOwnerJson(raw: string): { reply: string; action: OwnerAction } | null {
+function parseOwnerJson(raw: string): OwnerOut | null {
   const m = raw.match(/\{[\s\S]*\}/);
   if (!m) return null;
   try {
     const j = JSON.parse(m[0]);
     const reply = String(j.reply || '').trim();
     if (!reply) return null;
-    const action: OwnerAction = ['pause', 'resume', 'status'].includes(j.action) ? j.action : 'none';
-    return { reply, action };
+    const actions: OwnerAction[] = ['status', 'pause', 'resume', 'summarize', 'list', 'send'];
+    const action: OwnerAction = actions.includes(j.action) ? j.action : 'none';
+    return { reply, action, target: String(j.target || '').trim(), message: String(j.message || '').trim() };
   } catch {
     return null;
   }
@@ -445,33 +447,38 @@ function parseOwnerJson(raw: string): { reply: string; action: OwnerAction } | n
 export async function generateOwnerReply(
   text: string,
   history: { from: 'owner' | 'bot'; text: string }[],
-  snapshot: string
-): Promise<{ reply: string; action: OwnerAction } | null> {
+  snapshot: string,
+  context = ''
+): Promise<OwnerOut | null> {
   const cfg = await db.getConfig();
   const geminiKey = (cfg.geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
   const groqKey = (cfg.groqApiKey || process.env.GROQ_API_KEY || '').trim();
   const transcript = history.slice(-8).map(m => `${m.from === 'owner' ? 'César' : 'Você'}: ${m.text}`).join('\n');
   const prompt = `Você é o agente de prospecção da Girofy e está falando com o CÉSAR, o dono. Ele te configurou e ninguém mais tem esse número.
 
-COMO FALAR: português do Brasil, natural, direto, curto, como um assistente de confiança conversando no WhatsApp. Não é lead: não venda, não fale de preço, não use "tudo bem?" de abertura de prospecção.
+COMO FALAR: português do Brasil, natural, direto, como um assistente de confiança no WhatsApp. Não é lead: não venda, não fale de preço com ele. Não invente número, nome nem resultado: use só o que está nos dados abaixo.
 
-O QUE VOCÊ FAZ DE VERDADE (uma ação por resposta, escolhida desta lista):
-- "status": mostrar o estado atual (os números estão em ESTADO AGORA; use-os na resposta)
-- "pause": pausar a prospecção de novos contatos (respostas aos leads continuam)
-- "resume": começar/retomar a prospecção. O sistema pede confirmação de "sim" antes; então na resposta, pergunte se ele confirma.
+AÇÕES (escolha UMA por resposta e preencha os campos certos):
+- "status": mostrar o estado (use os números de ESTADO AGORA)
+- "pause": pausar a prospecção de novos contatos
+- "resume": retomar a prospecção (o sistema pede um "sim" antes; pergunte se ele confirma)
+- "list": listar leads. Em "target" coloque o filtro: "quentes" (responderam), "travados", "reuniao", "saida" (pediram para sair) ou "todos"
+- "summarize": resumir a conversa de um lead. Em "target" coloque o nome ou o número como ele disse
+- "send": mandar mensagem para um lead. Em "target" o nome ou número; em "message" o texto exato a enviar. O sistema pede confirmação antes de enviar.
 - "none": só conversar, explicar, responder dúvidas
-Se ele pedir algo fora dessa lista, diga com honestidade que ainda não faz isso e o que faz. Nunca diga que fez algo que não está na ação escolhida.
+Se ele pedir algo fora dessas ações, diga com honestidade que ainda não faz e o que faz. Nunca diga que fez algo que não está na ação escolhida.
 
 ESTADO AGORA:
 ${snapshot}
-
+${context ? `\nDADOS PARA ESTA RESPOSTA:\n${context}\n` : ''}
 CONVERSA RECENTE COM O CÉSAR:
 ${transcript || '(início)'}
 
 MENSAGEM DO CÉSAR AGORA:
 "${text}"
 
-Responda SOMENTE um JSON, sem texto fora dele: {"reply":"texto para o WhatsApp","action":"none|status|pause|resume"}`;
+Responda SOMENTE um JSON, sem texto fora dele:
+{"reply":"texto para o WhatsApp","action":"none|status|pause|resume|list|summarize|send","target":"","message":""}`;
 
   for (const item of chainFrom(cfg)) {
     if (isPaused(cfg, item)) continue;
