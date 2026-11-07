@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowUp, ArrowDown, X, Plus, Zap } from 'lucide-react';
+import { ArrowUp, ArrowDown, X, Plus, Zap, Search, Eye, Brain } from 'lucide-react';
 import { Card, SectionTitle, Btn, Pill, Dot, inputCls, Skeleton } from './ui';
 
 type Item = { provider: 'gemini' | 'groq'; model: string };
@@ -7,8 +7,16 @@ type Item = { provider: 'gemini' | 'groq'; model: string };
 const SUGGEST: { provider: Item['provider']; model: string; note: string }[] = [
   { provider: 'gemini', model: 'gemini-3.6-flash', note: 'Principal. Aceita áudio e imagem.' },
   { provider: 'gemini', model: 'gemini-3.1-flash-lite', note: 'Mais leve, cota própria.' },
-  { provider: 'groq', model: 'llama-3.3-70b-versatile', note: 'Só texto. Grátis no Groq.' },
+  { provider: 'groq', model: 'qwen/qwen3.8-27b', note: 'Texto e imagem. Rápido e grátis no Groq.' },
+  { provider: 'groq', model: 'openai/gpt-oss-120b', note: 'Só texto. Maior raciocínio no Groq.' },
 ];
+
+type Found = {
+  id: string; context: number | null; vision: boolean; audio: boolean; reasoning: boolean;
+  priceIn: number | null; priceOut: number | null; kind: string; score: number;
+  probe: { ok: boolean; reply: string; ms: number; problem: string | null; error?: string } | null;
+};
+type Reading = { provider: 'gemini' | 'groq'; total: number; models: Found[]; suggested: string[]; note: string };
 
 export default function ModelsTab() {
   const [chain, setChain] = useState<Item[] | null>(null);
@@ -19,6 +27,10 @@ export default function ModelsTab() {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [reading, setReading] = useState<Reading | null>(null);
+  const [reader, setReader] = useState<'groq' | 'gemini'>('groq');
+  const [reading_busy, setReadingBusy] = useState(false);
+  const [readErr, setReadErr] = useState('');
   const [test, setTest] = useState<{ ok: boolean; reply: string; motivo: string | null; ms: number } | null>(null);
 
   const load = async () => {
@@ -61,6 +73,35 @@ export default function ModelsTab() {
       setBusy(false);
     }
   }
+
+  async function readKey() {
+    setReadingBusy(true);
+    setReadErr('');
+    setReading(null);
+    try {
+      const r = await fetch('/api/ai-models', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: reader, apiKey: reader === 'groq' ? groqKey.trim() : '' }) });
+      const j = await r.json();
+      if (!r.ok) return setReadErr(j.error || 'Não consegui ler a chave.');
+      setReading(j);
+    } catch {
+      setReadErr('Sem conexão com o servidor.');
+    } finally {
+      setReadingBusy(false);
+    }
+  }
+
+  const addModel = (provider: Item['provider'], model: string) => {
+    if (chain.some(c => c.provider === provider && c.model === model)) return;
+    setChain([...chain, { provider, model }]);
+  };
+  const useSuggestion = () => {
+    if (!reading) return;
+    const keep = chain.filter(c => c.provider !== reading.provider);
+    const add = reading.suggested.map(model => ({ provider: reading.provider, model }));
+    // Gemini primeiro (aceita áudio e imagem), depois os do Groq.
+    setChain(reading.provider === 'groq' ? [...keep, ...add] : [...add, ...keep]);
+    setMsg({ ok: true, text: 'Sugestão aplicada na lista de cima. Toque em Salvar.' });
+  };
 
   async function runTest() {
     setTesting(true);
@@ -128,13 +169,55 @@ export default function ModelsTab() {
           </div>
           <div>
             <div className="flex items-center justify-between mb-1.5"><span className="text-[13px] font-semibold">Groq</span>{groqMasked ? <Pill tone="green">{groqMasked}</Pill> : <Pill tone="gray">não configurada</Pill>}</div>
-            <input type="password" autoComplete="off" className={inputCls} placeholder={groqMasked ? 'Em branco mantém a atual' : 'Cole a chave (grátis em console.groq.com)'} value={groqKey} onChange={e => setGroqKey(e.target.value)} />
+            <input type="password" autoComplete="off" className={inputCls} placeholder={groqMasked ? 'Em branco mantém a atual' : 'Cole a chave do Groq (grátis em console.groq.com)'} value={groqKey} onChange={e => setGroqKey(e.target.value)} />
           </div>
         </div>
         <div className="flex items-center gap-3 mt-4 flex-wrap">
           <Btn onClick={save} disabled={busy || chain.length === 0 || chain.some(c => !c.model.trim())}>{busy ? 'Salvando…' : 'Salvar'}</Btn>
           {msg && <span className={`text-[13.5px] font-medium ${msg.ok ? 'text-[#1f8a3a]' : 'text-[#c42b22]'}`}>{msg.text}</span>}
         </div>
+      </Card>
+
+      <Card>
+        <SectionTitle title="Ler chave e descobrir modelos" hint="Eu leio a chave, listo o que ela enxerga e, no Groq, testo uma resposta real em cada candidato." />
+        <div className="flex gap-2 mb-3">
+          {(['groq', 'gemini'] as const).map(p => (
+            <button key={p} onClick={() => { setReader(p); setReading(null); setReadErr(''); }} className={`flex-1 py-2.5 rounded-xl text-[14px] font-semibold ${reader === p ? 'bg-[#0071E3] text-white' : 'bg-black/[0.05] text-[#1D1D1F]'}`}>{p === 'groq' ? 'Groq' : 'Gemini'}</button>
+          ))}
+        </div>
+        <Btn kind="soft" onClick={readKey} disabled={reading_busy}><span className="inline-flex items-center gap-2"><Search className="w-4 h-4" />{reading_busy ? 'Lendo e testando…' : 'Ler chave salva'}</span></Btn>
+        <div className="text-[12px] text-[#86868B] mt-2">{reader === 'groq' && groqKey.trim() ? 'Vai usar a chave que você colou abaixo.' : 'Usa a chave já salva no servidor.'}</div>
+        {readErr && <div className="mt-3 rounded-2xl p-3.5 bg-[#FF3B30]/8 text-[14px] text-[#c42b22] font-medium">{readErr}</div>}
+        {reading && (
+          <div className="mt-4 space-y-2.5">
+            <div className="text-[12.5px] text-[#86868B]">{reading.total} modelos encontrados. {reading.note}</div>
+            {reading.suggested.length > 0 && (
+              <Btn onClick={useSuggestion}>Usar a sugestão automática</Btn>
+            )}
+            {reading.models.filter(m => m.kind === 'chat').map(m => (
+              <div key={m.id} className="apple-card-sunken p-3">
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[14px] font-semibold break-all leading-snug">{m.id}</div>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                      {reading.suggested.includes(m.id) && <Pill tone="green">sugerido</Pill>}
+                      {m.vision && <Pill tone="gray"><Eye className="w-3 h-3 mr-1 inline" />imagem</Pill>}
+                      {m.reasoning && <Pill tone="gray"><Brain className="w-3 h-3 mr-1 inline" />raciocínio</Pill>}
+                      {m.context ? <Pill tone="gray">{Math.round(m.context / 1000)}k contexto</Pill> : null}
+                      {m.priceIn != null && <Pill tone="gray">US$ {m.priceIn.toFixed(2)} / {(m.priceOut ?? 0).toFixed(2)} por 1M</Pill>}
+                    </div>
+                  </div>
+                  <button onClick={() => addModel(reading.provider, m.id)} aria-label="Adicionar" className="w-10 h-10 rounded-xl bg-black/[0.05] flex items-center justify-center shrink-0 active:bg-black/[0.1]"><Plus className="w-4 h-4" /></button>
+                </div>
+                {m.probe && (
+                  <div className={`mt-2.5 rounded-xl p-2.5 text-[13px] leading-snug ${m.probe.ok && !m.probe.problem ? 'bg-[#34C759]/10 text-[#1D1D1F]' : 'bg-[#FF9500]/12 text-[#8a5200]'}`}>
+                    {m.probe.ok ? <>“{m.probe.reply}” <span className="text-[#86868B]">· {(m.probe.ms / 1000).toFixed(1)} s{m.probe.problem ? ` · recusada: ${m.probe.problem}` : ''}</span></> : <>Falhou: {m.probe.error || 'sem resposta'}</>}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
 
       <Card>

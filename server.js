@@ -127,6 +127,8 @@ function mustOk(res, context) {
 var configCache = { ...DEFAULT_CONFIG };
 var configLoaded = false;
 var configLoadPromise = null;
+var configLoadedAt = 0;
+var CONFIG_TTL_MS = 2e4;
 async function loadConfigOnce() {
   try {
     const { data, error } = await supabase().from("app_config").select("data").eq("id", true).maybeSingle();
@@ -137,10 +139,14 @@ async function loadConfigOnce() {
     console.warn("[DB] Falha ao carregar config inicial do Supabase:", err);
   } finally {
     configLoaded = true;
+    configLoadedAt = Date.now();
   }
 }
 function ensureConfigLoaded() {
-  if (!configLoadPromise) configLoadPromise = loadConfigOnce();
+  if (!configLoadPromise || configLoaded && Date.now() - configLoadedAt > CONFIG_TTL_MS) {
+    configLoaded = false;
+    configLoadPromise = loadConfigOnce();
+  }
   return configLoadPromise;
 }
 ensureConfigLoaded();
@@ -659,6 +665,7 @@ SA\xCDDA: responda SOMENTE com o texto da mensagem que vai para o WhatsApp.
 Se for passar a conversa para o C\xE9sar, escreva a mensagem e, no fim, [TRANSF_HUMANO: motivo].
 Se a pessoa pedir para parar, confirme em uma frase e n\xE3o escreva mais nada.
 `;
+var GROQ_KNOWLEDGE_CHARS = 6e3;
 var KNOWLEDGE_MAX_CHARS = 3e4;
 var knowledgeCache = null;
 async function loadKnowledge() {
@@ -726,7 +733,8 @@ function defaultChain(cfg) {
   return [
     { provider: "gemini", model: resolveModel(cfg.geminiModel) },
     { provider: "gemini", model: "gemini-3.1-flash-lite" },
-    { provider: "groq", model: "llama-3.3-70b-versatile" }
+    { provider: "groq", model: "qwen/qwen3.8-27b" },
+    { provider: "groq", model: "openai/gpt-oss-120b" }
   ];
 }
 function chainFrom(cfg) {
@@ -741,9 +749,17 @@ function isPaused(cfg, item) {
   const until = cfg.aiPausedModels?.[pauseKey(item)];
   return !!until && Date.parse(until) > Date.now();
 }
-async function pauseModel(item) {
+function pauseMsFrom(msg) {
+  const m = msg.match(/try again in\s+(?:(\d+)m)?\s*(\d+(?:\.\d+)?)(ms|s)\b/i);
+  if (!m) return 60 * 6e4;
+  const mins = m[1] ? Number(m[1]) : 0;
+  const n = Number(m[2]);
+  const ms = (m[3].toLowerCase() === "ms" ? n : n * 1e3) + mins * 6e4;
+  return Math.min(60 * 6e4, Math.max(5e3, ms + 1e3));
+}
+async function pauseModel(item, ms = 60 * 6e4) {
   const cfg = await db.getConfig();
-  const until = new Date(Date.now() + 60 * 6e4).toISOString();
+  const until = new Date(Date.now() + ms).toISOString();
   await db.saveAiUsage({ aiPausedModels: { ...cfg.aiPausedModels || {}, [pauseKey(item)]: until } });
 }
 async function callGemini(apiKey, model, text, media) {
@@ -758,11 +774,17 @@ async function callGemini(apiKey, model, text, media) {
   });
   return response.text ? response.text.trim() : "";
 }
+function groqExtras(model) {
+  if (/gpt-oss/i.test(model)) return { reasoning_effort: "low", include_reasoning: false };
+  if (/qwen3/i.test(model)) return { reasoning_effort: "none" };
+  return {};
+}
 async function callGroq(apiKey, model, text) {
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model, messages: [{ role: "user", content: text }], temperature: 0.7, max_tokens: 200 })
+    body: JSON.stringify({ model, messages: [{ role: "user", content: text }], temperature: 0.7, max_tokens: 300, ...groqExtras(model) }),
+    signal: AbortSignal.timeout(2e4)
   });
   if (!res.ok) {
     const body2 = await res.text();
@@ -771,7 +793,29 @@ async function callGroq(apiKey, model, text) {
     throw err;
   }
   const j = await res.json();
-  return String(j.choices?.[0]?.message?.content || "").trim();
+  return String(j.choices?.[0]?.message?.content || "").replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+}
+async function probeModel(provider, model, apiKey, text = "Oi, quem \xE9?") {
+  const prompt = `${SYSTEM_PROMPT}
+
+DADOS DA PESSOA:
+- Nome: n\xE3o sei o nome
+- Nicho: barbearia
+
+CONVERSA RECENTE:
+Voc\xEA: Boa tarde!
+
+NOVA MENSAGEM DA PESSOA:
+"${text}"
+
+Responda s\xF3 com o texto da pr\xF3xima mensagem para o WhatsApp.`;
+  const t0 = Date.now();
+  try {
+    const reply = provider === "gemini" ? await callGemini(apiKey, model, prompt) : await callGroq(apiKey, model, prompt);
+    return { ok: !!reply, reply, ms: Date.now() - t0, problem: reply ? validateReply(reply, []) : "vazio" };
+  } catch (err) {
+    return { ok: false, reply: "", ms: Date.now() - t0, problem: null, error: String(err?.message || err).slice(0, 160) };
+  }
 }
 async function generateGirofyCommercialReply(contact, incoming, history) {
   const fail = (reason) => ({
@@ -808,11 +852,11 @@ async function generateGirofyCommercialReply(contact, incoming, history) {
     }).join("\n");
     const knowledge = await loadKnowledge();
     const learnings = await db.getTopLearnings(8);
-    const promptText = `
+    const buildPrompt = (knowledge2) => `
 ${SYSTEM_PROMPT}
-${knowledge ? `
+${knowledge2 ? `
 BASE DE CONHECIMENTO DA GIROFY:
-${knowledge}
+${knowledge2}
 ` : ""}
 ${learnings.length ? `
 O QUE J\xC1 FUNCIONOU E N\xC3O FUNCIONOU (aprendido de conversas anteriores, use como guia):
@@ -835,6 +879,8 @@ Regras do follow-up: use um \xE2ngulo NOVO (n\xE3o repita a observa\xE7\xE3o ant
 
 Responda s\xF3 com o texto da pr\xF3xima mensagem para o WhatsApp.
 `;
+    const promptFull = buildPrompt(knowledge);
+    const promptSlim = buildPrompt(knowledge.slice(0, GROQ_KNOWLEDGE_CHARS));
     const recentBotTexts = recent.filter((m) => m.from === "bot").slice(-4).map((m) => m.text);
     let rawText = "";
     let lastProblem = "";
@@ -845,11 +891,11 @@ Responda s\xF3 com o texto da pr\xF3xima mensagem para o WhatsApp.
 SUA TENTATIVA ANTERIOR FOI RECUSADA: ${lastProblem}. Escreva outra mensagem, com outras palavras, seguindo as regras.` : "";
         let candidate = "";
         try {
-          candidate = item.provider === "gemini" ? await callGemini(geminiKey, item.model, promptText + feedback, incoming.media) : await callGroq(groqKey, item.model, promptText + feedback);
+          candidate = item.provider === "gemini" ? await callGemini(geminiKey, item.model, promptFull + feedback, incoming.media) : await callGroq(groqKey, item.model, promptSlim + feedback);
         } catch (err) {
           const msg = String(err?.message || err);
           console.error(`[IA] ${item.provider}/${item.model} falhou:`, msg.slice(0, 300));
-          if (err?.status === 429 || /429|RESOURCE_EXHAUSTED|quota|rate limit/i.test(msg)) await pauseModel(item);
+          if (err?.status === 429 || /429|RESOURCE_EXHAUSTED|quota|rate limit/i.test(msg)) await pauseModel(item, pauseMsFrom(msg));
           break;
         }
         const problem = validateReply(candidate, recentBotTexts);
@@ -2557,6 +2603,84 @@ async function handler16(req, res) {
   });
 }
 
+// api/_handlers/ai-models.ts
+var NOT_CHAT = /(whisper|orpheus|guard|safeguard|allam|embed|tts|imagen|veo|aqa|live|image|robotics|computer-use|audio)/i;
+function sizeOf(id) {
+  const m = id.match(/(\d+(?:\.\d+)?)b\b/i);
+  return m ? Number(m[1]) : 0;
+}
+async function readGroq(key) {
+  const r = await fetch("https://api.groq.com/openai/v1/models", { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(15e3) });
+  if (!r.ok) throw Object.assign(new Error(r.status === 401 ? "Chave recusada pelo Groq (inv\xE1lida ou revogada)." : `Groq respondeu ${r.status}.`), { status: r.status });
+  const j = await r.json();
+  return (j.data || []).filter((m) => m.active !== false).map((m) => {
+    const inp = m.input_modalities || ["text"];
+    const feats = m.supported_features || [];
+    const isAudio = inp.includes("audio") || /whisper|orpheus/i.test(m.id);
+    const kind = isAudio ? "audio" : /guard|safeguard/i.test(m.id) ? "seguranca" : NOT_CHAT.test(m.id) ? "outro" : "chat";
+    const vision = inp.includes("image");
+    const reasoning = feats.includes("reasoning");
+    const pin = m.pricing?.prompt != null ? Number(m.pricing.prompt) * 1e6 : null;
+    const pout = m.pricing?.completion != null ? Number(m.pricing.completion) * 1e6 : null;
+    const ctx = m.context_window ?? null;
+    const score = kind === "chat" ? Math.min(sizeOf(m.id), 130) + (vision ? 40 : 0) + (reasoning ? 10 : 0) + ((ctx || 0) >= 1e5 ? 5 : 0) : 0;
+    return { id: m.id, context: ctx, vision, audio: isAudio, reasoning, priceIn: pin, priceOut: pout, kind, score };
+  });
+}
+async function readGemini(key) {
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=${encodeURIComponent(key)}`, { signal: AbortSignal.timeout(15e3) });
+  if (!r.ok) throw Object.assign(new Error(r.status === 400 || r.status === 403 ? "Chave recusada pelo Gemini (inv\xE1lida ou revogada)." : `Gemini respondeu ${r.status}.`), { status: r.status });
+  const j = await r.json();
+  return (j.models || []).filter((m) => (m.supportedGenerationMethods || []).includes("generateContent")).map((m) => {
+    const id = String(m.name || "").replace(/^models\//, "");
+    const kind = NOT_CHAT.test(id) || /gemma/i.test(id) ? "outro" : "chat";
+    const ver = Number((id.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] || 0);
+    const flash = /flash/i.test(id) && !/lite/i.test(id);
+    const lite = /lite/i.test(id);
+    const preview = /preview|exp|latest/i.test(id);
+    const score = kind === "chat" ? ver * 20 + (flash ? 25 : 0) + (lite ? 10 : 0) - (preview ? 5 : 0) : 0;
+    return {
+      id,
+      context: m.inputTokenLimit ?? null,
+      vision: true,
+      audio: true,
+      reasoning: !!m.thinking,
+      priceIn: null,
+      priceOut: null,
+      kind,
+      score
+    };
+  });
+}
+async function handler17(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
+  const body2 = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+  const provider = body2.provider === "gemini" ? "gemini" : "groq";
+  const cfg = await db.getConfig();
+  const saved = provider === "gemini" ? cfg.geminiApiKey || process.env.GEMINI_API_KEY : cfg.groqApiKey || process.env.GROQ_API_KEY;
+  const key = String(body2.apiKey || saved || "").trim();
+  if (!key) return res.status(400).json({ error: `Sem chave do ${provider === "gemini" ? "Gemini" : "Groq"}. Cole a chave primeiro.` });
+  try {
+    const all = provider === "gemini" ? await readGemini(key) : await readGroq(key);
+    const chat = all.filter((m) => m.kind === "chat").sort((a, b) => b.score - a.score);
+    const probes = {};
+    if (provider === "groq" && body2.probe !== false) {
+      for (const m of chat.slice(0, 4)) probes[m.id] = await probeModel("groq", m.id, key);
+    }
+    const passed = chat.filter((m) => probes[m.id]?.ok && !probes[m.id]?.problem);
+    const suggested = provider === "groq" ? (passed.length ? passed : chat).slice(0, 2).map((m) => m.id) : chat.filter((m) => /flash/i.test(m.id)).slice(0, 2).map((m) => m.id);
+    return res.status(200).json({
+      provider,
+      total: all.length,
+      models: all.sort((a, b) => b.score - a.score).map((m) => ({ ...m, probe: probes[m.id] || null })),
+      suggested,
+      note: provider === "groq" ? "Teste real feito nos 4 melhores candidatos de texto. Modelos de \xE1udio (whisper) servem para transcrever, n\xE3o para conversar." : "No Gemini n\xE3o testo cada modelo (gastaria a cota di\xE1ria). A lista vem da pr\xF3pria chave; o ranking usa vers\xE3o e fam\xEDlia."
+    });
+  } catch (err) {
+    return res.status(err?.status === 401 || err?.status === 403 ? 400 : 502).json({ error: err?.message || "N\xE3o consegui ler a chave." });
+  }
+}
+
 // api/_handlers/followups.ts
 var MIN_HOURS = 24;
 var MAX_TOUCHES = 3;
@@ -2571,7 +2695,7 @@ async function allMessages() {
   }
   return rows;
 }
-async function handler17(req, res) {
+async function handler18(req, res) {
   try {
     if (req.method === "GET") {
       const [contacts, messages] = await Promise.all([db.getContacts(), allMessages()]);
@@ -2651,7 +2775,8 @@ var PROTECTED_ROUTES = {
   "/api/metrics": handler14,
   "/api/export": handler15,
   "/api/ai-test": handler16,
-  "/api/followups": handler17
+  "/api/ai-models": handler17,
+  "/api/followups": handler18
 };
 var PUBLIC_GET_ROUTES = {
   "/api/prospector": handler10
@@ -2663,7 +2788,7 @@ function match(table, urlPath) {
   }
   return null;
 }
-async function handler18(req, res) {
+async function handler19(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-hub-signature-256");
   if (req.method === "OPTIONS") {
@@ -2761,7 +2886,7 @@ var server = http.createServer(async (req, res) => {
         req.body = bodyData;
       }
       try {
-        await handler18(req, resCompat);
+        await handler19(req, resCompat);
       } catch (err) {
         console.error("[Server API Error]:", err);
         if (!res.writableEnded) {
