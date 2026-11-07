@@ -114,6 +114,9 @@ export default function DashboardTab() {
 
   return (
     <div className="space-y-4">
+      {/* Conectar outro número só para exportar: fica no topo e não mexe no número atual */}
+      <PersonalExportCard />
+
       {/* Estado do agente */}
       <Card>
         <div className="flex items-center gap-4">
@@ -257,7 +260,6 @@ export default function DashboardTab() {
         </div>
       </Card>
 
-      <PersonalExportCard />
     </div>
   );
 }

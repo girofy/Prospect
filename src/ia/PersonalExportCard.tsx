@@ -71,7 +71,7 @@ export default function PersonalExportCard() {
 
   return (
     <Card>
-      <SectionTitle icon={<Smartphone className="w-4 h-4" />} title="Exportar minhas conversas (uma vez)" hint="Conecta seu WhatsApp pessoal só por esta exportação. Depois de baixar, a conexão é encerrada e nada fica guardado." />
+      <SectionTitle icon={<Smartphone className="w-4 h-4" />} title="Conectar outro número para exportar" hint="Liga outro WhatsApp só para baixar as conversas, uma vez. O número que já está conectado não é mexido. Depois do download, essa conexão é desfeita e nada fica guardado." />
 
       {err && <div className="mb-3 rounded-2xl p-3.5 bg-[#FF3B30]/8 text-[14px] text-[#c42b22] font-medium">{err}</div>}
 

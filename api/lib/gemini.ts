@@ -426,7 +426,7 @@ Responda só com o texto da próxima mensagem para o WhatsApp.
 
 // Conversa com o dono (seu WhatsApp pessoal). O modelo responde em linguagem natural e escolhe UMA ação
 // de uma lista fixa. Quem executa é o código (api/lib/owner.ts), nunca o modelo.
-export type OwnerAction = 'none' | 'status' | 'pause' | 'resume' | 'summarize' | 'list' | 'send';
+export type OwnerAction = 'none' | 'status' | 'pause' | 'resume' | 'summarize' | 'list' | 'send' | 'read';
 export type OwnerOut = { reply: string; action: OwnerAction; target: string; message: string };
 
 function parseOwnerJson(raw: string): OwnerOut | null {
@@ -436,7 +436,7 @@ function parseOwnerJson(raw: string): OwnerOut | null {
     const j = JSON.parse(m[0]);
     const reply = String(j.reply || '').trim();
     if (!reply) return null;
-    const actions: OwnerAction[] = ['status', 'pause', 'resume', 'summarize', 'list', 'send'];
+    const actions: OwnerAction[] = ['status', 'pause', 'resume', 'summarize', 'list', 'send', 'read'];
     const action: OwnerAction = actions.includes(j.action) ? j.action : 'none';
     return { reply, action, target: String(j.target || '').trim(), message: String(j.message || '').trim() };
   } catch {
@@ -465,7 +465,9 @@ AÇÕES (escolha UMA por resposta e preencha os campos certos):
 - "list": listar leads. Em "target" coloque o filtro: "quentes" (responderam), "travados", "reuniao", "saida" (pediram para sair) ou "todos"
 - "summarize": resumir a conversa de um lead. Em "target" coloque o nome ou o número como ele disse
 - "send": mandar mensagem para um lead. Em "target" o nome ou número; em "message" o texto exato a enviar. O sistema pede confirmação antes de enviar.
+- "read": ler uma página da internet (site, landing page, preço) e analisar o que ele pediu. Em "target" coloque o link completo.
 - "none": só conversar, explicar, responder dúvidas
+Quando ele faz perguntas para você montar um plano ou um consultor, conduza em conversa: faça uma pergunta por vez e espere a resposta.
 Se ele pedir algo fora dessas ações, diga com honestidade que ainda não faz e o que faz. Nunca diga que fez algo que não está na ação escolhida.
 
 ESTADO AGORA:
@@ -478,7 +480,7 @@ MENSAGEM DO CÉSAR AGORA:
 "${text}"
 
 Responda SOMENTE um JSON, sem texto fora dele:
-{"reply":"texto para o WhatsApp","action":"none|status|pause|resume|list|summarize|send","target":"","message":""}`;
+{"reply":"texto para o WhatsApp","action":"none|status|pause|resume|list|summarize|send|read","target":"","message":""}`;
 
   for (const item of chainFrom(cfg)) {
     if (isPaused(cfg, item)) continue;
