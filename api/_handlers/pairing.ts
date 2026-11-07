@@ -41,7 +41,10 @@ export default async function handler(req: any, res: any) {
       if (action === 'request_code') {
         const rawPhone = phoneNumber || config.directPairingPhone || '557488126578';
         const cleanPhone = formatPhoneNumber(rawPhone);
-        const { evolutionUrl, evolutionKey, instanceName = 'prospectfy' } = body;
+        // Credenciais da Evolution: o servidor usa as próprias variáveis (o navegador não guarda a chave).
+        const evolutionUrl = body.evolutionUrl || process.env.EVOLUTION_URL || '';
+        const evolutionKey = body.evolutionKey || process.env.EVOLUTION_API_KEY || '';
+        const instanceName = body.instanceName || process.env.EVOLUTION_INSTANCE || 'prospectfy';
 
         let code = '';
         let isRealSocketCode = false;
