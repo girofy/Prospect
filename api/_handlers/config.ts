@@ -18,6 +18,8 @@ export default async function handler(req: any, res: any) {
   try {
     if (req.method === 'GET') {
       const cfg = await db.getConfig();
+      // Só o próprio painel (rota protegida) pode pedir a chave inteira, para o olhinho mostrar.
+      const reveal = new URL(req.url || '/', 'http://localhost').searchParams.get('reveal') === '1';
       const meta = getMetaConfig();
       const geminiKey = cfg.geminiApiKey || process.env.GEMINI_API_KEY || '';
 
@@ -33,6 +35,7 @@ export default async function handler(req: any, res: any) {
         metaAppSecretMasked: maskSecret(meta.appSecret),
         geminiApiKeyMasked: maskSecret(geminiKey),
         groqApiKeyMasked: maskSecret(cfg.groqApiKey || process.env.GROQ_API_KEY || ''),
+        ...(reveal ? { groqApiKeyPlain: cfg.groqApiKey || process.env.GROQ_API_KEY || '', geminiApiKeyPlain: cfg.geminiApiKey || process.env.GEMINI_API_KEY || '' } : {}),
         aiChain: cfg.aiChain || null,
         geminiModel: cfg.geminiModel || process.env.GEMINI_MODEL || 'gemini-3.6-flash',
         autoReplyEnabled: meta.autoReplyEnabled,
@@ -46,6 +49,7 @@ export default async function handler(req: any, res: any) {
     if (req.method === 'POST') {
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       const updates: Partial<AppConfig> = {};
+      const current = await db.getConfig();
 
       if (typeof body.metaAccessToken === 'string' && body.metaAccessToken.trim()) {
         updates.metaAccessToken = body.metaAccessToken.trim().replace(/^Bearer\s+/i, '');
@@ -83,6 +87,19 @@ export default async function handler(req: any, res: any) {
       if (typeof body.directPairingPhone === 'string' && body.directPairingPhone.trim()) {
         updates.directPairingPhone = body.directPairingPhone.trim();
       }
+
+      // Chave nova = cota nova: zera o contador do dia e tira a pausa dos modelos desse provedor,
+      // na mesma hora. Salvar a mesma chave de novo não faz nada.
+      const changed = (k: 'groqApiKey' | 'geminiApiKey', prefix: string) => {
+        const next = updates[k];
+        if (!next || next === current[k]) return;
+        updates.aiPausedModels = Object.fromEntries(
+          Object.entries(updates.aiPausedModels || current.aiPausedModels || {}).filter(([key]) => !key.startsWith(prefix))
+        );
+        updates.aiUsageCount = 0;
+      };
+      changed('groqApiKey', 'groq:');
+      changed('geminiApiKey', 'gemini:');
 
       const updated = await db.saveConfig(updates);
       const meta = getMetaConfig();

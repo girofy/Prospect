@@ -1587,6 +1587,7 @@ async function handler7(req, res) {
   try {
     if (req.method === "GET") {
       const cfg = await db.getConfig();
+      const reveal = new URL(req.url || "/", "http://localhost").searchParams.get("reveal") === "1";
       const meta = getMetaConfig();
       const geminiKey = cfg.geminiApiKey || process.env.GEMINI_API_KEY || "";
       return res.status(200).json({
@@ -1601,6 +1602,7 @@ async function handler7(req, res) {
         metaAppSecretMasked: maskSecret(meta.appSecret),
         geminiApiKeyMasked: maskSecret(geminiKey),
         groqApiKeyMasked: maskSecret(cfg.groqApiKey || process.env.GROQ_API_KEY || ""),
+        ...reveal ? { groqApiKeyPlain: cfg.groqApiKey || process.env.GROQ_API_KEY || "", geminiApiKeyPlain: cfg.geminiApiKey || process.env.GEMINI_API_KEY || "" } : {},
         aiChain: cfg.aiChain || null,
         geminiModel: cfg.geminiModel || process.env.GEMINI_MODEL || "gemini-3.6-flash",
         autoReplyEnabled: meta.autoReplyEnabled,
@@ -1613,6 +1615,7 @@ async function handler7(req, res) {
     if (req.method === "POST") {
       const body2 = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
       const updates = {};
+      const current = await db.getConfig();
       if (typeof body2.metaAccessToken === "string" && body2.metaAccessToken.trim()) {
         updates.metaAccessToken = body2.metaAccessToken.trim().replace(/^Bearer\s+/i, "");
       }
@@ -1646,6 +1649,16 @@ async function handler7(req, res) {
       if (typeof body2.directPairingPhone === "string" && body2.directPairingPhone.trim()) {
         updates.directPairingPhone = body2.directPairingPhone.trim();
       }
+      const changed = (k, prefix) => {
+        const next = updates[k];
+        if (!next || next === current[k]) return;
+        updates.aiPausedModels = Object.fromEntries(
+          Object.entries(updates.aiPausedModels || current.aiPausedModels || {}).filter(([key]) => !key.startsWith(prefix))
+        );
+        updates.aiUsageCount = 0;
+      };
+      changed("groqApiKey", "groq:");
+      changed("geminiApiKey", "gemini:");
       const updated = await db.saveConfig(updates);
       const meta = getMetaConfig();
       const geminiKey = updated.geminiApiKey || process.env.GEMINI_API_KEY || "";
@@ -3125,14 +3138,14 @@ var job = null;
 var MAX_AGE_MS = 60 * 6e4;
 var MAX_PAGES_PER_CHAT = 50;
 var MAX_AUDIOS = 80;
-async function evo(method, path3, body2) {
+async function evo(method, path3, body2, timeoutMs = 9e4) {
   const cfg = getEvolutionCfg();
   if (!cfg) throw new Error("Evolution n\xE3o configurada no servidor.");
   const res = await fetch(`${cfg.url}${path3}`, {
     method,
     headers: { "Content-Type": "application/json", apikey: cfg.apiKey },
     body: body2 === void 0 ? void 0 : JSON.stringify(body2),
-    signal: AbortSignal.timeout(3e4)
+    signal: AbortSignal.timeout(timeoutMs)
   });
   const text = await res.text();
   let json = null;
@@ -3142,6 +3155,18 @@ async function evo(method, path3, body2) {
   }
   if (!res.ok) throw new Error(`Evolution ${res.status}: ${String(json?.message || text).slice(0, 160)}`);
   return json;
+}
+async function retry(fn, tries = 3) {
+  let last;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      last = err;
+      await new Promise((r) => setTimeout(r, 3e3 * (i + 1)));
+    }
+  }
+  throw last;
 }
 async function closeJob() {
   if (!job) return;
@@ -3187,7 +3212,7 @@ async function build() {
   current.status = "building";
   try {
     const name = current.instance;
-    const chatsRes = await evo("POST", `/chat/findChats/${encodeURIComponent(name)}`, {});
+    const chatsRes = await retry(() => evo("POST", `/chat/findChats/${encodeURIComponent(name)}`, {}, 18e4));
     const chats = Array.isArray(chatsRes) ? chatsRes : chatsRes?.chats || [];
     const conversas = [];
     let total = 0;
@@ -3198,7 +3223,7 @@ async function build() {
       let page = 1;
       let pages = 1;
       do {
-        const r = await evo("POST", `/chat/findMessages/${encodeURIComponent(name)}`, { where: { key: { remoteJid: jid } }, page });
+        const r = await retry(() => evo("POST", `/chat/findMessages/${encodeURIComponent(name)}`, { where: { key: { remoteJid: jid } }, page }, 12e4));
         pages = r?.messages?.pages || 1;
         for (const m of r?.messages?.records || []) {
           const text = m.message?.audioMessage ? await audioText(name, m, budget) : textOf(m.message);
