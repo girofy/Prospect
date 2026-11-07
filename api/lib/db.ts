@@ -27,7 +27,7 @@ export interface AppConfig {
 const DEFAULT_CONFIG: AppConfig = {
   metaPhoneNumberId: '1221241567748320',
   webhookVerifyToken: 'impossivel2008',
-  geminiModel: 'gemini-2.5-flash',
+  geminiModel: 'gemini-3.6-flash',
   autoReplyEnabled: true,
   activeGateway: 'direct_pairing',
   directPairingPhone: '557488126578',
