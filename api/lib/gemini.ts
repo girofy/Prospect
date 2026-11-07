@@ -423,3 +423,71 @@ Responda só com o texto da próxima mensagem para o WhatsApp.
     return fail('error');
   }
 }
+
+// Conversa com o dono (seu WhatsApp pessoal). O modelo responde em linguagem natural e escolhe UMA ação
+// de uma lista fixa. Quem executa é o código (api/lib/owner.ts), nunca o modelo.
+export type OwnerAction = 'none' | 'pause' | 'resume' | 'status';
+
+function parseOwnerJson(raw: string): { reply: string; action: OwnerAction } | null {
+  const m = raw.match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  try {
+    const j = JSON.parse(m[0]);
+    const reply = String(j.reply || '').trim();
+    if (!reply) return null;
+    const action: OwnerAction = ['pause', 'resume', 'status'].includes(j.action) ? j.action : 'none';
+    return { reply, action };
+  } catch {
+    return null;
+  }
+}
+
+export async function generateOwnerReply(
+  text: string,
+  history: { from: 'owner' | 'bot'; text: string }[],
+  snapshot: string
+): Promise<{ reply: string; action: OwnerAction } | null> {
+  const cfg = await db.getConfig();
+  const geminiKey = (cfg.geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
+  const groqKey = (cfg.groqApiKey || process.env.GROQ_API_KEY || '').trim();
+  const transcript = history.slice(-8).map(m => `${m.from === 'owner' ? 'César' : 'Você'}: ${m.text}`).join('\n');
+  const prompt = `Você é o agente de prospecção da Girofy e está falando com o CÉSAR, o dono. Ele te configurou e ninguém mais tem esse número.
+
+COMO FALAR: português do Brasil, natural, direto, curto, como um assistente de confiança conversando no WhatsApp. Não é lead: não venda, não fale de preço, não use "tudo bem?" de abertura de prospecção.
+
+O QUE VOCÊ FAZ DE VERDADE (uma ação por resposta, escolhida desta lista):
+- "status": mostrar o estado atual (os números estão em ESTADO AGORA; use-os na resposta)
+- "pause": pausar a prospecção de novos contatos (respostas aos leads continuam)
+- "resume": começar/retomar a prospecção. O sistema pede confirmação de "sim" antes; então na resposta, pergunte se ele confirma.
+- "none": só conversar, explicar, responder dúvidas
+Se ele pedir algo fora dessa lista, diga com honestidade que ainda não faz isso e o que faz. Nunca diga que fez algo que não está na ação escolhida.
+
+ESTADO AGORA:
+${snapshot}
+
+CONVERSA RECENTE COM O CÉSAR:
+${transcript || '(início)'}
+
+MENSAGEM DO CÉSAR AGORA:
+"${text}"
+
+Responda SOMENTE um JSON, sem texto fora dele: {"reply":"texto para o WhatsApp","action":"none|status|pause|resume"}`;
+
+  for (const item of chainFrom(cfg)) {
+    if (isPaused(cfg, item)) continue;
+    if (item.provider === 'gemini' && !geminiKey) continue;
+    if (item.provider === 'groq' && !groqKey) continue;
+    if (!(await reserveAiCall())) return null;
+    try {
+      const raw = item.provider === 'gemini' ? await callGemini(geminiKey, item.model, prompt) : await callGroq(groqKey, item.model, prompt);
+      const parsed = parseOwnerJson(raw);
+      if (parsed) return parsed;
+      console.warn('[Dono] resposta sem JSON válido:', raw.slice(0, 160));
+    } catch (err: any) {
+      const msg = String(err?.message || err);
+      console.error(`[Dono] ${item.model} falhou:`, msg.slice(0, 200));
+      if (err?.status === 429 || /429|RESOURCE_EXHAUSTED/i.test(msg)) await pauseModel(item, err?.pauseMs ?? pauseMsFrom(msg));
+    }
+  }
+  return null;
+}
