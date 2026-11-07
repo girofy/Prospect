@@ -1,5 +1,11 @@
 import { db } from '../lib/db';
-import { formatPhoneNumber } from '../lib/whatsapp';
+// Pareamento usa o número EXATO como o WhatsApp registrou (ex.: 557488126578).
+// Não aplica a normalização de 9º dígito: ela serve só para casar contatos, não para o número da conta.
+function exactPhone(raw: string): string {
+  let d = String(raw || '').replace(/\D/g, '');
+  if (d.length === 10 || d.length === 11) d = `55${d}`;
+  return d;
+}
 
 function generatePairingCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -40,8 +46,11 @@ export default async function handler(req: any, res: any) {
 
       if (action === 'request_code') {
         const rawPhone = phoneNumber || config.directPairingPhone || '557488126578';
-        const cleanPhone = formatPhoneNumber(rawPhone);
-        const { evolutionUrl, evolutionKey, instanceName = 'prospectfy' } = body;
+        const cleanPhone = exactPhone(rawPhone);
+        // Credenciais da Evolution: o servidor usa as próprias variáveis (o navegador não guarda a chave).
+        const evolutionUrl = body.evolutionUrl || process.env.EVOLUTION_URL || '';
+        const evolutionKey = body.evolutionKey || process.env.EVOLUTION_API_KEY || '';
+        const instanceName = body.instanceName || process.env.EVOLUTION_INSTANCE || 'prospectfy';
 
         let code = '';
         let isRealSocketCode = false;
@@ -135,7 +144,7 @@ export default async function handler(req: any, res: any) {
       }
 
       if (action === 'confirm_paired') {
-        const cleanPhone = formatPhoneNumber(phoneNumber || config.directPairingPhone || '557488126578');
+        const cleanPhone = exactPhone(phoneNumber || config.directPairingPhone || '557488126578');
         const now = new Date().toISOString();
 
         await db.saveConfig({
