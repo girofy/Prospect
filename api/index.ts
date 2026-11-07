@@ -16,6 +16,7 @@ import exportHandler from './_handlers/export';
 import aiTestHandler from './_handlers/ai-test';
 import aiModelsHandler from './_handlers/ai-models';
 import followupsHandler from './_handlers/followups';
+import personalExportHandler from './_handlers/personal-export';
 import { isAuthorized } from './lib/auth';
 
 type Handler = (req: any, res: any) => Promise<any> | any;
@@ -47,6 +48,7 @@ const PROTECTED_ROUTES: Record<string, Handler> = {
   '/api/ai-test': aiTestHandler,
   '/api/ai-models': aiModelsHandler,
   '/api/followups': followupsHandler,
+  '/api/personal-export': personalExportHandler,
 };
 
 // Stats do agente: só GET e sem dado pessoal (contagens). Pode ser público.

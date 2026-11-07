@@ -1,6 +1,7 @@
 import { useEffect, useState, ReactNode } from 'react';
 import { Users, MessageCircle, Reply, Clock, Mic, Image as ImageIcon, ShieldOff, Download, Wifi, WifiOff, Bot, Send } from 'lucide-react';
 import { Card, SectionTitle, Pill, Dot, Ring, Btn, Skeleton, Empty, COLORS } from './ui';
+import PersonalExportCard from './PersonalExportCard';
 
 type Metrics = {
   agente: {
@@ -255,6 +256,8 @@ export default function DashboardTab() {
           <Btn kind="soft" onClick={() => download('json')}>JSON</Btn>
         </div>
       </Card>
+
+      <PersonalExportCard />
     </div>
   );
 }
