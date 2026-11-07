@@ -137,6 +137,7 @@ export interface IncomingMedia {
 export interface IncomingMessage {
   text: string; // texto ou legenda; para áudio/imagem, um rótulo curto
   media?: IncomingMedia;
+  followup?: number; // se definido: a pessoa NÃO respondeu; escrever o follow-up de número N
 }
 
 export interface AiGenerationResult {
@@ -290,8 +291,10 @@ ${recentBot || '(nenhuma ainda)'}
 CONVERSA RECENTE:
 ${transcript || '(início da conversa)'}
 
-NOVA MENSAGEM DA PESSOA:
-"${incoming.text}"
+${incoming.followup
+  ? `SITUAÇÃO: a pessoa não respondeu à sua última mensagem. Escreva o follow-up número ${incoming.followup} (no máximo 3 no total).
+Regras do follow-up: use um ângulo NOVO (não repita a observação anterior), termine com uma pergunta de escolha de duas saídas, curto. Nunca escreva "só passando pra lembrar" nem "você viu minha mensagem?". Se ela já tinha respondido antes, retome o ponto em que ela parou.`
+  : `NOVA MENSAGEM DA PESSOA:\n"${incoming.text}"`}
 
 Responda só com o texto da próxima mensagem para o WhatsApp.
 `;

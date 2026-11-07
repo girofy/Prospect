@@ -277,6 +277,17 @@ export const db = {
     return messageFromRow(mustOk(res, 'saveMessage'));
   },
 
+  // Já existe conversa com esse número (mesmo em outro formato, com ou sem o 9)? Conta qualquer mensagem
+  // guardada, de qualquer lado, e outro contato com os mesmos 8 últimos dígitos que já saiu da fila.
+  async hasHistoryWith(phone: string): Promise<boolean> {
+    const tail = String(phone || '').replace(/\D/g, '').slice(-8);
+    if (tail.length < 8) return false;
+    const msgs = await supabase().from('messages').select('id', { count: 'exact', head: true }).like('contact_phone', `%${tail}`);
+    if ((msgs.count || 0) > 0) return true;
+    const others = await supabase().from('contacts').select('phone, status').like('phone', `%${tail}`).neq('phone', phone).neq('status', 'novo');
+    return (others.data || []).length > 0;
+  },
+
   // Conjunto de telefones que já mandaram pelo menos 1 mensagem como lead.
   // Usado pelo prospector e pelo painel para medir taxa de resposta sem
   // carregar todas as mensagens.
