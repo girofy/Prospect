@@ -541,6 +541,45 @@ async function campaignStats() {
     hoje: { enviadas: cfg.prospectDay ? cfg.prospectSentToday || 0 : 0 }
   };
 }
+async function campaignDetail(id) {
+  const list = await getCampaigns();
+  const camp = list.find((c) => c.id === id);
+  if (!camp) return null;
+  const [contacts, messages] = await Promise.all([db.getContacts(), db.getMessages()]);
+  const cbyKey = new Map(contacts.map((c) => [last8(c.phone), c]));
+  const info = /* @__PURE__ */ new Map();
+  for (const m of messages) {
+    const k = last8(m.contactPhone);
+    const e = info.get(k) || { bot: 0, human: 0, hot: false };
+    if (m.from === "bot") {
+      e.bot++;
+      if (!e.firstBot) e.firstBot = m.timestamp;
+    } else if (m.from === "lead" && !AUTO_RE.test(m.text || "")) {
+      e.human++;
+      if (PRICE_RE.test(m.text || "")) e.hot = true;
+    }
+    if (!e.last || m.timestamp > e.last) {
+      e.last = m.timestamp;
+      e.lastText = (m.text || "").slice(0, 90);
+    }
+    info.set(k, e);
+  }
+  const rows = camp.phones.map((p) => {
+    const k = last8(p);
+    const c = cbyKey.get(k);
+    const e = info.get(k);
+    let estado = "na fila";
+    if (c && (c.optOutDetected || c.status === "bloqueado")) estado = "pediu para sair";
+    else if (c && c.status === "reuniao_marcada") estado = "fechou";
+    else if (e && e.hot) estado = "interesse";
+    else if (e && e.human > 1) estado = "conversando";
+    else if (e && e.human > 0) estado = "respondeu";
+    else if (e && e.bot > 0) estado = "enviada";
+    else if (c && c.status !== "novo") estado = "j\xE1 tinha conversa";
+    return { phone: p, empresa: c && c.company && c.company !== "Em qualifica\xE7\xE3o" ? c.company : c ? c.name : p, estado, ultima: e?.lastText || "", quando: e?.last || "" };
+  });
+  return { campaign: camp, contatos: rows };
+}
 
 // api/lib/gemini.ts
 var DEFAULT_MODEL = "gemini-3.6-flash";
@@ -3359,7 +3398,14 @@ async function handler14(req, res) {
 // api/_handlers/campaigns.ts
 async function handler15(req, res) {
   try {
-    if (req.method === "GET") return res.status(200).json(await campaignStats());
+    if (req.method === "GET") {
+      const id = new URL(req.url || "/", "http://localhost").searchParams.get("id");
+      if (id) {
+        const d = await campaignDetail(id);
+        return d ? res.status(200).json(d) : res.status(404).json({ error: "Campanha n\xE3o encontrada" });
+      }
+      return res.status(200).json(await campaignStats());
+    }
     if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
     const b = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
     const list = await getCampaigns();
@@ -3407,6 +3453,12 @@ async function handler15(req, res) {
       camp.status = "ativa";
       await saveCampaigns(list);
       return res.status(200).json({ ok: true, fila });
+    }
+    if (b.action === "removePhone") {
+      const k = String(b.phone || "").slice(-8);
+      camp.phones = camp.phones.filter((p) => p.slice(-8) !== k);
+      await saveCampaigns(list);
+      return res.status(200).json({ ok: true });
     }
     if (b.action === "pause") {
       camp.status = "pausada";
