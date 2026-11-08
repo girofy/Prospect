@@ -212,7 +212,7 @@ function defaultChain(cfg: AppConfig): ChainItem[] {
 
 function chainFrom(cfg: AppConfig): ChainItem[] {
   const saved = Array.isArray(cfg.aiChain) ? cfg.aiChain : [];
-  const valid = saved.filter(x => x && (x.provider === 'gemini' || x.provider === 'groq') && typeof x.model === 'string' && x.model.trim());
+  const valid = saved.filter(x => x && (x.provider === 'gemini' || x.provider === 'groq') && typeof x.model === 'string' && x.model.trim() && !/^(gsk_|AIza|AQ\.|sk-)/.test(x.model.trim()));
   return valid.length ? valid.map(x => ({ provider: x.provider, model: x.model.trim() })) : defaultChain(cfg);
 }
 

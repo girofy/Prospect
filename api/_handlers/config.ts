@@ -73,10 +73,20 @@ export default async function handler(req: any, res: any) {
         updates.groqApiKey = body.groqApiKey.trim();
       }
       if (Array.isArray(body.aiChain)) {
-        updates.aiChain = body.aiChain
-          .filter((x: any) => x && (x.provider === 'gemini' || x.provider === 'groq') && typeof x.model === 'string' && x.model.trim())
+        // Chave colada por engano no campo de modelo (gsk_..., AIza..., AQ....): guarda como chave e tira da lista.
+        const keyLike = /^(gsk_|AIza|AQ\.|sk-)/;
+        for (const x of body.aiChain) {
+          const m = x && typeof x.model === 'string' ? x.model.trim() : '';
+          if (!keyLike.test(m)) continue;
+          if (m.startsWith('gsk_') && !updates.groqApiKey) updates.groqApiKey = m;
+          else if (!m.startsWith('gsk_') && !updates.geminiApiKey) updates.geminiApiKey = m;
+        }
+        const cleaned = body.aiChain
+          .filter((x: any) => x && (x.provider === 'gemini' || x.provider === 'groq') && typeof x.model === 'string' && x.model.trim() && !keyLike.test(x.model.trim()))
           .slice(0, 6)
           .map((x: any) => ({ provider: x.provider, model: String(x.model).trim().slice(0, 80) }));
+        // Lista vazia nunca é gravada: a IA ficaria sem modelo. Mantém a que já existe.
+        if (cleaned.length) updates.aiChain = cleaned;
       }
       if (typeof body.geminiModel === 'string' && body.geminiModel.trim()) {
         updates.geminiModel = body.geminiModel.trim();

@@ -19,8 +19,8 @@ export async function sendLeadReply(
   if (!parts.length) return { success: false, error: 'mensagem vazia' };
   for (let i = 0; i < parts.length; i++) {
     const typingMs = typingFor(parts[i]);
-    // Ritmo de gente: antes da primeira, espera o dobro do "digitando" (total ≈ 3x).
-    if (i === 0 && opts.preWait) await sleep(typingMs * 2);
+    // Ritmo de gente: antes da primeira, espera o dobro do "digitando" e nunca menos de 8 s.
+    if (i === 0 && opts.preWait) await sleep(Math.max(typingMs * 2, 8000)); // total ≥ 10 s com o "digitando"
     const send = await sendEvolutionText(phone, parts[i], typingMs);
     if (!send.success) return { success: false, error: send.error };
     if (send.messageId) await db.markMessageAsProcessed(send.messageId); // eco do envio não vira "manual"

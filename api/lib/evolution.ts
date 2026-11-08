@@ -87,3 +87,26 @@ export async function fetchEvolutionMedia(
 
 // Pedido de saída (LGPD). Frases claras; "sair" e "parar" só entram como pedido completo, não como palavra solta.
 export const OPT_OUT_REGEX = /(não tenho interesse|nao tenho interesse|pare de (me )?mandar|para de (me )?mandar|pare de (me )?enviar|para de (me )?enviar|remove (meu|o meu) (contato|número|numero)|remover (meu )?contato|tirar (me|meu contato) da lista|não me (mande|envie|chame)|nao me (mande|envie|chame)|denunciar|desinscrever|me (tira|tire|remove) (daí|daqui|da lista)|nunca mais|^\s*(parar|stop|sair|cancelar)\s*[.!]*\s*$)/i;
+
+// Já existe qualquer mensagem com esse número no WhatsApp conectado? Cobre conversas que o banco não conhece.
+// Confere o número com e sem o 9 do celular. Lança erro se a Evolution não responder (quem chama NÃO envia).
+export async function evolutionHasHistory(phone: string): Promise<boolean> {
+  const cfg = getEvolutionCfg();
+  if (!cfg) throw new Error('Evolution não configurada');
+  const digits = phone.replace(/\D/g, '');
+  const variants = new Set([digits]);
+  if (/^55\d{2}9\d{8}$/.test(digits)) variants.add(digits.slice(0, 4) + digits.slice(5)); // sem o 9
+  for (const v of variants) {
+    const res = await fetch(`${cfg.url}/chat/findMessages/${encodeURIComponent(cfg.instance)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: cfg.apiKey },
+      body: JSON.stringify({ where: { key: { remoteJid: `${v}@s.whatsapp.net` } }, page: 1 }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) throw new Error(`findMessages HTTP ${res.status}`);
+    const j: any = await res.json().catch(() => null);
+    const total = Number(j?.messages?.total ?? (j?.messages?.records || []).length ?? 0);
+    if (total > 0) return true;
+  }
+  return false;
+}
