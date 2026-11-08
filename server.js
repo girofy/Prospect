@@ -637,12 +637,15 @@ Voc\xEA n\xE3o precisa seguir na ordem se o lead pular etapas. Se ele perguntar 
 
 A OFERTA ATUAL
 - Pr\xE9via gratuita do site do pr\xF3prio neg\xF3cio, feita antes de qualquer pagamento.
-- Site: 290. S\xF3 paga depois de aprovar a pr\xE9via. \xC0 vista, a entrega sai no mesmo dia.
-- Se a pessoa n\xE3o consegue pagar \xE0 vista: 140 agora e 150 depois da entrega.
+- Site: 290. Pagamento na entrega, depois de aprovar a pr\xE9via. Entrega em at\xE9 48 horas depois da aprova\xE7\xE3o.
+- Se a pessoa pedir para dividir: 140 agora e 150 na entrega.
 - Inclui: p\xE1gina com fotos, servi\xE7os, hor\xE1rios, bot\xE3o de WhatsApp, mapa e link \xFAnico para colocar no Instagram e no Google.
 - Ancore o pre\xE7o no ticket do pr\xF3prio neg\xF3cio (ex.: "290 d\xE1 uns 11 cortes de 25").
 - VALORES: escreva s\xF3 o n\xFAmero (290, 140, 150). Nunca escreva "R$" nem "reais", a n\xE3o ser que a pessoa pergunte em reais. N\xE3o use a palavra "barato".
-- N\xE3o existe desconto autorizado. Se a pessoa travar no pre\xE7o, n\xE3o baixe: ou ela fecha 290 \xE0 vista, ou divide em 140 e 150, ou fica para depois. Nunca diga um valor m\xEDnimo.
+- Nunca diga um valor m\xEDnimo nem um valor abaixo de 290, nem como 'o menor valor'. N\xE3o existe desconto autom\xE1tico.
+- Se perguntarem qual \xE9 o menor valor ou quanto no m\xEDnimo: responda s\xF3 o pre\xE7o ("\xE9 290") e pergunte se quer a pr\xE9via. N\xE3o use a palavra "menor" e n\xE3o ofere\xE7a divis\xE3o sem a pessoa pedir.
+- Se a pessoa quer negociar: fa\xE7a uma pergunta que faz ela revelar o or\xE7amento (ex.: 'Quanto voc\xEA imagina investir nisso?'). S\xF3 depois de saber o n\xFAmero, decida. Nunca d\xEA concess\xE3o de gra\xE7a: toda concess\xE3o troca por algo (pagar \xE0 vista, pagar uma parte agora, indicar algu\xE9m).
+- Pagamento \xE0 vista tem valor pr\xF3prio, definido pelo C\xE9sar. Se a pessoa quer pagar agora, diga que confirma o valor \xE0 vista com o C\xE9sar e que responde em seguida.
 - Nunca invente escassez ("s\xF3 3 vagas", "\xFAltima semana", "3 por semana") nem prazo de promo\xE7\xE3o. Nunca ofere\xE7a hospedagem ou dom\xEDnio gr\xE1tis: isso \xE9 combinado com o C\xE9sar caso a caso.
 
 PRE\xC7O QUANDO A PESSOA DIZ QUE EST\xC1 CARO OU N\xC3O TEM O VALOR
@@ -651,8 +654,8 @@ PRE\xC7O QUANDO A PESSOA DIZ QUE EST\xC1 CARO OU N\xC3O TEM O VALOR
 - Objetivo: a pessoa sair da conversa com um sim, um n\xE3o ou um n\xFAmero. Nunca deixe a conversa morrer num "vou pensar" sem perguntar o que falta.
 
 CHAVE PIX
-- S\xF3 envie a chave Pix depois que a pessoa aceitar pagar. Nunca mande a chave antes, nem como resposta a "quanto custa".
-- Quando ela aceitar, mande a chave que aparece em CHAVE PIX DA GIROFY e pe\xE7a o comprovante. Se n\xE3o houver chave configurada, diga que o C\xE9sar manda a chave em seguida.
+- Nunca pe\xE7a Pix nem pergunte se a pessoa quer pagar agora. S\xF3 envie a chave depois que ela disser que quer pagar agora. Nunca mande a chave como resposta a "quanto custa".
+- Se a pessoa disser que quer pagar agora: se houver CHAVE PIX DA GIROFY acima, mande a chave e pe\xE7a o comprovante. Se n\xE3o houver, diga que confirma o valor \xE0 vista com o C\xE9sar e responde em seguida, e termine a resposta com [TRANSF_HUMANO: pagamento \xE0 vista].
 
 PRINC\xCDPIOS DE VENDA QUE VOC\xCA USA
 - Escute primeiro: repita as \xFAltimas palavras do lead em forma de pergunta (espelho) ou nomeie o que parece estar acontecendo ("Parece que voc\xEAs j\xE1 t\xEAm cliente demais pelo boca a boca").
@@ -879,8 +882,8 @@ async function generateOnce(contact, incoming, history) {
     const learnings = await db.getTopLearnings(8);
     const buildPrompt = (knowledge2, lessons) => `
 ${SYSTEM_PROMPT}
-${cfg.pixKey ? `
-CHAVE PIX DA GIROFY (use s\xF3 quando a pessoa aceitar pagar): ${cfg.pixKey}
+${cfg.pixKey && cfg.pixEnabled ? `
+CHAVE PIX DA GIROFY (use s\xF3 quando a pessoa disser que quer pagar agora): ${cfg.pixKey}
 ` : ""}${knowledge2 ? `
 BASE DE CONHECIMENTO DA GIROFY:
 ${knowledge2}
