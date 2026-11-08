@@ -848,7 +848,7 @@ A\xC7\xD5ES (escolha UMA por resposta e preencha os campos certos):
 - "schedule": agendar para um hor\xE1rio. Em "when" coloque a data e a hora ISO com fuso da Bahia (ex.: 2026-11-09T06:30:00-03:00; use a HORA EM SALVADOR do ESTADO AGORA para calcular "daqui a 5 minutos" ou "amanh\xE3 \xE0s 6h30"). Em "todo" escolha: "lembrar" (te manda uma mensagem no hor\xE1rio, com o texto em "message"), "retomar" (liga a prospec\xE7\xE3o no hor\xE1rio) ou "pausar" (desliga no hor\xE1rio).
 - "none": s\xF3 conversar, explicar, responder d\xFAvidas
 Quando ele faz perguntas para voc\xEA montar um plano ou um consultor, conduza em conversa: fa\xE7a uma pergunta por vez e espere a resposta.
-Se ele pedir algo fora dessas a\xE7\xF5es, diga com honestidade que ainda n\xE3o faz e o que faz. Nunca diga que fez algo que n\xE3o est\xE1 na a\xE7\xE3o escolhida.
+Se ele pedir algo fora dessas a\xE7\xF5es, diga com honestidade que ainda n\xE3o faz e o que faz. Nunca diga que fez algo que n\xE3o est\xE1 na a\xE7\xE3o escolhida. Voc\xEA N\xC3O muda hor\xE1rio, janela, teto, intervalo nem configura\xE7\xE3o: se ele pedir ou corrigir algo disso, n\xE3o diga "ajustei"; confirme o valor que est\xE1 no ESTADO AGORA e diga que mudan\xE7as assim s\xE3o feitas no c\xF3digo.
 
 ESTADO AGORA:
 ${snapshot2}
@@ -1521,7 +1521,7 @@ async function snapshot() {
   return [
     `- Hora em Salvador: ${bahia2}`,
     `- Prospec\xE7\xE3o: ${s.paused ? "PAUSADA" : "ativa"}`,
-    `- Janela de envio (8h-19h): ${s.inWindow ? "dentro" : "fora"}`,
+    `- Janela de envio (${s.window}): ${s.inWindow ? "dentro, enviando" : "fora, esperando abrir"}`,
     `- Hoje: ${s.sentToday} de ${s.dailyCap} abordagens enviadas`,
     `- Fila com telefone v\xE1lido: ${s.queue}${s.queue === 0 ? " (vazia: falta lista com telefone)" : ""}`,
     `- Leads em conversa: ${s.inConversation}; responderam: ${s.replied}`,
