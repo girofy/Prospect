@@ -1276,8 +1276,12 @@ function personFirstName(name) {
 }
 function buildOpener(contact, hour) {
   const greeting = hour < 12 ? "Bom dia" : "Boa tarde";
+  const low = greeting.toLowerCase();
   const first = personFirstName(contact.name);
-  return first ? `${greeting}, ${first}!` : `${greeting}!`;
+  const withName = [`${greeting}, ${first}!`, `Oi, ${first}! ${greeting}.`, `${first}, ${low}!`, `Ol\xE1, ${first}! ${greeting}.`];
+  const noName = [`${greeting}!`, `Oi, ${low}!`, `Ol\xE1, ${low}!`, `${greeting}, tudo certo?`];
+  const pool = first ? withName : noName;
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 function isEligible(c) {
   return c.status === "novo" && c.agentState === "ai_active" && !c.optOutDetected && last8(c.phone) !== last8(AUTHORIZED_BUSINESS_NUMBER) && // nunca o próprio número da Girofy, em nenhum formato

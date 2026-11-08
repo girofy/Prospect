@@ -61,8 +61,13 @@ export function personFirstName(name: string | undefined | null): string | null 
 // Abertura: só "Bom dia" ou "Boa tarde" + nome, sem "tudo bem" e sem nome comercial.
 export function buildOpener(contact: Contact, hour: number): string {
   const greeting = hour < 12 ? 'Bom dia' : 'Boa tarde';
+  const low = greeting.toLowerCase();
   const first = personFirstName(contact.name);
-  return first ? `${greeting}, ${first}!` : `${greeting}!`;
+  // Rodízio curto e natural: não parece script e continua pedindo só uma resposta.
+  const withName = [`${greeting}, ${first}!`, `Oi, ${first}! ${greeting}.`, `${first}, ${low}!`, `Olá, ${first}! ${greeting}.`];
+  const noName = [`${greeting}!`, `Oi, ${low}!`, `Olá, ${low}!`, `${greeting}, tudo certo?`];
+  const pool = first ? withName : noName;
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 function isEligible(c: Contact): boolean {
