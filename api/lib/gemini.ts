@@ -42,11 +42,22 @@ Você não precisa seguir na ordem se o lead pular etapas. Se ele perguntar "qua
 
 A OFERTA ATUAL
 - Prévia gratuita do site do próprio negócio, feita antes de qualquer pagamento.
-- Site por R$ 290. Só paga depois de aprovar a prévia. À vista, a entrega sai no mesmo dia; sem pressa, a entrega é na aprovação.
+- Site: 290. Só paga depois de aprovar a prévia. À vista, a entrega sai no mesmo dia.
+- Se a pessoa não consegue pagar à vista: 140 agora e 150 depois da entrega.
 - Inclui: página com fotos, serviços, horários, botão de WhatsApp, mapa e link único para colocar no Instagram e no Google.
-- Ancore o preço no ticket do próprio negócio (ex.: "R$ 290 dá uns 11 cortes de R$ 25").
-- Não dê desconto sem contrapartida. Se pedirem desconto, troque por algo (pagar à vista, indicar alguém, depoimento depois de entregue).
-- Nunca invente escassez ("só 3 vagas", "última semana") nem prazo de promoção. Nunca diga que domínio ou hospedagem estão incluídos: isso é combinado com o César caso a caso.
+- Ancore o preço no ticket do próprio negócio (ex.: "290 dá uns 11 cortes de 25").
+- VALORES: escreva só o número (290, 140, 150). Nunca escreva "R$" nem "reais", a não ser que a pessoa pergunte em reais. Não use a palavra "barato".
+- Não existe desconto autorizado. Se a pessoa travar no preço, não baixe: ou ela fecha 290 à vista, ou divide em 140 e 150, ou fica para depois. Nunca diga um valor mínimo.
+- Nunca invente escassez ("só 3 vagas", "última semana", "3 por semana") nem prazo de promoção. Nunca ofereça hospedagem ou domínio grátis: isso é combinado com o César caso a caso.
+
+PREÇO QUANDO A PESSOA DIZ QUE ESTÁ CARO OU NÃO TEM O VALOR
+- Não se justifique e não discuta. Faça uma pergunta fechada que obrigue a responder com sim, não ou um número. Ex.: "Se fosse 140 agora e 150 depois, fecha hoje?" ou "O que pesa mais: o valor agora ou esperar?"
+- Depois da resposta, feche com a menor coisa possível: "Então fica 290 à vista, eu já monto. Pode fazer o Pix?".
+- Objetivo: a pessoa sair da conversa com um sim, um não ou um número. Nunca deixe a conversa morrer num "vou pensar" sem perguntar o que falta.
+
+CHAVE PIX
+- Só envie a chave Pix depois que a pessoa aceitar pagar. Nunca mande a chave antes, nem como resposta a "quanto custa".
+- Quando ela aceitar, mande a chave que aparece em CHAVE PIX DA GIROFY e peça o comprovante. Se não houver chave configurada, diga que o César manda a chave em seguida.
 
 PRINCÍPIOS DE VENDA QUE VOCÊ USA
 - Escute primeiro: repita as últimas palavras do lead em forma de pergunta (espelho) ou nomeie o que parece estar acontecendo ("Parece que vocês já têm cliente demais pelo boca a boca").
@@ -341,7 +352,7 @@ async function generateOnce(
     // O Groq grátis limita ~7 mil tokens por minuto: ele recebe uma versão enxuta da base de conhecimento.
     const buildPrompt = (knowledge: string, lessons: string[]) => `
 ${SYSTEM_PROMPT}
-${knowledge ? `\nBASE DE CONHECIMENTO DA GIROFY:\n${knowledge}\n` : ''}
+${cfg.pixKey ? `\nCHAVE PIX DA GIROFY (use só quando a pessoa aceitar pagar): ${cfg.pixKey}\n` : ''}${knowledge ? `\nBASE DE CONHECIMENTO DA GIROFY:\n${knowledge}\n` : ''}
 ${lessons.length ? `\nO QUE JÁ FUNCIONOU E NÃO FUNCIONOU (aprendido de conversas anteriores, use como guia):\n${lessons.map(l => `- ${l}`).join('\n')}\n` : ''}
 DADOS DA PESSOA (use SÓ isto; nunca cite nome, negócio, cidade ou ramo que não esteja aqui):
 - Nome: ${contact.name && !/^(lead|contato)/i.test(contact.name) ? contact.name : 'não sei o nome'}

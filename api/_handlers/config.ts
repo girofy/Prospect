@@ -66,6 +66,9 @@ export default async function handler(req: any, res: any) {
       if (typeof body.geminiApiKey === 'string' && body.geminiApiKey.trim()) {
         updates.geminiApiKey = body.geminiApiKey.trim();
       }
+      if (typeof body.pixKey === 'string' && body.pixKey.trim()) {
+        updates.pixKey = body.pixKey.trim();
+      }
       if (typeof body.groqApiKey === 'string' && body.groqApiKey.trim()) {
         updates.groqApiKey = body.groqApiKey.trim();
       }

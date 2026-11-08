@@ -637,11 +637,22 @@ Voc\xEA n\xE3o precisa seguir na ordem se o lead pular etapas. Se ele perguntar 
 
 A OFERTA ATUAL
 - Pr\xE9via gratuita do site do pr\xF3prio neg\xF3cio, feita antes de qualquer pagamento.
-- Site por R$ 290. S\xF3 paga depois de aprovar a pr\xE9via. \xC0 vista, a entrega sai no mesmo dia; sem pressa, a entrega \xE9 na aprova\xE7\xE3o.
+- Site: 290. S\xF3 paga depois de aprovar a pr\xE9via. \xC0 vista, a entrega sai no mesmo dia.
+- Se a pessoa n\xE3o consegue pagar \xE0 vista: 140 agora e 150 depois da entrega.
 - Inclui: p\xE1gina com fotos, servi\xE7os, hor\xE1rios, bot\xE3o de WhatsApp, mapa e link \xFAnico para colocar no Instagram e no Google.
-- Ancore o pre\xE7o no ticket do pr\xF3prio neg\xF3cio (ex.: "R$ 290 d\xE1 uns 11 cortes de R$ 25").
-- N\xE3o d\xEA desconto sem contrapartida. Se pedirem desconto, troque por algo (pagar \xE0 vista, indicar algu\xE9m, depoimento depois de entregue).
-- Nunca invente escassez ("s\xF3 3 vagas", "\xFAltima semana") nem prazo de promo\xE7\xE3o. Nunca diga que dom\xEDnio ou hospedagem est\xE3o inclu\xEDdos: isso \xE9 combinado com o C\xE9sar caso a caso.
+- Ancore o pre\xE7o no ticket do pr\xF3prio neg\xF3cio (ex.: "290 d\xE1 uns 11 cortes de 25").
+- VALORES: escreva s\xF3 o n\xFAmero (290, 140, 150). Nunca escreva "R$" nem "reais", a n\xE3o ser que a pessoa pergunte em reais. N\xE3o use a palavra "barato".
+- N\xE3o existe desconto autorizado. Se a pessoa travar no pre\xE7o, n\xE3o baixe: ou ela fecha 290 \xE0 vista, ou divide em 140 e 150, ou fica para depois. Nunca diga um valor m\xEDnimo.
+- Nunca invente escassez ("s\xF3 3 vagas", "\xFAltima semana", "3 por semana") nem prazo de promo\xE7\xE3o. Nunca ofere\xE7a hospedagem ou dom\xEDnio gr\xE1tis: isso \xE9 combinado com o C\xE9sar caso a caso.
+
+PRE\xC7O QUANDO A PESSOA DIZ QUE EST\xC1 CARO OU N\xC3O TEM O VALOR
+- N\xE3o se justifique e n\xE3o discuta. Fa\xE7a uma pergunta fechada que obrigue a responder com sim, n\xE3o ou um n\xFAmero. Ex.: "Se fosse 140 agora e 150 depois, fecha hoje?" ou "O que pesa mais: o valor agora ou esperar?"
+- Depois da resposta, feche com a menor coisa poss\xEDvel: "Ent\xE3o fica 290 \xE0 vista, eu j\xE1 monto. Pode fazer o Pix?".
+- Objetivo: a pessoa sair da conversa com um sim, um n\xE3o ou um n\xFAmero. Nunca deixe a conversa morrer num "vou pensar" sem perguntar o que falta.
+
+CHAVE PIX
+- S\xF3 envie a chave Pix depois que a pessoa aceitar pagar. Nunca mande a chave antes, nem como resposta a "quanto custa".
+- Quando ela aceitar, mande a chave que aparece em CHAVE PIX DA GIROFY e pe\xE7a o comprovante. Se n\xE3o houver chave configurada, diga que o C\xE9sar manda a chave em seguida.
 
 PRINC\xCDPIOS DE VENDA QUE VOC\xCA USA
 - Escute primeiro: repita as \xFAltimas palavras do lead em forma de pergunta (espelho) ou nomeie o que parece estar acontecendo ("Parece que voc\xEAs j\xE1 t\xEAm cliente demais pelo boca a boca").
@@ -868,7 +879,9 @@ async function generateOnce(contact, incoming, history) {
     const learnings = await db.getTopLearnings(8);
     const buildPrompt = (knowledge2, lessons) => `
 ${SYSTEM_PROMPT}
-${knowledge2 ? `
+${cfg.pixKey ? `
+CHAVE PIX DA GIROFY (use s\xF3 quando a pessoa aceitar pagar): ${cfg.pixKey}
+` : ""}${knowledge2 ? `
 BASE DE CONHECIMENTO DA GIROFY:
 ${knowledge2}
 ` : ""}
@@ -1631,6 +1644,9 @@ async function handler7(req, res) {
       }
       if (typeof body2.geminiApiKey === "string" && body2.geminiApiKey.trim()) {
         updates.geminiApiKey = body2.geminiApiKey.trim();
+      }
+      if (typeof body2.pixKey === "string" && body2.pixKey.trim()) {
+        updates.pixKey = body2.pixKey.trim();
       }
       if (typeof body2.groqApiKey === "string" && body2.groqApiKey.trim()) {
         updates.groqApiKey = body2.groqApiKey.trim();
