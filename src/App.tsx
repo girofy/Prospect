@@ -1,3 +1,5 @@
+import TodayCard from './ia/TodayCard';
+import FocoCard from './ia/FocoCard';
 import IAHub from './ia/IAHub.tsx';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
@@ -1048,7 +1050,7 @@ export default function App() {
         {/* TOP MOBILE HERO & MODULAR 2x2 WIDGET HUB (Inspired by reference photos) */}
         {/* ========================================================================= */}
         {/* Only shown on main list view or when on widgets tab to keep phone organized */}
-        {activeTab !== 'ia' && (activeTab !== 'conversas' || mobilePane === 'list') && (
+        {activeTab === 'widgets' && (
           <section className="space-y-3.5">
             
             {/* Big Welcome Card with Clock & Date */}
@@ -1062,22 +1064,14 @@ export default function App() {
                   {getDynamicGreeting()}, Girofy!
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 font-medium mt-0.5">
-                  Atendimento oficial e qualificação comercial de leads no WhatsApp
+                  Seu agente de vendas no WhatsApp
                 </p>
               </div>
 
-              <div className="flex items-center gap-4 self-end sm:self-auto">
-                <div className="text-right">
-                  <div className="text-3xl font-black text-[#1D1D1F] tracking-tight tabular-nums">
-                    {timeString}
-                  </div>
-                  <div className="text-[11px] font-semibold text-[#34C759] flex items-center justify-end gap-1">
-                    <span className="w-2 h-2 rounded-full bg-[#34C759]" />
-                    Sistema Operacional
-                  </div>
-                </div>
-              </div>
             </div>
+
+            <TodayCard />
+            <FocoCard />
 
             {/* 2x2 Modular Big Action Widgets (Eliminates boxy/cramped feel) */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -1591,209 +1585,6 @@ export default function App() {
         {activeTab === 'widgets' && (
           <div className="space-y-4">
             
-            {/* Header Widget */}
-            <div className="apple-widget p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold text-[#1D1D1F] tracking-tight">
-                  Painel de Operações Comerciais
-                </h2>
-                <p className="text-xs sm:text-sm text-zinc-500 font-medium">
-                  Monitoramento em tempo real do atendimento automatizado da Girofy Tecnologia
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-500 font-medium">Status do Sistema:</span>
-                <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#34C759]/15 text-[#248A3D] font-bold text-xs">
-                  <span className="w-2 h-2 rounded-full bg-[#34C759]" />
-                  Operacional
-                </span>
-              </div>
-            </div>
-
-            {/* 4 iOS-Style Modular KPI Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              
-              {/* Card 1: Leads Totais */}
-              <div className="apple-widget p-5 flex flex-col justify-between">
-                <div className="flex items-center justify-between text-zinc-500 mb-3">
-                  <span className="text-xs font-bold text-zinc-600 uppercase">Contatos CRM</span>
-                  <div className="w-8 h-8 rounded-xl bg-[#0071E3]/10 text-[#0071E3] flex items-center justify-center">
-                    <Users className="w-4 h-4" />
-                  </div>
-                </div>
-                <div>
-                  <div className="text-3xl font-extrabold tracking-tight text-[#1D1D1F] tabular-nums">
-                    {metrics.total}
-                  </div>
-                  <div className="text-xs text-zinc-500 font-medium mt-1">
-                    Leads cadastrados
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 2: Qualificados */}
-              <div className="apple-widget p-5 flex flex-col justify-between">
-                <div className="flex items-center justify-between text-zinc-500 mb-3">
-                  <span className="text-xs font-bold text-zinc-600 uppercase">Qualificados</span>
-                  <div className="w-8 h-8 rounded-xl bg-[#34C759]/15 text-[#248A3D] flex items-center justify-center">
-                    <CheckCircle2 className="w-4 h-4" />
-                  </div>
-                </div>
-                <div>
-                  <div className="text-3xl font-extrabold tracking-tight text-[#248A3D] tabular-nums">
-                    {metrics.qualified}
-                  </div>
-                  <div className="text-xs text-zinc-500 font-medium mt-1">
-                    Prontos para reunião
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 3: Aguardando Humano */}
-              <div className="apple-widget p-5 flex flex-col justify-between">
-                <div className="flex items-center justify-between text-zinc-500 mb-3">
-                  <span className="text-xs font-bold text-zinc-600 uppercase">Humano</span>
-                  <div className="w-8 h-8 rounded-xl bg-[#FF9500]/15 text-[#C97700] flex items-center justify-center">
-                    <User className="w-4 h-4" />
-                  </div>
-                </div>
-                <div>
-                  <div className="text-3xl font-extrabold tracking-tight text-[#C97700] tabular-nums">
-                    {metrics.humanNeeded}
-                  </div>
-                  <div className="text-xs text-zinc-500 font-medium mt-1">
-                    Requer intervenção
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 4: IA Autônoma */}
-              <div className="apple-widget p-5 flex flex-col justify-between">
-                <div className="flex items-center justify-between text-zinc-500 mb-3">
-                  <span className="text-xs font-bold text-zinc-600 uppercase">IA Ativa</span>
-                  <div className="w-8 h-8 rounded-xl bg-[#0071E3]/10 text-[#0071E3] flex items-center justify-center">
-                    <Bot className="w-4 h-4" />
-                  </div>
-                </div>
-                <div>
-                  <div className="text-3xl font-extrabold tracking-tight text-[#0071E3] tabular-nums">
-                    {metrics.activeAi}
-                  </div>
-                  <div className="text-xs text-zinc-500 font-medium mt-1">
-                    Conversas ativas
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Modular Detail Rows */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              
-              {/* Widget: Meta Cloud API Connection Box */}
-              <div className="apple-widget p-5 sm:p-6 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-2xl bg-[#34C759]/15 text-[#248A3D] flex items-center justify-center font-bold">
-                        <Phone className="w-4 h-4" />
-                      </div>
-                      <h3 className="text-sm font-bold text-zinc-800 uppercase tracking-tight">
-                        Meta WhatsApp Cloud API
-                      </h3>
-                    </div>
-                    <span className="text-xs font-mono text-zinc-400 font-medium">
-                      ID: {config.metaPhoneNumberId}
-                    </span>
-                  </div>
-
-                  <div className="space-y-3 text-xs sm:text-sm">
-                    <div className="flex items-center justify-between py-1.5 border-b border-black/[0.04]">
-                      <span className="text-zinc-500 font-medium">Número Comercial:</span>
-                      <span className="font-bold text-zinc-800">{config.authorizedBusinessNumber}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-black/[0.04]">
-                      <span className="text-zinc-500 font-medium">App Meta Oficial:</span>
-                      <span className="font-bold text-zinc-800">Meuapp ({config.appId})</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-black/[0.04]">
-                      <span className="text-zinc-500 font-medium">Janela 24 Horas:</span>
-                      <span className="font-bold text-[#248A3D]">Ativa & Conforme</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5">
-                      <span className="text-zinc-500 font-medium">Assinatura SHA-256:</span>
-                      <span className="font-bold text-zinc-800">Validado no Webhook</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-5 pt-4 border-t border-black/[0.06] flex items-center justify-between">
-                  <button
-                    onClick={checkWhatsAppStatus}
-                    disabled={testingStatus}
-                    className="px-4 py-2 text-xs font-bold rounded-xl bg-[#0071E3] text-white hover:bg-[#0062C4] transition-all shadow-xs"
-                  >
-                    {testingStatus ? 'Testando...' : 'Verificar Conexão Agora'}
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('ajustes')}
-                    className="text-xs text-[#0071E3] hover:underline font-bold"
-                  >
-                    Configurar Credenciais →
-                  </button>
-                </div>
-              </div>
-
-              {/* Widget: Motor Comercial Girofy */}
-              <div className="apple-widget p-5 sm:p-6 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-2xl bg-[#0071E3]/10 text-[#0071E3] flex items-center justify-center font-bold">
-                        <Cpu className="w-4 h-4" />
-                      </div>
-                      <h3 className="text-sm font-bold text-zinc-800 uppercase tracking-tight">
-                        Motor de Inteligência Artificial
-                      </h3>
-                    </div>
-                    <span className="text-xs font-mono text-zinc-400 font-medium">
-                      {config.geminiModel}
-                    </span>
-                  </div>
-
-                  <div className="space-y-3 text-xs sm:text-sm">
-                    <div className="flex items-center justify-between py-1.5 border-b border-black/[0.04]">
-                      <span className="text-zinc-500 font-medium">Persona SDR:</span>
-                      <span className="font-bold text-zinc-800">SDR B2B Girofy (PT-BR)</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-black/[0.04]">
-                      <span className="text-zinc-500 font-medium">Condições Comerciais:</span>
-                      <span className="font-bold text-zinc-800">Site R$ 290, pago só após aprovar</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-b border-black/[0.04]">
-                      <span className="text-zinc-500 font-medium">Guarda de Negociação:</span>
-                      <span className="font-bold text-[#248A3D]">Preços e Escopo Travados</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5">
-                      <span className="text-zinc-500 font-medium">Disparos em Massa:</span>
-                      <span className="font-bold text-zinc-600">Desabilitado (Apenas Resposta)</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-5 pt-4 border-t border-black/[0.06] flex items-center justify-between">
-                  <button
-                    onClick={() => setActiveTab('ia')}
-                    className="px-4 py-2 text-xs font-bold rounded-xl bg-[#1D1D1F] text-white hover:bg-zinc-800 transition-all shadow-xs"
-                  >
-                    Abrir Sandbox de Teste
-                  </button>
-                  <span className="text-xs text-zinc-400 font-medium">
-                    Latência: ~1.2s
-                  </span>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
@@ -1805,40 +1596,6 @@ export default function App() {
             
             {/* Base de conhecimento e aprendizado */}
             <IAHub />
-
-            {/* Guidelines Card */}
-            <div className="apple-widget p-5 sm:p-6">
-              <h2 className="text-base sm:text-lg font-bold text-[#1D1D1F] tracking-tight mb-1 flex items-center gap-2.5">
-                <Cpu className="w-5 h-5 text-[#0071E3]" />
-                Diretrizes Comerciais da Girofy Tecnologia
-              </h2>
-              <p className="text-xs sm:text-sm text-zinc-500 font-medium mb-5">
-                O agente opera sob parâmetros rígidos de negociação, respondendo somente em português brasileiro natural e cordial.
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs sm:text-sm">
-                <div className="p-4 bg-[#FBFBFD] border border-black/[0.06] rounded-2xl">
-                  <span className="font-bold text-[#0071E3] block mb-1 text-sm">01. Escopo Autorizado</span>
-                  <p className="text-zinc-600 leading-relaxed font-medium">
-                    Site para o negócio por R$ 290, pago só após aprovar a prévia. Automações de atendimento passam pelo César.
-                  </p>
-                </div>
-
-                <div className="p-4 bg-[#FBFBFD] border border-black/[0.06] rounded-2xl">
-                  <span className="font-bold text-[#248A3D] block mb-1 text-sm">02. Transferência Humana</span>
-                  <p className="text-zinc-600 leading-relaxed font-medium">
-                    Transfere imediatamente para o proprietário em caso de pedidos especiais, dúvidas fora do escopo ou objeções complexas.
-                  </p>
-                </div>
-
-                <div className="p-4 bg-[#FBFBFD] border border-black/[0.06] rounded-2xl">
-                  <span className="font-bold text-[#C97700] block mb-1 text-sm">03. Não-Alucinação</span>
-                  <p className="text-zinc-600 leading-relaxed font-medium">
-                    Nunca inventa preços não autorizados, prazos fantasiosos ou afirma contratações sem confirmação humana.
-                  </p>
-                </div>
-              </div>
-            </div>
 
             {/* Sandbox Simulator */}
             <div className="apple-widget p-5 sm:p-6">
@@ -1903,6 +1660,48 @@ export default function App() {
         {activeTab === 'ajustes' && (
           <div className="space-y-4 max-w-4xl mx-auto w-full">
             
+            {/* Atividade recente */}
+            <div className="apple-widget p-5 sm:p-6">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-base font-bold text-[#1D1D1F] tracking-tight">Atividade recente</h3>
+                <button onClick={fetchAuditLogs} className="text-xs text-[#0071E3] font-bold">Atualizar</button>
+              </div>
+              <ul className="divide-y divide-black/[0.05]">
+                {auditLogs.slice(0, 10).map(log => (
+                  <li key={log.id} className="py-2.5">
+                    <div className="flex items-center justify-between gap-2 text-[11px] text-zinc-500 font-mono">
+                      <span>{log.type}</span>
+                      <span>{new Date(log.timestamp).toLocaleTimeString('pt-BR')}</span>
+                    </div>
+                    <p className="text-[13px] text-zinc-700 leading-snug break-words line-clamp-3">{log.summary}</p>
+                  </li>
+                ))}
+                {auditLogs.length === 0 && <li className="py-4 text-center text-sm text-zinc-400">Sem atividade ainda. Envios e respostas aparecem aqui.</li>}
+              </ul>
+            </div>
+
+            {/* Chaves da IA ficam na central de IA */}
+            <button
+              onClick={() => { try { localStorage.setItem('girofy_ia_tab', 'modelos'); } catch { /* sem storage */ } setActiveTab('ia'); }}
+              className="apple-widget w-full p-4 flex items-center justify-between text-left"
+            >
+              <span>
+                <span className="block text-sm font-bold text-[#1D1D1F]">Chaves e modelos da IA</span>
+                <span className="block text-xs text-zinc-500">Gemini, Groq e ordem dos modelos ficam em IA, Modelos.</span>
+              </span>
+              <span className="text-[#0071E3] text-sm font-bold">Abrir</span>
+            </button>
+
+            {/* Avançado: API oficial da Meta (não é usada hoje) */}
+            <details className="apple-widget p-5 sm:p-6 group">
+              <summary className="cursor-pointer list-none flex items-center justify-between">
+                <span>
+                  <span className="block text-sm font-bold text-[#1D1D1F]">Avançado: API oficial da Meta</span>
+                  <span className="block text-xs text-zinc-500">Não é usada hoje. O envio sai pelo WhatsApp conectado.</span>
+                </span>
+                <span className="text-xs font-bold text-[#0071E3] group-open:hidden">Mostrar</span>
+              </summary>
+              <div className="space-y-4 mt-4">
             {/* Webhook Endpoint Instructions Card */}
             <div className="apple-widget p-5 sm:p-6">
               <h2 className="text-base sm:text-lg font-bold text-[#1D1D1F] tracking-tight mb-1 flex items-center gap-2.5">
@@ -2027,61 +1826,8 @@ export default function App() {
               </form>
             </div>
 
-            {/* Audit Logs Table */}
-            <div className="apple-widget p-5 sm:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-base font-bold text-zinc-800 uppercase tracking-tight">
-                    Registro de Auditoria Recente
-                  </h3>
-                  <p className="text-xs text-zinc-500 font-medium">Eventos do webhook e motor de inteligência artificial</p>
-                </div>
-                <button
-                  onClick={fetchAuditLogs}
-                  className="text-xs text-[#0071E3] hover:underline font-bold"
-                >
-                  Atualizar
-                </button>
               </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs text-left">
-                  <thead>
-                    <tr className="border-b border-black/[0.06] text-zinc-400">
-                      <th className="py-2 font-semibold">Horário</th>
-                      <th className="py-2 font-semibold">Tipo</th>
-                      <th className="py-2 font-semibold">Telefone</th>
-                      <th className="py-2 font-semibold">Descrição</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-black/[0.04]">
-                    {auditLogs.slice(0, 5).map(log => (
-                      <tr key={log.id} className="text-zinc-600">
-                        <td className="py-2 font-mono text-[11px] whitespace-nowrap">
-                          {new Date(log.timestamp).toLocaleTimeString('pt-BR')}
-                        </td>
-                        <td className="py-2 font-mono text-[11px] text-zinc-500">
-                          {log.type}
-                        </td>
-                        <td className="py-2 font-mono text-[11px]">
-                          {log.phone || '—'}
-                        </td>
-                        <td className="py-2 truncate max-w-xs">
-                          {log.summary}
-                        </td>
-                      </tr>
-                    ))}
-                    {auditLogs.length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="py-4 text-center text-zinc-400">
-                          Nenhum evento registrado ainda.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            </details>
           </div>
         )}
       </main>

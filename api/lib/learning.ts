@@ -83,9 +83,12 @@ Sem texto fora do JSON. Sem inventar fatos que não estão na conversa.`;
   return saved;
 }
 
-export function startLearning(everyMs = 6 * 3600_000) {
+export function startLearning(everyMs = 3 * 3600_000) {
   if (process.env.LEARNING_ENABLED === 'false') return;
   setInterval(() => {
+    // Só à noite (20h às 5h, Bahia): de dia a cota grátis do Gemini fica para responder leads.
+    const h = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Bahia', hour: '2-digit', hourCycle: 'h23' }).format(new Date()));
+    if (h >= 5 && h < 20) return;
     runLearningPass().catch(err => console.warn('[Learning] passe falhou:', err));
   }, everyMs);
 }
