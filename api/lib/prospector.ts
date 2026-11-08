@@ -7,7 +7,9 @@ import { isRealBrPhone, last8 } from './phone';
 import { AUTHORIZED_BUSINESS_NUMBER } from './whatsapp';
 
 const TZ = 'America/Bahia';
-const WINDOW_START = Number(process.env.PROSPECTOR_START_HOUR ?? 8);
+// Horas em decimal: 6.5 = 6h30. Domingo não envia (negócios fechados); PROSPECTOR_SKIP_SUNDAY=false liga o domingo.
+const WINDOW_START = Number(process.env.PROSPECTOR_START_HOUR ?? 6.5);
+const SKIP_SUNDAY = process.env.PROSPECTOR_SKIP_SUNDAY !== 'false';
 const WINDOW_END = Number(process.env.PROSPECTOR_END_HOUR ?? 19);
 const MIN_GAP_S = Number(process.env.PROSPECTOR_MIN_GAP_S ?? 120);
 const MAX_GAP_S = Number(process.env.PROSPECTOR_MAX_GAP_S ?? 420);
@@ -22,12 +24,22 @@ function bahiaNow(d = new Date()) {
       month: '2-digit',
       day: '2-digit',
       hour: '2-digit',
+      minute: '2-digit',
+      weekday: 'long',
       hourCycle: 'h23',
     })
       .formatToParts(d)
       .map(p => [p.type, p.value])
   );
-  return { day: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
+  const hour = Number(parts.hour);
+  return { day: `${parts.year}-${parts.month}-${parts.day}`, hour, at: hour + Number(parts.minute) / 60, sunday: parts.weekday === 'Sunday' };
+}
+
+const fmtH = (h: number) => `${Math.floor(h)}h${Math.round((h % 1) * 60) ? String(Math.round((h % 1) * 60)).padStart(2, '0') : ''}`;
+function inWindowNow(): boolean {
+  const n = bahiaNow();
+  if (SKIP_SUNDAY && n.sunday) return false;
+  return n.at >= WINDOW_START && n.at < WINDOW_END;
 }
 
 const rand = (min: number, max: number) => min + Math.random() * (max - min);
@@ -72,8 +84,8 @@ export async function getProspectStats() {
   return {
     enabled: process.env.PROSPECTOR_ENABLED !== 'false',
     evolutionConfigured: !!getEvolutionCfg(),
-    inWindow: hour >= WINDOW_START && hour < WINDOW_END,
-    window: `${WINDOW_START}h-${WINDOW_END}h (America/Bahia)`,
+    inWindow: inWindowNow(),
+    window: `${fmtH(WINDOW_START)}-${fmtH(WINDOW_END)}${SKIP_SUNDAY ? ', exceto domingo' : ''} (America/Bahia)`,
     sentToday,
     paused: !!cfg.prospectorPaused,
     dailyCap: DAILY_CAP,
@@ -95,7 +107,7 @@ async function tick() {
     if (!getEvolutionCfg()) return;
 
     const { day, hour } = bahiaNow();
-    if (hour < WINDOW_START || hour >= WINDOW_END) return;
+    if (!inWindowNow()) return;
 
     const cfg = await db.getConfig();
     if (cfg.prospectorPaused) return; // pausa do dono (WhatsApp ou painel)
@@ -183,6 +195,6 @@ export function startProspector() {
   }
   setInterval(tick, TICK_MS);
   console.log(
-    `[Prospector] ativo. Janela ${WINDOW_START}h-${WINDOW_END}h, teto ${DAILY_CAP}/dia, intervalo ${MIN_GAP_S}-${MAX_GAP_S}s`
+    `[Prospector] ativo. Janela ${fmtH(WINDOW_START)}-${fmtH(WINDOW_END)}, teto ${DAILY_CAP}/dia, intervalo ${MIN_GAP_S}-${MAX_GAP_S}s`
   );
 }

@@ -514,14 +514,15 @@ var GROQ_KNOWLEDGE_CHARS = 1500;
 var GROQ_LESSONS = 2;
 var HISTORY_CHARS_FULL = 9e3;
 var HISTORY_CHARS_GROQ = 1500;
-var KNOWLEDGE_MAX_CHARS = 3e4;
+var KNOWLEDGE_MAX_CHARS = 12e3;
 var knowledgeCache = null;
 async function loadKnowledge() {
   if (knowledgeCache && Date.now() - knowledgeCache.at < 6e4) return knowledgeCache.text;
   let out = "";
   try {
     const docs = await db.getActiveKnowledge();
-    for (const d of docs) out += `
+    const ordered = [...docs].sort((a, b) => Number(/biblioteca/i.test(a.title)) - Number(/biblioteca/i.test(b.title)));
+    for (const d of ordered) out += `
 
 # ${d.title}
 ${d.content}`;
@@ -2121,7 +2122,8 @@ async function handler9(req, res) {
 
 // api/lib/prospector.ts
 var TZ = "America/Bahia";
-var WINDOW_START = Number(process.env.PROSPECTOR_START_HOUR ?? 8);
+var WINDOW_START = Number(process.env.PROSPECTOR_START_HOUR ?? 6.5);
+var SKIP_SUNDAY = process.env.PROSPECTOR_SKIP_SUNDAY !== "false";
 var WINDOW_END = Number(process.env.PROSPECTOR_END_HOUR ?? 19);
 var MIN_GAP_S = Number(process.env.PROSPECTOR_MIN_GAP_S ?? 120);
 var MAX_GAP_S = Number(process.env.PROSPECTOR_MAX_GAP_S ?? 420);
@@ -2135,10 +2137,19 @@ function bahiaNow(d = /* @__PURE__ */ new Date()) {
       month: "2-digit",
       day: "2-digit",
       hour: "2-digit",
+      minute: "2-digit",
+      weekday: "long",
       hourCycle: "h23"
     }).formatToParts(d).map((p) => [p.type, p.value])
   );
-  return { day: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
+  const hour = Number(parts.hour);
+  return { day: `${parts.year}-${parts.month}-${parts.day}`, hour, at: hour + Number(parts.minute) / 60, sunday: parts.weekday === "Sunday" };
+}
+var fmtH = (h) => `${Math.floor(h)}h${Math.round(h % 1 * 60) ? String(Math.round(h % 1 * 60)).padStart(2, "0") : ""}`;
+function inWindowNow() {
+  const n = bahiaNow();
+  if (SKIP_SUNDAY && n.sunday) return false;
+  return n.at >= WINDOW_START && n.at < WINDOW_END;
 }
 var rand = (min, max) => min + Math.random() * (max - min);
 var BUSINESS_WORDS = /(ltda|\bme\b|eireli|restaurante|pizza|burger|barbearia|festas?|buffet|loja|mercado|mec[aâ]nica|oficina|cl[ií]nica|studio|est[uú]dio|empresa|com[eé]rcio|constru|imobili|hotel|pousada|lanchonete|padaria|academia|sal[aã]o|distribuidora|contab|advoc|escola|farm[aá]cia|auto|motos?|tech|digital|girofy|lead|contato|cliente|servi[cç]os?|solu[cç][oõ]es|atacado|varejo|bar\b|a[cç]ougue|pet|the\b)/i;
@@ -2169,8 +2180,8 @@ async function getProspectStats() {
   return {
     enabled: process.env.PROSPECTOR_ENABLED !== "false",
     evolutionConfigured: !!getEvolutionCfg(),
-    inWindow: hour >= WINDOW_START && hour < WINDOW_END,
-    window: `${WINDOW_START}h-${WINDOW_END}h (America/Bahia)`,
+    inWindow: inWindowNow(),
+    window: `${fmtH(WINDOW_START)}-${fmtH(WINDOW_END)}${SKIP_SUNDAY ? ", exceto domingo" : ""} (America/Bahia)`,
     sentToday,
     paused: !!cfg.prospectorPaused,
     dailyCap: DAILY_CAP,
@@ -2189,7 +2200,7 @@ async function tick2() {
     if (Date.now() < nextAt) return;
     if (!getEvolutionCfg()) return;
     const { day, hour } = bahiaNow();
-    if (hour < WINDOW_START || hour >= WINDOW_END) return;
+    if (!inWindowNow()) return;
     const cfg = await db.getConfig();
     if (cfg.prospectorPaused) return;
     const sentToday = cfg.prospectDay === day ? cfg.prospectSentToday || 0 : 0;
@@ -2262,7 +2273,7 @@ function startProspector() {
   }
   setInterval(tick2, TICK_MS2);
   console.log(
-    `[Prospector] ativo. Janela ${WINDOW_START}h-${WINDOW_END}h, teto ${DAILY_CAP}/dia, intervalo ${MIN_GAP_S}-${MAX_GAP_S}s`
+    `[Prospector] ativo. Janela ${fmtH(WINDOW_START)}-${fmtH(WINDOW_END)}, teto ${DAILY_CAP}/dia, intervalo ${MIN_GAP_S}-${MAX_GAP_S}s`
   );
 }
 
