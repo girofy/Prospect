@@ -103,9 +103,25 @@ const server = http.createServer(async (req, res) => {
 
   // Serve static files from dist
   const potentialFile = path.join(DIST_DIR, pathname);
+  if (!potentialFile.startsWith(DIST_DIR)) {
+    res.writeHead(403);
+    res.end('Forbidden');
+    return;
+  }
   if (serveStatic(res, potentialFile)) {
     return;
   }
+  // Pasta com index.html (ex.: /previas/nome/): precisa da barra final para os caminhos relativos das imagens.
+  try {
+    if (fs.existsSync(potentialFile) && fs.statSync(potentialFile).isDirectory() && fs.existsSync(path.join(potentialFile, 'index.html'))) {
+      if (!pathname.endsWith('/')) {
+        res.writeHead(301, { Location: pathname + '/' });
+        res.end();
+        return;
+      }
+      if (serveStatic(res, path.join(potentialFile, 'index.html'))) return;
+    }
+  } catch { /* segue para o fallback */ }
 
   // SPA fallback to index.html
   const indexPath = path.join(DIST_DIR, 'index.html');
