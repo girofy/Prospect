@@ -51,7 +51,7 @@ async function snapshot(): Promise<string> {
   return [
     `- Hora em Salvador: ${bahia}`,
     `- Prospecção: ${s.paused ? 'PAUSADA' : 'ativa'}`,
-    `- Janela de envio (8h-19h): ${s.inWindow ? 'dentro' : 'fora'}`,
+    `- Janela de envio (${s.window}): ${s.inWindow ? 'dentro, enviando' : 'fora, esperando abrir'}`,
     `- Hoje: ${s.sentToday} de ${s.dailyCap} abordagens enviadas`,
     `- Fila com telefone válido: ${s.queue}${s.queue === 0 ? ' (vazia: falta lista com telefone)' : ''}`,
     `- Leads em conversa: ${s.inConversation}; responderam: ${s.replied}`,

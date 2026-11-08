@@ -515,7 +515,7 @@ AÇÕES (escolha UMA por resposta e preencha os campos certos):
 - "schedule": agendar para um horário. Em "when" coloque a data e a hora ISO com fuso da Bahia (ex.: 2026-11-09T06:30:00-03:00; use a HORA EM SALVADOR do ESTADO AGORA para calcular "daqui a 5 minutos" ou "amanhã às 6h30"). Em "todo" escolha: "lembrar" (te manda uma mensagem no horário, com o texto em "message"), "retomar" (liga a prospecção no horário) ou "pausar" (desliga no horário).
 - "none": só conversar, explicar, responder dúvidas
 Quando ele faz perguntas para você montar um plano ou um consultor, conduza em conversa: faça uma pergunta por vez e espere a resposta.
-Se ele pedir algo fora dessas ações, diga com honestidade que ainda não faz e o que faz. Nunca diga que fez algo que não está na ação escolhida.
+Se ele pedir algo fora dessas ações, diga com honestidade que ainda não faz e o que faz. Nunca diga que fez algo que não está na ação escolhida. Você NÃO muda horário, janela, teto, intervalo nem configuração: se ele pedir ou corrigir algo disso, não diga "ajustei"; confirme o valor que está no ESTADO AGORA e diga que mudanças assim são feitas no código.
 
 ESTADO AGORA:
 ${snapshot}
