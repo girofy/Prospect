@@ -101,7 +101,7 @@ const GROQ_KNOWLEDGE_CHARS = 1500;
 const GROQ_LESSONS = 2;
 const HISTORY_CHARS_FULL = 9000; // histórico que vai para modelos Gemini
 const HISTORY_CHARS_GROQ = 1500; // histórico que vai para o Groq (limite por minuto)
-const KNOWLEDGE_MAX_CHARS = 30000; // ~8k tokens por mensagem; ajuste se a cota gratuita apertar
+const KNOWLEDGE_MAX_CHARS = 12000; // enxuto: menos tokens por chamada; a biblioteca longa de frases fica por último e é a que corta // ~8k tokens por mensagem; ajuste se a cota gratuita apertar
 
 // Base de conhecimento = documentos do painel (banco, ativos) + arquivos .md da pasta knowledge/ do repo.
 // Lido com cache de 60 s para não consultar o banco a cada mensagem.
@@ -113,7 +113,9 @@ export async function loadKnowledge(): Promise<string> {
   let out = '';
   try {
     const docs = await db.getActiveKnowledge();
-    for (const d of docs) out += `\n\n# ${d.title}\n${d.content}`;
+    // Documentos de regras primeiro; a biblioteca longa de frases prontas vai por último (é a que o limite corta).
+    const ordered = [...docs].sort((a, b) => Number(/biblioteca/i.test(a.title)) - Number(/biblioteca/i.test(b.title)));
+    for (const d of ordered) out += `\n\n# ${d.title}\n${d.content}`;
   } catch (err) {
     console.warn('[Knowledge] falha ao ler documentos do banco:', err);
   }
