@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import apiHandler from './api/index';
 import { startProspector } from './api/lib/prospector';
+import { startBackup } from './api/lib/backup';
 import { startLearning } from './api/lib/learning';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -122,4 +123,5 @@ server.listen(PORT, () => {
   startCatchup();
   startReminders();
   startLearning();
+  startBackup();
 });
