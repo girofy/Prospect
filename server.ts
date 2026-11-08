@@ -1,4 +1,5 @@
 import { startCatchup } from './api/lib/catchup';
+import { startReminders } from './api/lib/reminders';
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
@@ -119,5 +120,6 @@ server.listen(PORT, () => {
   console.log(`[Prospectfy Production Server] running on http://0.0.0.0:${PORT}`);
   startProspector();
   startCatchup();
+  startReminders();
   startLearning();
 });

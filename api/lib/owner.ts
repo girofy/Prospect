@@ -170,6 +170,17 @@ export async function handleOwnerMessage(raw: string): Promise<string> {
         reply = `Não consegui ler esse link: ${String(err?.message || err).slice(0, 120)}.`;
       }
     }
+  } else if (action === 'schedule') {
+    const at = Date.parse(ai.when);
+    const todo: 'lembrar' | 'retomar' | 'pausar' = ai.todo === 'retomar' || ai.todo === 'pausar' ? ai.todo : 'lembrar';
+    if (!Number.isFinite(at) || at < Date.now() - 60_000 || at > Date.now() + 30 * 86_400_000) {
+      reply = 'Não entendi o horário. Me diz o dia e a hora (ex.: amanhã às 6h30, ou daqui a 5 minutos).';
+    } else {
+      const list = [...(cfg.ownerReminders || []), { id: `r-${Date.now()}`, at: new Date(at).toISOString(), todo, message: ai.message || 'Lembrete' }].slice(-20);
+      await db.saveConfig({ ownerReminders: list });
+      const quando = new Date(at).toLocaleString('pt-BR', { timeZone: 'America/Bahia', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      reply = `${reply}\nAgendado para ${quando} (Salvador).`;
+    }
   } else if (action === 'send') {
     const found = findLead(await leads(), ai.target);
     if (!found) reply = 'Não achei esse lead. Me manda o nome ou o número.';

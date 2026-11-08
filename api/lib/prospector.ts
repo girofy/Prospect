@@ -11,8 +11,8 @@ const TZ = 'America/Bahia';
 const WINDOW_START = Number(process.env.PROSPECTOR_START_HOUR ?? 6.5);
 const SKIP_SUNDAY = process.env.PROSPECTOR_SKIP_SUNDAY !== 'false';
 const WINDOW_END = Number(process.env.PROSPECTOR_END_HOUR ?? 19);
-const MIN_GAP_S = Number(process.env.PROSPECTOR_MIN_GAP_S ?? 120);
-const MAX_GAP_S = Number(process.env.PROSPECTOR_MAX_GAP_S ?? 420);
+const MIN_GAP_S = Number(process.env.PROSPECTOR_MIN_GAP_S ?? 240); // 4 min
+const MAX_GAP_S = Number(process.env.PROSPECTOR_MAX_GAP_S ?? 540); // 9 min
 const DAILY_CAP = Number(process.env.PROSPECTOR_DAILY_CAP ?? 40);
 const TICK_MS = 15_000;
 
