@@ -12,6 +12,7 @@ import loginHandler from './_handlers/login';
 import learningsHandler from './_handlers/learnings';
 import knowledgeHandler from './_handlers/knowledge';
 import metricsHandler from './_handlers/metrics';
+import campaignsHandler from './_handlers/campaigns';
 import exportHandler from './_handlers/export';
 import aiTestHandler from './_handlers/ai-test';
 import aiModelsHandler from './_handlers/ai-models';
@@ -44,6 +45,7 @@ const PROTECTED_ROUTES: Record<string, Handler> = {
   '/api/learnings': learningsHandler,
   '/api/knowledge': knowledgeHandler,
   '/api/metrics': metricsHandler,
+  '/api/campaigns': campaignsHandler,
   '/api/export': exportHandler,
   '/api/ai-test': aiTestHandler,
   '/api/ai-models': aiModelsHandler,

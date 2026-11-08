@@ -3,6 +3,7 @@ import path from 'path';
 import { GoogleGenAI } from '@google/genai';
 import { Contact, ChatMessage } from './types';
 import { db, AppConfig } from './db';
+import { campaignFor } from './campaigns';
 
 // Modelo de conversa: Flash 3.6 (3.8 deu 503 repetido). Thinking desligado, resposta curta.
 // Trocar com GEMINI_MODEL quando o 3.8 estabilizar.
@@ -385,6 +386,7 @@ async function generateOnce(
 
     const knowledge = await loadKnowledge();
     const learnings = await db.getTopLearnings(8);
+    const camp = await campaignFor(contact.phone).catch(() => undefined);
 
     // O Groq grátis limita ~7 mil tokens por minuto: ele recebe uma versão enxuta da base de conhecimento.
     const buildPrompt = (knowledge: string, lessons: string[], transcriptText: string) => `
@@ -395,7 +397,7 @@ DADOS DA PESSOA (use SÓ isto; nunca cite nome, negócio, cidade ou ramo que nã
 - Nome: ${contact.name && !/^(lead|contato)/i.test(contact.name) ? contact.name : 'não sei o nome'}
 - Negócio: ${contact.company && contact.company !== 'Em qualificação' ? contact.company : 'não sei o nome do negócio'}
 - Nicho: ${contact.niche || 'não informado'}
-${contact.notes ? `- Pesquisa sobre a empresa (fatos para você saber; a proposta é só uma ideia, nunca um fato; não cite endereço nem nota do Google; respeite o que diz "não fazer"): ${contact.notes.slice(0, 700)}\n` : ''}${opening.length ? `
+${camp && camp.mission ? `- Missão desta campanha (o que o César quer que você consiga; sem pressionar, e se a pessoa disser não, encerre com educação): ${camp.mission}${camp.objective ? ' | Objetivo: ' + camp.objective : ''}\n` : ''}${contact.notes ? `- Pesquisa sobre a empresa (fatos para você saber; a proposta é só uma ideia, nunca um fato; não cite endereço nem nota do Google; respeite o que diz "não fazer"): ${contact.notes.slice(0, 700)}\n` : ''}${opening.length ? `
 COMO A CONVERSA COMEÇOU (primeiras mensagens, para você lembrar quem falou o quê):
 ${opening.map(m => `${m.from === 'bot' ? 'Você' : m.from === 'operator' ? 'César (humano)' : 'Pessoa'}: ${m.text}`).join('\n')}
 ` : ''}
