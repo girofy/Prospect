@@ -36,11 +36,15 @@ COMO VOCÊ DECIDE (antes de cada resposta)
 1. Leia a última mensagem do lead e o estado da conversa (estágio, última pergunta feita, objeções já ditas).
 2. Classifique a resposta: avançou, dúvida, objeção, desvio, atendente/robô, pedido de parada, pergunta se é IA.
 3. Escolha UMA ação que avance um passo. Nunca repita uma mensagem já enviada. Se o lead respondeu algo, sua mensagem precisa mostrar que você leu (use as palavras dele).
-4. Termine com uma pergunta de escolha entre duas opções que ambas avançam (exceto na despedida, que não leva pergunta) ("Ainda não entrou nisso ou vai ficar pra depois?"), ou um sim/não que avance. Nunca pergunte quem é o responsável, quem decide, quem cuida ou quem resolve: isso trava a conversa (só 20% respondem). Perguntas abertas longas não recebem resposta.
+4. Termine com uma pergunta de escolha entre duas opções que ambas avançam (exceto na despedida, que não leva pergunta) ("Posso te mostrar como você perde com isso ou prefere ver uma prévia?"), ou um sim/não que avance. Nunca pergunte quem é o responsável, quem decide, quem cuida ou quem resolve: isso trava a conversa (só 20% respondem). Perguntas abertas longas não recebem resposta.
 5. Se faltar informação para personalizar (nome, nicho, se tem site), pergunte ou fale de forma genérica. Nunca envie texto com campo vazio, chave entre colchetes ou palavras como "Lead", "Em qualificação", "{nome}".
 
 O CAMINHO NORMAL DA CONVERSA
-Bom dia ou Boa tarde, sozinho. Quando a pessoa responder, use esta afirmação quase sem mudar: "Vi que vocês ainda não têm site e muita gente pesquisa no Google antes de escolher." Nunca fale em perder clientes e nunca ofereça a prévia nessa mensagem. Em seguida, na segunda mensagem, a pergunta de escolha: "Ainda não entrou nisso ou vai ficar pra depois?" Se mostrar interesse: "Posso montar uma prévia de como ficaria? Quer ver?" Só com um sim vem a prévia (o César envia). Depois da prévia, uma pergunta de valor, uma vez só ("Quer que eu ajuste algo ou já coloca no ar?"). Depois preço, e fechamento ou passar para o César.
+Bom dia ou Boa tarde, sozinho. Quando a pessoa responder (um "oi", "bom dia", "sim" ou qualquer resposta de gente), mande DUAS mensagens seguidas, quase sem mudar, este é o modelo validado do César:
+Mensagem 1: "Vi que você ainda não tem site e muita gente pesquisa no Google antes de escolher, e por não ter um site pode não aparecer nessas buscas e acaba indo pra outro lugar"
+Mensagem 2: "Posso te mostrar como você perde com isso ou prefere ver uma prévia do site quando os clientes acessarem?"
+Regras desse par: não se apresente, não diga o tipo de negócio (nada de "barbearia", "salão"; só "pesquisa no Google"), fale "você" (uma pessoa), não use "tudo bem/tudo certo". A pergunta tem duas saídas e as duas são um sim (mostrar o prejuízo ou ver a prévia): nunca deixe a pessoa com um "não" fácil.
+Depois, se ela escolher qualquer uma ou disser sim: "Posso montar uma prévia de como ficaria? Quer ver?" quando ainda não pediu a prévia; se já pediu a prévia, o César envia. Depois da prévia, uma pergunta de valor, uma vez só ("Quer que eu ajuste algo ou já coloca no ar?"). Depois preço, e fechamento ou passar para o César.
 Se disser que já tem site: responda só isto, em uma mensagem, sem oferecer mais nada: "Ah, então foi engano meu. Me manda o link que eu confiro." Se disser que não tem interesse: responda só "Tranquilo, obrigado pela atenção." (despedida, sem pergunta) e encerre; só volta depois de um mês.
 Você não precisa seguir na ordem se o lead pular etapas. Se ele perguntar "quanto?", responda valor e preço. Se pedir a prévia logo, mande.
 
@@ -149,11 +153,11 @@ export function validateReply(text: string, recentBot: string[]): string | null 
   if (/[{}\[\]]|\bnull\b|undefined/i.test(t)) return 'tem chave, colchete ou campo vazio';
   if (/\bLead\b|Em qualificação/.test(t)) return 'usou rótulo interno no lugar do nome';
   if (/reunião|sem pressão|sem compromisso|se não for o momento|só passando/i.test(t)) return 'usou frase proibida';
-  if (/perdendo cliente|você perde|vocês perdem|vai perder|está perdendo|como posso ajudar|tudo certo com você|procurei (você|vocês) no google|quem (é|cuida|decide|resolve|responde)|você é (o|a) respons|quem é o respons/i.test(t)) return 'usou frase que trava a conversa';
+  if (/perdendo cliente|vai perder|está perdendo|como posso ajudar|tudo certo com você|procurei (você|vocês) no google|quem (é|cuida|decide|resolve|responde)|você é (o|a) respons|quem é o respons/i.test(t)) return 'usou frase que trava a conversa';
   const bubbles = t.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
   if (bubbles.length > 2) return 'mais de duas mensagens';
-  if (bubbles.some(b => b.split(/\s+/).length > 22)) return 'mensagem longa demais';
-  if (t.split(/\s+/).length > 36) return 'mensagem longa demais';
+  if (bubbles.some(b => b.split(/\s+/).length > 34)) return 'mensagem longa demais';
+  if (t.split(/\s+/).length > 55) return 'mensagem longa demais';
   if ((t.match(/\?/g) || []).length > 1) return 'mais de uma pergunta';
   const norm = (x: string) =>
     new Set(x.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 2));
@@ -391,7 +395,7 @@ DADOS DA PESSOA (use SÓ isto; nunca cite nome, negócio, cidade ou ramo que nã
 - Nome: ${contact.name && !/^(lead|contato)/i.test(contact.name) ? contact.name : 'não sei o nome'}
 - Negócio: ${contact.company && contact.company !== 'Em qualificação' ? contact.company : 'não sei o nome do negócio'}
 - Nicho: ${contact.niche || 'não informado'}
-${opening.length ? `
+${contact.notes ? `- Pesquisa sobre a empresa (fatos para você saber; a proposta é só uma ideia, nunca um fato; não cite endereço nem nota do Google; respeite o que diz "não fazer"): ${contact.notes.slice(0, 700)}\n` : ''}${opening.length ? `
 COMO A CONVERSA COMEÇOU (primeiras mensagens, para você lembrar quem falou o quê):
 ${opening.map(m => `${m.from === 'bot' ? 'Você' : m.from === 'operator' ? 'César (humano)' : 'Pessoa'}: ${m.text}`).join('\n')}
 ` : ''}

@@ -64,8 +64,8 @@ export function buildOpener(contact: Contact, hour: number): string {
   const low = greeting.toLowerCase();
   const first = personFirstName(contact.name);
   // Rodízio curto e natural: não parece script e continua pedindo só uma resposta.
-  const withName = [`${greeting}, ${first}!`, `Oi, ${first}! ${greeting}.`, `${first}, ${low}!`, `Olá, ${first}! ${greeting}.`];
-  const noName = [`${greeting}!`, `Oi, ${low}!`, `Olá, ${low}!`, `${greeting}, tudo certo?`];
+  const withName = [`${greeting}, ${first}!`, `${greeting}, ${first}`, `Oi, ${first}! ${greeting}`];
+  const noName = [`${greeting}`, `${greeting}!`, `Oi, ${low}`];
   const pool = first ? withName : noName;
   return pool[Math.floor(Math.random() * pool.length)];
 }

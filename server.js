@@ -451,11 +451,15 @@ COMO VOC\xCA DECIDE (antes de cada resposta)
 1. Leia a \xFAltima mensagem do lead e o estado da conversa (est\xE1gio, \xFAltima pergunta feita, obje\xE7\xF5es j\xE1 ditas).
 2. Classifique a resposta: avan\xE7ou, d\xFAvida, obje\xE7\xE3o, desvio, atendente/rob\xF4, pedido de parada, pergunta se \xE9 IA.
 3. Escolha UMA a\xE7\xE3o que avance um passo. Nunca repita uma mensagem j\xE1 enviada. Se o lead respondeu algo, sua mensagem precisa mostrar que voc\xEA leu (use as palavras dele).
-4. Termine com uma pergunta de escolha entre duas op\xE7\xF5es que ambas avan\xE7am (exceto na despedida, que n\xE3o leva pergunta) ("Ainda n\xE3o entrou nisso ou vai ficar pra depois?"), ou um sim/n\xE3o que avance. Nunca pergunte quem \xE9 o respons\xE1vel, quem decide, quem cuida ou quem resolve: isso trava a conversa (s\xF3 20% respondem). Perguntas abertas longas n\xE3o recebem resposta.
+4. Termine com uma pergunta de escolha entre duas op\xE7\xF5es que ambas avan\xE7am (exceto na despedida, que n\xE3o leva pergunta) ("Posso te mostrar como voc\xEA perde com isso ou prefere ver uma pr\xE9via?"), ou um sim/n\xE3o que avance. Nunca pergunte quem \xE9 o respons\xE1vel, quem decide, quem cuida ou quem resolve: isso trava a conversa (s\xF3 20% respondem). Perguntas abertas longas n\xE3o recebem resposta.
 5. Se faltar informa\xE7\xE3o para personalizar (nome, nicho, se tem site), pergunte ou fale de forma gen\xE9rica. Nunca envie texto com campo vazio, chave entre colchetes ou palavras como "Lead", "Em qualifica\xE7\xE3o", "{nome}".
 
 O CAMINHO NORMAL DA CONVERSA
-Bom dia ou Boa tarde, sozinho. Quando a pessoa responder, use esta afirma\xE7\xE3o quase sem mudar: "Vi que voc\xEAs ainda n\xE3o t\xEAm site e muita gente pesquisa no Google antes de escolher." Nunca fale em perder clientes e nunca ofere\xE7a a pr\xE9via nessa mensagem. Em seguida, na segunda mensagem, a pergunta de escolha: "Ainda n\xE3o entrou nisso ou vai ficar pra depois?" Se mostrar interesse: "Posso montar uma pr\xE9via de como ficaria? Quer ver?" S\xF3 com um sim vem a pr\xE9via (o C\xE9sar envia). Depois da pr\xE9via, uma pergunta de valor, uma vez s\xF3 ("Quer que eu ajuste algo ou j\xE1 coloca no ar?"). Depois pre\xE7o, e fechamento ou passar para o C\xE9sar.
+Bom dia ou Boa tarde, sozinho. Quando a pessoa responder (um "oi", "bom dia", "sim" ou qualquer resposta de gente), mande DUAS mensagens seguidas, quase sem mudar, este \xE9 o modelo validado do C\xE9sar:
+Mensagem 1: "Vi que voc\xEA ainda n\xE3o tem site e muita gente pesquisa no Google antes de escolher, e por n\xE3o ter um site pode n\xE3o aparecer nessas buscas e acaba indo pra outro lugar"
+Mensagem 2: "Posso te mostrar como voc\xEA perde com isso ou prefere ver uma pr\xE9via do site quando os clientes acessarem?"
+Regras desse par: n\xE3o se apresente, n\xE3o diga o tipo de neg\xF3cio (nada de "barbearia", "sal\xE3o"; s\xF3 "pesquisa no Google"), fale "voc\xEA" (uma pessoa), n\xE3o use "tudo bem/tudo certo". A pergunta tem duas sa\xEDdas e as duas s\xE3o um sim (mostrar o preju\xEDzo ou ver a pr\xE9via): nunca deixe a pessoa com um "n\xE3o" f\xE1cil.
+Depois, se ela escolher qualquer uma ou disser sim: "Posso montar uma pr\xE9via de como ficaria? Quer ver?" quando ainda n\xE3o pediu a pr\xE9via; se j\xE1 pediu a pr\xE9via, o C\xE9sar envia. Depois da pr\xE9via, uma pergunta de valor, uma vez s\xF3 ("Quer que eu ajuste algo ou j\xE1 coloca no ar?"). Depois pre\xE7o, e fechamento ou passar para o C\xE9sar.
 Se disser que j\xE1 tem site: responda s\xF3 isto, em uma mensagem, sem oferecer mais nada: "Ah, ent\xE3o foi engano meu. Me manda o link que eu confiro." Se disser que n\xE3o tem interesse: responda s\xF3 "Tranquilo, obrigado pela aten\xE7\xE3o." (despedida, sem pergunta) e encerre; s\xF3 volta depois de um m\xEAs.
 Voc\xEA n\xE3o precisa seguir na ordem se o lead pular etapas. Se ele perguntar "quanto?", responda valor e pre\xE7o. Se pedir a pr\xE9via logo, mande.
 
@@ -556,11 +560,11 @@ function validateReply(text, recentBot) {
   if (/[{}\[\]]|\bnull\b|undefined/i.test(t)) return "tem chave, colchete ou campo vazio";
   if (/\bLead\b|Em qualificação/.test(t)) return "usou r\xF3tulo interno no lugar do nome";
   if (/reunião|sem pressão|sem compromisso|se não for o momento|só passando/i.test(t)) return "usou frase proibida";
-  if (/perdendo cliente|você perde|vocês perdem|vai perder|está perdendo|como posso ajudar|tudo certo com você|procurei (você|vocês) no google|quem (é|cuida|decide|resolve|responde)|você é (o|a) respons|quem é o respons/i.test(t)) return "usou frase que trava a conversa";
+  if (/perdendo cliente|vai perder|está perdendo|como posso ajudar|tudo certo com você|procurei (você|vocês) no google|quem (é|cuida|decide|resolve|responde)|você é (o|a) respons|quem é o respons/i.test(t)) return "usou frase que trava a conversa";
   const bubbles = t.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
   if (bubbles.length > 2) return "mais de duas mensagens";
-  if (bubbles.some((b) => b.split(/\s+/).length > 22)) return "mensagem longa demais";
-  if (t.split(/\s+/).length > 36) return "mensagem longa demais";
+  if (bubbles.some((b) => b.split(/\s+/).length > 34)) return "mensagem longa demais";
+  if (t.split(/\s+/).length > 55) return "mensagem longa demais";
   if ((t.match(/\?/g) || []).length > 1) return "mais de uma pergunta";
   const norm2 = (x) => new Set(x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 2));
   const a = norm2(t);
@@ -746,7 +750,8 @@ DADOS DA PESSOA (use S\xD3 isto; nunca cite nome, neg\xF3cio, cidade ou ramo que
 - Nome: ${contact.name && !/^(lead|contato)/i.test(contact.name) ? contact.name : "n\xE3o sei o nome"}
 - Neg\xF3cio: ${contact.company && contact.company !== "Em qualifica\xE7\xE3o" ? contact.company : "n\xE3o sei o nome do neg\xF3cio"}
 - Nicho: ${contact.niche || "n\xE3o informado"}
-${opening.length ? `
+${contact.notes ? `- Pesquisa sobre a empresa (fatos para voc\xEA saber; a proposta \xE9 s\xF3 uma ideia, nunca um fato; n\xE3o cite endere\xE7o nem nota do Google; respeite o que diz "n\xE3o fazer"): ${contact.notes.slice(0, 700)}
+` : ""}${opening.length ? `
 COMO A CONVERSA COME\xC7OU (primeiras mensagens, para voc\xEA lembrar quem falou o qu\xEA):
 ${opening.map((m) => `${m.from === "bot" ? "Voc\xEA" : m.from === "operator" ? "C\xE9sar (humano)" : "Pessoa"}: ${m.text}`).join("\n")}
 ` : ""}
@@ -1278,8 +1283,8 @@ function buildOpener(contact, hour) {
   const greeting = hour < 12 ? "Bom dia" : "Boa tarde";
   const low = greeting.toLowerCase();
   const first = personFirstName(contact.name);
-  const withName = [`${greeting}, ${first}!`, `Oi, ${first}! ${greeting}.`, `${first}, ${low}!`, `Ol\xE1, ${first}! ${greeting}.`];
-  const noName = [`${greeting}!`, `Oi, ${low}!`, `Ol\xE1, ${low}!`, `${greeting}, tudo certo?`];
+  const withName = [`${greeting}, ${first}!`, `${greeting}, ${first}`, `Oi, ${first}! ${greeting}`];
+  const noName = [`${greeting}`, `${greeting}!`, `Oi, ${low}`];
   const pool = first ? withName : noName;
   return pool[Math.floor(Math.random() * pool.length)];
 }
