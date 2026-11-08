@@ -19,6 +19,7 @@ export interface AppConfig {
   directPairingConnectedAt?: string;
   prospectDay?: string; // dia (America/Bahia) da contagem de abordagens
   prospectSentToday?: number;
+  campaigns?: any[]; // campanhas (ver campaigns.ts)
   backupMarks?: Record<string, string>; // até onde cada tabela já foi copiada para o backup
   backupAt?: string;
   ownerNotice?: Record<string, string>; // avisos automáticos já mandados ao dono (tipo -> dia), para não repetir

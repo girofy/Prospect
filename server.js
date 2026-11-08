@@ -228,10 +228,10 @@ var db = {
     return mustOk(res, "getMessages(all)").map(messageFromRow).reverse();
   },
   async saveMessage(message) {
-    const cleanPhone = message.contactPhone.replace(/\D/g, "");
+    const cleanPhone2 = message.contactPhone.replace(/\D/g, "");
     const toSave = {
       ...message,
-      contactPhone: cleanPhone,
+      contactPhone: cleanPhone2,
       timestamp: message.timestamp || (/* @__PURE__ */ new Date()).toISOString()
     };
     const res = await supabase().from("messages").upsert(messageToRow(toSave), { onConflict: "id" }).select().single();
@@ -310,16 +310,16 @@ var db = {
     return row ? deletionFromRow(row) : null;
   },
   async executeDataDeletion(identifier) {
-    const cleanPhone = identifier.replace(/\D/g, "");
+    const cleanPhone2 = identifier.replace(/\D/g, "");
     let deletedCount = 0;
-    const msgCountRes = await supabase().from("messages").select("id", { count: "exact", head: true }).eq("contact_phone", cleanPhone);
+    const msgCountRes = await supabase().from("messages").select("id", { count: "exact", head: true }).eq("contact_phone", cleanPhone2);
     deletedCount += msgCountRes.count || 0;
-    mustOk(await supabase().from("messages").delete().eq("contact_phone", cleanPhone), "executeDataDeletion(messages)");
-    const contactRes = await supabase().from("contacts").delete().eq("phone", cleanPhone).select();
+    mustOk(await supabase().from("messages").delete().eq("contact_phone", cleanPhone2), "executeDataDeletion(messages)");
+    const contactRes = await supabase().from("contacts").delete().eq("phone", cleanPhone2).select();
     deletedCount += (mustOk(contactRes, "executeDataDeletion(contacts)") || []).length;
     const pendingRes = await supabase().from("deletion_requests").select("id, identifier").eq("status", "pending");
     const pending = mustOk(pendingRes, "executeDataDeletion(pending lookup)") || [];
-    const matchIds = pending.filter((r) => r.identifier.replace(/\D/g, "") === cleanPhone || r.identifier === identifier).map((r) => r.id);
+    const matchIds = pending.filter((r) => r.identifier.replace(/\D/g, "") === cleanPhone2 || r.identifier === identifier).map((r) => r.id);
     if (matchIds.length > 0) {
       mustOk(
         await supabase().from("deletion_requests").update({ status: "completed", completed_at: (/* @__PURE__ */ new Date()).toISOString() }).in("id", matchIds),
@@ -328,7 +328,7 @@ var db = {
     }
     await this.addAuditLog({
       type: "data_deletion",
-      phone: cleanPhone,
+      phone: cleanPhone2,
       summary: `Exclus\xE3o definitiva de dados solicitada e conclu\xEDda para ${identifier}. Registros removidos: ${deletedCount}.`
     });
     return { success: true, deletedCount };
@@ -426,6 +426,123 @@ var db = {
 import fs from "fs";
 import path from "path";
 import { GoogleGenAI } from "@google/genai";
+
+// api/lib/phone.ts
+var BR_PHONE = /^55[1-9][1-9](9\d{8}|[2-5]\d{7})$/;
+function isRealBrPhone(phone) {
+  return BR_PHONE.test(String(phone || "").replace(/\D/g, ""));
+}
+function last8(phone) {
+  return String(phone || "").replace(/\D/g, "").slice(-8);
+}
+
+// api/lib/campaigns.ts
+var AUTO_RE = /(mensagem autom[aá]tica|resposta autom[aá]tica|no momento (n[aã]o|estamos)|estamos (descansando|fora|ausentes)|fora do (nosso )?hor[aá]rio|hor[aá]rio de (atendimento|funcionamento)|responderemos (assim|em breve|o mais)|retornaremos|agradecemos (a |sua |o seu |pelo |pela )?(sua )?(mensagem|contato)|seja (muito )?bem[- ]?vind|obrigad[oa] por (entrar em contato|sua mensagem|nos contatar|escolher)|n[aã]o estamos dispon[ií]veis|logo (te )?responderemos|em breve (retornaremos|responderemos|daremos|um de nossos))/i;
+var PRICE_RE = /(quanto (custa|fica|sai|é|e)\b|pre[cç]o|valor|or[cç]amento|pr[eé]via|quero (ver|fechar|contratar)|manda (ver|a[ií])|pode (mandar|montar))/i;
+async function getCampaigns() {
+  const cfg = await db.getConfig();
+  return Array.isArray(cfg.campaigns) ? cfg.campaigns : [];
+}
+async function saveCampaigns(list) {
+  await db.saveConfig({ campaigns: list });
+}
+function activeCampaign(list) {
+  return list.find((c) => c.status === "ativa");
+}
+async function campaignFor(phone) {
+  const k = last8(phone);
+  return (await getCampaigns()).find((c) => c.phones.some((p) => last8(p) === k));
+}
+function cleanPhone(raw) {
+  let d = String(raw || "").replace(/\D/g, "");
+  if (d.length === 10 || d.length === 11) d = "55" + d;
+  return d;
+}
+async function importRows(camp, rows) {
+  const skipped = [];
+  let added = 0;
+  const existing = await db.getContacts();
+  const byKey = new Map(existing.map((c) => [last8(c.phone), c]));
+  const base = Date.now();
+  for (const r of rows) {
+    const phone = cleanPhone(r.phone);
+    if (!isRealBrPhone(phone)) {
+      skipped.push({ phone: String(r.phone), motivo: "telefone inv\xE1lido" });
+      continue;
+    }
+    const k = last8(phone);
+    if (camp.phones.some((p) => last8(p) === k)) {
+      skipped.push({ phone, motivo: "j\xE1 est\xE1 nesta campanha" });
+      continue;
+    }
+    const found = byKey.get(k);
+    if (found && found.status !== "novo") {
+      skipped.push({ phone, motivo: `j\xE1 tem abordagem (${found.status})` });
+      continue;
+    }
+    if (!found && await db.hasHistoryWith(phone)) {
+      skipped.push({ phone, motivo: "j\xE1 existe conversa" });
+      continue;
+    }
+    if (!found) {
+      const now = new Date(base + added).toISOString();
+      await db.saveContact({
+        id: `lead-${phone}`,
+        phone,
+        name: r.name || `Contato ${phone.slice(-4)}`,
+        company: (r.company || "Em qualifica\xE7\xE3o").slice(0, 80),
+        niche: void 0,
+        role: "decisor",
+        status: "novo",
+        agentState: "ai_active",
+        optOutDetected: false,
+        notes: r.notes ? r.notes.slice(0, 700) : void 0,
+        lastInteractionAt: now,
+        createdAt: now
+      });
+    }
+    camp.phones.push(phone);
+    added++;
+  }
+  return { added, skipped };
+}
+async function campaignStats() {
+  const [list, contacts, messages] = await Promise.all([getCampaigns(), db.getContacts(), db.getMessages()]);
+  const cfg = await db.getConfig();
+  const byPhone = /* @__PURE__ */ new Map();
+  for (const m of messages) {
+    const k = last8(m.contactPhone);
+    const e = byPhone.get(k) || { bot: 0, lead: 0, human: 0, hot: false };
+    if (m.from === "bot") e.bot++;
+    else if (m.from === "lead") {
+      e.lead++;
+      if (!AUTO_RE.test(m.text || "")) e.human++;
+      if (PRICE_RE.test(m.text || "")) e.hot = true;
+    }
+    byPhone.set(k, e);
+  }
+  const cbyKey = new Map(contacts.map((c) => [last8(c.phone), c]));
+  return {
+    campaigns: list.map((c) => {
+      let enviadas = 0, responderam = 0, conversa = 0, interesse = 0, fechou = 0, naFila = 0;
+      for (const p of c.phones) {
+        const k = last8(p);
+        const e = byPhone.get(k);
+        const ct = cbyKey.get(k);
+        if (e && e.bot > 0) enviadas++;
+        else if (ct && ct.status === "novo" && ct.agentState === "ai_active" && !ct.optOutDetected) naFila++;
+        if (e && e.human > 0) responderam++;
+        if (e && e.human > 1) conversa++;
+        if (e && e.hot) interesse++;
+        if (ct && ct.status === "reuniao_marcada") fechou++;
+      }
+      return { ...c, total: c.phones.length, naFila, funil: { enviadas, responderam, conversa, interesse, fechou } };
+    }),
+    hoje: { enviadas: cfg.prospectDay ? cfg.prospectSentToday || 0 : 0 }
+  };
+}
+
+// api/lib/gemini.ts
 var DEFAULT_MODEL = "gemini-3.6-flash";
 var RETIRED_MODEL = /^gemini-2\.5-/;
 function resolveModel(fromDb) {
@@ -734,6 +851,7 @@ async function generateOnce(contact, incoming, history) {
     const transcriptSlim = transcriptFor(HISTORY_CHARS_GROQ);
     const knowledge = await loadKnowledge();
     const learnings = await db.getTopLearnings(8);
+    const camp = await campaignFor(contact.phone).catch(() => void 0);
     const buildPrompt = (knowledge2, lessons, transcriptText) => `
 ${SYSTEM_PROMPT}
 ${cfg.pixKey && cfg.pixEnabled ? `
@@ -750,7 +868,8 @@ DADOS DA PESSOA (use S\xD3 isto; nunca cite nome, neg\xF3cio, cidade ou ramo que
 - Nome: ${contact.name && !/^(lead|contato)/i.test(contact.name) ? contact.name : "n\xE3o sei o nome"}
 - Neg\xF3cio: ${contact.company && contact.company !== "Em qualifica\xE7\xE3o" ? contact.company : "n\xE3o sei o nome do neg\xF3cio"}
 - Nicho: ${contact.niche || "n\xE3o informado"}
-${contact.notes ? `- Pesquisa sobre a empresa (fatos para voc\xEA saber; a proposta \xE9 s\xF3 uma ideia, nunca um fato; n\xE3o cite endere\xE7o nem nota do Google; respeite o que diz "n\xE3o fazer"): ${contact.notes.slice(0, 700)}
+${camp && camp.mission ? `- Miss\xE3o desta campanha (o que o C\xE9sar quer que voc\xEA consiga; sem pressionar, e se a pessoa disser n\xE3o, encerre com educa\xE7\xE3o): ${camp.mission}${camp.objective ? " | Objetivo: " + camp.objective : ""}
+` : ""}${contact.notes ? `- Pesquisa sobre a empresa (fatos para voc\xEA saber; a proposta \xE9 s\xF3 uma ideia, nunca um fato; n\xE3o cite endere\xE7o nem nota do Google; respeite o que diz "n\xE3o fazer"): ${contact.notes.slice(0, 700)}
 ` : ""}${opening.length ? `
 COMO A CONVERSA COME\xC7OU (primeiras mensagens, para voc\xEA lembrar quem falou o qu\xEA):
 ${opening.map((m) => `${m.from === "bot" ? "Voc\xEA" : m.from === "operator" ? "C\xE9sar (humano)" : "Pessoa"}: ${m.text}`).join("\n")}
@@ -1054,15 +1173,6 @@ function startCatchup() {
   console.log("[Catchup] fila de respostas atrasadas ativa");
 }
 
-// api/lib/phone.ts
-var BR_PHONE = /^55[1-9][1-9](9\d{8}|[2-5]\d{7})$/;
-function isRealBrPhone(phone) {
-  return BR_PHONE.test(String(phone || "").replace(/\D/g, ""));
-}
-function last8(phone) {
-  return String(phone || "").replace(/\D/g, "").slice(-8);
-}
-
 // api/lib/whatsapp.ts
 import crypto from "crypto";
 var AUTHORIZED_BUSINESS_NUMBER = "557488126578";
@@ -1263,10 +1373,10 @@ function bahiaNow(d = /* @__PURE__ */ new Date()) {
   return { day: `${parts.year}-${parts.month}-${parts.day}`, hour, at: hour + Number(parts.minute) / 60, sunday: parts.weekday === "Sunday" };
 }
 var fmtH = (h) => `${Math.floor(h)}h${Math.round(h % 1 * 60) ? String(Math.round(h % 1 * 60)).padStart(2, "0") : ""}`;
-function inWindowNow() {
+function inWindowNow(endHour = WINDOW_END) {
   const n = bahiaNow();
   if (SKIP_SUNDAY && n.sunday) return false;
-  return n.at >= WINDOW_START && n.at < WINDOW_END;
+  return n.at >= WINDOW_START && n.at < Math.min(endHour, WINDOW_END);
 }
 var rand = (min, max) => min + Math.random() * (max - min);
 var BUSINESS_WORDS = /(ltda|\bme\b|eireli|restaurante|pizza|burger|barbearia|festas?|buffet|loja|mercado|mec[aâ]nica|oficina|cl[ií]nica|studio|est[uú]dio|empresa|com[eé]rcio|constru|imobili|hotel|pousada|lanchonete|padaria|academia|sal[aã]o|distribuidora|contab|advoc|escola|farm[aá]cia|auto|motos?|tech|digital|girofy|lead|contato|cliente|servi[cç]os?|solu[cç][oõ]es|atacado|varejo|bar\b|a[cç]ougue|pet|the\b)/i;
@@ -1298,15 +1408,19 @@ async function getProspectStats() {
   const { day, hour } = bahiaNow();
   const sentToday = cfg.prospectDay === day ? cfg.prospectSentToday || 0 : 0;
   const repliedPhones = await db.getRepliedPhones();
+  const camp = activeCampaign(await getCampaigns());
+  const keys = new Set((camp?.phones || []).map(last8));
+  const end = camp ? Math.min(camp.endHour, WINDOW_END) : WINDOW_END;
   return {
     enabled: process.env.PROSPECTOR_ENABLED !== "false",
     evolutionConfigured: !!getEvolutionCfg(),
-    inWindow: inWindowNow(),
-    window: `${fmtH(WINDOW_START)}-${fmtH(WINDOW_END)}${SKIP_SUNDAY ? ", exceto domingo" : ""} (America/Bahia)`,
+    inWindow: !!camp && inWindowNow(end),
+    window: `${fmtH(WINDOW_START)}-${fmtH(end)}${SKIP_SUNDAY ? ", exceto domingo" : ""} (America/Bahia)`,
+    campaign: camp ? camp.name : null,
     sentToday,
     paused: !!cfg.prospectorPaused,
-    dailyCap: DAILY_CAP,
-    queue: contacts.filter(isEligible).length,
+    dailyCap: camp ? camp.dailyCap : DAILY_CAP,
+    queue: camp ? contacts.filter((c) => isEligible(c) && keys.has(last8(c.phone))).length : 0,
     inConversation: contacts.filter((c) => c.status === "em_conversa").length,
     replied: contacts.filter((c) => repliedPhones.has(c.phone)).length,
     totalContacts: contacts.length
@@ -1332,6 +1446,7 @@ async function watchdog() {
   try {
     const { day, at } = bahiaNow();
     if (at < 7 || at >= 8 || !inWindowNow()) return;
+    if (!activeCampaign(await getCampaigns())) return;
     const cfg = await db.getConfig();
     const sentToday = cfg.prospectDay === day ? cfg.prospectSentToday || 0 : 0;
     if (sentToday > 0) return;
@@ -1353,13 +1468,17 @@ async function tick2() {
   try {
     if (Date.now() < nextAt) return;
     if (!getEvolutionCfg()) return;
-    const { day, hour } = bahiaNow();
-    if (!inWindowNow()) return;
+    const { day, hour, at } = bahiaNow();
     const cfg = await db.getConfig();
     if (cfg.prospectorPaused) return;
+    const camp = activeCampaign(await getCampaigns());
+    if (!camp) return;
+    const endHour = Math.min(camp.endHour, WINDOW_END);
+    if (!inWindowNow(endHour)) return;
     const sentToday = cfg.prospectDay === day ? cfg.prospectSentToday || 0 : 0;
-    if (sentToday >= DAILY_CAP) return;
-    const queue = (await db.getContacts()).filter(isEligible).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    if (sentToday >= camp.dailyCap) return;
+    const keys = new Set(camp.phones.map(last8));
+    const queue = (await db.getContacts()).filter((c) => isEligible(c) && keys.has(last8(c.phone))).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     const contact = queue[0];
     if (!contact) return;
     if (await db.hasHistoryWith(contact.phone)) {
@@ -1393,7 +1512,10 @@ async function tick2() {
       });
       return;
     }
-    nextAt = Date.now() + rand(MIN_GAP_S, MAX_GAP_S) * 1e3;
+    const left = Math.max(1, Math.min(queue.length - 1, camp.dailyCap - (sentToday + 1)));
+    const meanGap = Math.max(0, (endHour - at) * 3600) / left;
+    const gap = Math.min(1500, Math.max(MIN_GAP_S, meanGap * rand(0.7, 1.3)));
+    nextAt = Date.now() + gap * 1e3;
     failStreak = 0;
     if (sentToday === 0) {
       const hhmm = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Bahia", hour: "2-digit", minute: "2-digit" }).format(/* @__PURE__ */ new Date());
@@ -1416,7 +1538,7 @@ async function tick2() {
     await db.addAuditLog({
       type: "ai_reply",
       phone: contact.phone,
-      summary: `Abordagem ${sentToday + 1}/${DAILY_CAP} enviada: "${text}"`
+      summary: `Abordagem ${sentToday + 1}/${camp.dailyCap} enviada: "${text}"`
     });
   } catch (err) {
     console.error("[Prospector] tick falhou:", err);
@@ -1808,13 +1930,13 @@ async function handler(req, res) {
                 continue;
               }
               await db.markMessageAsProcessed(messageId);
-              const cleanPhone = formatPhoneNumber(rawFrom);
-              let contact = await db.getContactByPhone(cleanPhone);
+              const cleanPhone2 = formatPhoneNumber(rawFrom);
+              let contact = await db.getContactByPhone(cleanPhone2);
               if (!contact) {
                 contact = await db.saveContact({
-                  id: `contact-${cleanPhone}`,
-                  phone: cleanPhone,
-                  name: senderProfileName || `Contato ${cleanPhone.slice(-4)}`,
+                  id: `contact-${cleanPhone2}`,
+                  phone: cleanPhone2,
+                  name: senderProfileName || `Contato ${cleanPhone2.slice(-4)}`,
                   company: "Em qualifica\xE7\xE3o",
                   role: "decisor",
                   status: "em_conversa",
@@ -1847,7 +1969,7 @@ async function handler(req, res) {
               }
               const incomingChatMessage = {
                 id: `in-${messageId}`,
-                contactPhone: cleanPhone,
+                contactPhone: cleanPhone2,
                 from: "lead",
                 text: messageText,
                 type: messageType,
@@ -1868,27 +1990,27 @@ async function handler(req, res) {
                 });
                 await db.addAuditLog({
                   type: "opt_out",
-                  phone: cleanPhone,
-                  summary: `Opt-Out LGPD registrado para ${cleanPhone}: "${messageText}". Atendimento automatizado pausado permanentemente.`
+                  phone: cleanPhone2,
+                  summary: `Opt-Out LGPD registrado para ${cleanPhone2}: "${messageText}". Atendimento automatizado pausado permanentemente.`
                 });
-                console.log(`[WhatsApp LGPD] Contato ${cleanPhone} optou por sair. Bot desativado.`);
+                console.log(`[WhatsApp LGPD] Contato ${cleanPhone2} optou por sair. Bot desativado.`);
                 continue;
               }
               if (contact.optOutDetected) {
-                console.log(`[WhatsApp] Contato ${cleanPhone} j\xE1 possui opt-out registrado. Nenhuma a\xE7\xE3o tomada.`);
+                console.log(`[WhatsApp] Contato ${cleanPhone2} j\xE1 possui opt-out registrado. Nenhuma a\xE7\xE3o tomada.`);
                 continue;
               }
               if (contact.agentState === "human_takeover") {
-                console.log(`[WhatsApp] Contato ${cleanPhone} est\xE1 sob atendimento humano exclusivo. IA em espera.`);
+                console.log(`[WhatsApp] Contato ${cleanPhone2} est\xE1 sob atendimento humano exclusivo. IA em espera.`);
                 await db.addAuditLog({
                   type: "incoming_message",
-                  phone: cleanPhone,
+                  phone: cleanPhone2,
                   summary: `Nova mensagem recebida de contato em atendimento humano: "${messageText.slice(0, 50)}..."`
                 });
                 continue;
               }
               if (contact.agentState === "paused") {
-                console.log(`[WhatsApp] Agente pausado para o contato ${cleanPhone}.`);
+                console.log(`[WhatsApp] Agente pausado para o contato ${cleanPhone2}.`);
                 continue;
               }
               const { autoReplyEnabled } = getMetaConfig();
@@ -1896,7 +2018,7 @@ async function handler(req, res) {
                 console.log(`[WhatsApp] Auto-reply desativado globalmente pelo painel de Ajustes.`);
                 continue;
               }
-              const history = await db.getMessages(cleanPhone);
+              const history = await db.getMessages(cleanPhone2);
               let promptText = messageText;
               if (messageType === "audio") {
                 promptText = "O cliente enviou um \xE1udio. Agrade\xE7a brevemente e pergunte se ele pode adiantar a d\xFAvida por texto ou se prefere agendarmos 15 min no Meet para conversarmos.";
@@ -1909,7 +2031,7 @@ async function handler(req, res) {
                 await db.saveContact(contact);
                 await db.addAuditLog({
                   type: "status_change",
-                  phone: cleanPhone,
+                  phone: cleanPhone2,
                   summary: `Atendimento transferido para humano: ${aiResult.transferReason || "Complexidade da negocia\xE7\xE3o"}`
                 });
               } else if (aiResult.isMeetingRequested) {
@@ -1921,7 +2043,7 @@ async function handler(req, res) {
               let sentSuccess = false;
               let outMsgId;
               if (gateway === "meta_cloud_api") {
-                const sendResult = await sendWhatsAppTextMessage(cleanPhone, aiResult.replyText);
+                const sendResult = await sendWhatsAppTextMessage(cleanPhone2, aiResult.replyText);
                 sentSuccess = sendResult.success;
                 outMsgId = sendResult.messageId;
                 if (!sentSuccess) {
@@ -1933,7 +2055,7 @@ async function handler(req, res) {
               if (sentSuccess) {
                 const outgoingChatMessage = {
                   id: `out-${outMsgId || Date.now()}`,
-                  contactPhone: cleanPhone,
+                  contactPhone: cleanPhone2,
                   from: "bot",
                   text: aiResult.replyText,
                   type: "text",
@@ -1945,7 +2067,7 @@ async function handler(req, res) {
                 await db.saveMessage(outgoingChatMessage);
                 await db.addAuditLog({
                   type: "ai_reply",
-                  phone: cleanPhone,
+                  phone: cleanPhone2,
                   summary: `Resposta IA comercial enviada via ${gateway === "direct_pairing" ? "Conex\xE3o Direta" : "Meta API"}: "${aiResult.replyText.slice(0, 60)}..."`
                 });
               }
@@ -1992,12 +2114,12 @@ async function handler2(req, res) {
       if (!phone) {
         return res.status(400).json({ error: "Telefone \xE9 obrigat\xF3rio." });
       }
-      const cleanPhone = formatPhoneNumber(phone);
-      let existing = await db.getContactByPhone(cleanPhone);
+      const cleanPhone2 = formatPhoneNumber(phone);
+      let existing = await db.getContactByPhone(cleanPhone2);
       const contactData = {
-        id: existing?.id || `contact-${cleanPhone}`,
-        phone: cleanPhone,
-        name: name !== void 0 ? name : existing?.name || `Contato ${cleanPhone.slice(-4)}`,
+        id: existing?.id || `contact-${cleanPhone2}`,
+        phone: cleanPhone2,
+        name: name !== void 0 ? name : existing?.name || `Contato ${cleanPhone2.slice(-4)}`,
         company: company !== void 0 ? company : existing?.company || "Empresa",
         niche: niche !== void 0 ? niche : existing?.niche || "Geral",
         role: role !== void 0 ? role : existing?.role || "decisor",
@@ -2048,8 +2170,8 @@ async function handler3(req, res) {
       if (!phone || !text || !String(text).trim()) {
         return res.status(400).json({ error: "Telefone e texto da mensagem s\xE3o obrigat\xF3rios." });
       }
-      const cleanPhone = formatPhoneNumber(phone);
-      const contact = await db.getContactByPhone(cleanPhone);
+      const cleanPhone2 = formatPhoneNumber(phone);
+      const contact = await db.getContactByPhone(cleanPhone2);
       if (contact?.optOutDetected) {
         return res.status(400).json({ error: "Este contato solicitou Opt-Out (LGPD). O envio de novas mensagens est\xE1 bloqueado." });
       }
@@ -2057,14 +2179,14 @@ async function handler3(req, res) {
       if (!body2.directOnly) {
         const config = await db.getConfig();
         if ((config.activeGateway || "direct_pairing") === "direct_pairing") {
-          sendResult = await sendEvolutionText(cleanPhone, String(text).trim(), 2e3);
+          sendResult = await sendEvolutionText(cleanPhone2, String(text).trim(), 2e3);
         } else {
-          sendResult = await sendWhatsAppTextMessage(cleanPhone, String(text).trim());
+          sendResult = await sendWhatsAppTextMessage(cleanPhone2, String(text).trim());
         }
       }
       const msg = {
         id: `msg-${Date.now()}`,
-        contactPhone: cleanPhone,
+        contactPhone: cleanPhone2,
         from: from === "lead" ? "lead" : "operator",
         text: text.trim(),
         type: "text",
@@ -2083,8 +2205,8 @@ async function handler3(req, res) {
       }
       await db.addAuditLog({
         type: "human_message",
-        phone: cleanPhone,
-        summary: `Mensagem enviada por atendente humano para ${cleanPhone}: "${text.slice(0, 50)}..."`
+        phone: cleanPhone2,
+        summary: `Mensagem enviada por atendente humano para ${cleanPhone2}: "${text.slice(0, 50)}..."`
       });
       return res.status(200).json({
         success: sendResult.success,
@@ -2376,7 +2498,7 @@ async function handler8(req, res) {
       const { action, phoneNumber, gateway } = body2;
       if (action === "request_code") {
         const rawPhone = phoneNumber || config.directPairingPhone || "557488126578";
-        const cleanPhone = exactPhone(rawPhone);
+        const cleanPhone2 = exactPhone(rawPhone);
         const evolutionUrl = body2.evolutionUrl || process.env.EVOLUTION_URL || "";
         const evolutionKey = body2.evolutionKey || process.env.EVOLUTION_API_KEY || "";
         const instanceName = body2.instanceName || process.env.EVOLUTION_INSTANCE || "prospectfy";
@@ -2397,12 +2519,12 @@ async function handler8(req, res) {
                   instanceName,
                   qrcode: false,
                   integration: "WHATSAPP-BAILEYS",
-                  number: cleanPhone
+                  number: cleanPhone2
                 })
               });
             } catch {
             }
-            let connectRes = await fetch(`${cleanUrl}/instance/connect/${instanceName}?number=${cleanPhone}`, {
+            let connectRes = await fetch(`${cleanUrl}/instance/connect/${instanceName}?number=${cleanPhone2}`, {
               method: "GET",
               headers: {
                 "apikey": evolutionKey
@@ -2415,7 +2537,7 @@ async function handler8(req, res) {
                   "Content-Type": "application/json",
                   "apikey": evolutionKey
                 },
-                body: JSON.stringify({ number: cleanPhone })
+                body: JSON.stringify({ number: cleanPhone2 })
               });
             }
             if (connectRes.ok) {
@@ -2436,44 +2558,44 @@ async function handler8(req, res) {
           gatewayNotice = "C\xF3digo local gerado. Nota: O WhatsApp exige conex\xE3o WebSocket ativa (Evolution API) ou Meta Plataforma Comercial para validar o pareamento no celular.";
         }
         const updated = await db.saveConfig({
-          directPairingPhone: cleanPhone,
+          directPairingPhone: cleanPhone2,
           directPairingCode: code,
           directPairingStatus: "pairing",
           activeGateway: "direct_pairing"
         });
         await db.addAuditLog({
           type: "status_change",
-          phone: cleanPhone,
+          phone: cleanPhone2,
           summary: `C\xF3digo de pareamento solicitado: ${code}. ${gatewayNotice}`
         });
         return res.status(200).json({
           success: true,
           status: "pairing",
           pairingCode: code,
-          phoneNumber: cleanPhone,
+          phoneNumber: cleanPhone2,
           isRealSocketCode,
           notice: gatewayNotice,
           message: "C\xF3digo de 8 d\xEDgitos gerado."
         });
       }
       if (action === "confirm_paired") {
-        const cleanPhone = exactPhone(phoneNumber || config.directPairingPhone || "557488126578");
+        const cleanPhone2 = exactPhone(phoneNumber || config.directPairingPhone || "557488126578");
         const now = (/* @__PURE__ */ new Date()).toISOString();
         await db.saveConfig({
-          directPairingPhone: cleanPhone,
+          directPairingPhone: cleanPhone2,
           directPairingStatus: "connected",
           directPairingConnectedAt: now,
           activeGateway: "direct_pairing"
         });
         await db.addAuditLog({
           type: "status_change",
-          phone: cleanPhone,
-          summary: `WhatsApp Conex\xE3o Direta pareado com sucesso no celular para o n\xFAmero ${cleanPhone}.`
+          phone: cleanPhone2,
+          summary: `WhatsApp Conex\xE3o Direta pareado com sucesso no celular para o n\xFAmero ${cleanPhone2}.`
         });
         return res.status(200).json({
           success: true,
           status: "connected",
-          phoneNumber: cleanPhone,
+          phoneNumber: cleanPhone2,
           connectedAt: now,
           activeGateway: "direct_pairing",
           message: "WhatsApp Business conectado com sucesso via c\xF3digo de pareamento!"
@@ -2549,30 +2671,30 @@ async function handler9(req, res) {
       const skipped = [];
       const now = (/* @__PURE__ */ new Date()).toISOString();
       for (const item of leads2) {
-        const cleanPhone = formatPhoneNumber(String(item.phone || ""));
-        if (!isRealBrPhone(cleanPhone)) {
+        const cleanPhone2 = formatPhoneNumber(String(item.phone || ""));
+        if (!isRealBrPhone(cleanPhone2)) {
           skipped.push({ phone: String(item.phone || ""), motivo: "telefone inv\xE1lido (precisa ser um n\xFAmero brasileiro com DDD)" });
           continue;
         }
-        if (await db.hasHistoryWith(cleanPhone)) {
-          const known = await db.getContactByPhone(cleanPhone);
+        if (await db.hasHistoryWith(cleanPhone2)) {
+          const known = await db.getContactByPhone(cleanPhone2);
           if (!known || known.status === "novo") {
-            skipped.push({ phone: cleanPhone, motivo: "j\xE1 houve conversa com esse n\xFAmero" });
+            skipped.push({ phone: cleanPhone2, motivo: "j\xE1 houve conversa com esse n\xFAmero" });
             continue;
           }
         }
-        const existing = await db.getContactByPhone(cleanPhone);
+        const existing = await db.getContactByPhone(cleanPhone2);
         if (existing?.optOutDetected || existing?.status === "bloqueado") {
-          skipped.push({ phone: cleanPhone, motivo: "opt-out (pediu para sair)" });
+          skipped.push({ phone: cleanPhone2, motivo: "opt-out (pediu para sair)" });
           continue;
         }
         if (existing && existing.status !== "novo") {
-          skipped.push({ phone: cleanPhone, motivo: `j\xE1 prospectado (${existing.status})` });
+          skipped.push({ phone: cleanPhone2, motivo: `j\xE1 prospectado (${existing.status})` });
           continue;
         }
         const contact = {
-          id: existing?.id || `lead-${cleanPhone}`,
-          phone: cleanPhone,
+          id: existing?.id || `lead-${cleanPhone2}`,
+          phone: cleanPhone2,
           name: item.name || existing?.name || "",
           company: item.company || existing?.company || "Em qualifica\xE7\xE3o",
           niche: item.niche || existing?.niche || void 0,
@@ -2584,7 +2706,7 @@ async function handler9(req, res) {
           createdAt: existing?.createdAt || now
         };
         await db.saveContact(contact);
-        enqueued.push(cleanPhone);
+        enqueued.push(cleanPhone2);
       }
       await db.addAuditLog({
         type: "status_change",
@@ -2764,9 +2886,9 @@ async function handleUpsert(d) {
 }
 var busy = /* @__PURE__ */ new Set();
 var again = /* @__PURE__ */ new Set();
-var AUTO_RE = /(mensagem autom[aá]tica|resposta autom[aá]tica|no momento (n[aã]o|estamos)|estamos (descansando|fora|ausentes)|fora do (nosso )?hor[aá]rio|hor[aá]rio de (atendimento|funcionamento)|responderemos (assim|em breve|o mais)|retornaremos|agradecemos (a |sua |o seu |pelo |pela )?(sua )?(mensagem|contato)|seja (muito )?bem[- ]?vind|obrigad[oa] por (entrar em contato|sua mensagem|nos contatar|escolher)|n[aã]o estamos dispon[ií]veis|logo (te )?responderemos|em breve (retornaremos|responderemos|daremos|um de nossos))/i;
+var AUTO_RE2 = /(mensagem autom[aá]tica|resposta autom[aá]tica|no momento (n[aã]o|estamos)|estamos (descansando|fora|ausentes)|fora do (nosso )?hor[aá]rio|hor[aá]rio de (atendimento|funcionamento)|responderemos (assim|em breve|o mais)|retornaremos|agradecemos (a |sua |o seu |pelo |pela )?(sua )?(mensagem|contato)|seja (muito )?bem[- ]?vind|obrigad[oa] por (entrar em contato|sua mensagem|nos contatar|escolher)|n[aã]o estamos dispon[ií]veis|logo (te )?responderemos|em breve (retornaremos|responderemos|daremos|um de nossos))/i;
 function looksAutomatic(text, history) {
-  if (AUTO_RE.test(text)) return true;
+  if (AUTO_RE2.test(text)) return true;
   const ours = history.filter((m) => m.from === "bot" || m.from === "operator");
   const theirs = history.filter((m) => m.from === "lead");
   const last = ours[ours.length - 1];
@@ -3234,6 +3356,74 @@ async function handler14(req, res) {
   }
 }
 
+// api/_handlers/campaigns.ts
+async function handler15(req, res) {
+  try {
+    if (req.method === "GET") return res.status(200).json(await campaignStats());
+    if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
+    const b = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+    const list = await getCampaigns();
+    const find = (id) => list.find((c) => c.id === id);
+    if (b.action === "create") {
+      const camp2 = {
+        id: `camp-${Date.now()}`,
+        name: String(b.name || "Nova campanha").slice(0, 60),
+        mission: String(b.mission || "").slice(0, 500),
+        objective: String(b.objective || "").slice(0, 200),
+        status: "rascunho",
+        phones: [],
+        dailyCap: Math.max(1, Math.min(100, Number(b.dailyCap) || 40)),
+        endHour: Math.max(8, Math.min(21, Number(b.endHour) || 18)),
+        createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      const result = Array.isArray(b.rows) && b.rows.length ? await importRows(camp2, b.rows) : { added: 0, skipped: [] };
+      list.push(camp2);
+      await saveCampaigns(list);
+      return res.status(200).json({ ok: true, id: camp2.id, ...result });
+    }
+    const camp = find(String(b.id || ""));
+    if (!camp) return res.status(404).json({ error: "Campanha n\xE3o encontrada" });
+    if (b.action === "import") {
+      const result = await importRows(camp, Array.isArray(b.rows) ? b.rows : []);
+      await saveCampaigns(list);
+      return res.status(200).json({ ok: true, ...result });
+    }
+    if (b.action === "update") {
+      if (b.name != null) camp.name = String(b.name).slice(0, 60);
+      if (b.mission != null) camp.mission = String(b.mission).slice(0, 500);
+      if (b.objective != null) camp.objective = String(b.objective).slice(0, 200);
+      if (b.dailyCap != null) camp.dailyCap = Math.max(1, Math.min(100, Number(b.dailyCap) || 40));
+      if (b.endHour != null) camp.endHour = Math.max(8, Math.min(21, Number(b.endHour) || 18));
+      await saveCampaigns(list);
+      return res.status(200).json({ ok: true });
+    }
+    if (b.action === "activate") {
+      const contacts = await db.getContacts();
+      const keys = new Set(camp.phones.map((p) => p.slice(-8)));
+      const fila = contacts.filter((c) => keys.has(c.phone.slice(-8)) && c.status === "novo" && c.agentState === "ai_active" && !c.optOutDetected).length;
+      if (!fila) return res.status(400).json({ error: "Esta campanha n\xE3o tem ningu\xE9m na fila. Adicione a lista primeiro." });
+      if (!camp.mission.trim()) return res.status(400).json({ error: "D\xEA uma miss\xE3o para o agente antes de ativar." });
+      for (const c of list) if (c.status === "ativa") c.status = "pausada";
+      camp.status = "ativa";
+      await saveCampaigns(list);
+      return res.status(200).json({ ok: true, fila });
+    }
+    if (b.action === "pause") {
+      camp.status = "pausada";
+      await saveCampaigns(list);
+      return res.status(200).json({ ok: true });
+    }
+    if (b.action === "remove") {
+      await saveCampaigns(list.filter((c) => c.id !== camp.id));
+      return res.status(200).json({ ok: true });
+    }
+    return res.status(400).json({ error: "A\xE7\xE3o desconhecida" });
+  } catch (err) {
+    console.error("[Campanhas]", err);
+    return res.status(500).json({ error: err?.message || "Falha nas campanhas" });
+  }
+}
+
 // api/_handlers/export.ts
 var LABEL = { lead: "Contato", bot: "Agente IA", operator: "C\xE9sar" };
 function bahia(iso) {
@@ -3263,7 +3453,7 @@ function csvCell(v) {
   const s = v === null || v === void 0 ? "" : String(v);
   return /[",\n\r;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
-async function handler15(req, res) {
+async function handler16(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method Not Allowed" });
   try {
     const url = new URL(req.url || "/", "http://localhost");
@@ -3304,7 +3494,7 @@ async function handler15(req, res) {
 }
 
 // api/_handlers/ai-test.ts
-async function handler16(req, res) {
+async function handler17(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
   const body2 = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
   const text = String(body2.text || "Oi, quem \xE9?").slice(0, 300);
@@ -3368,7 +3558,7 @@ async function readGemini(key) {
     };
   });
 }
-async function handler17(req, res) {
+async function handler18(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
   const body2 = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
   const provider = body2.provider === "gemini" ? "gemini" : "groq";
@@ -3411,7 +3601,7 @@ async function allMessages() {
   }
   return rows;
 }
-async function handler18(req, res) {
+async function handler19(req, res) {
   try {
     if (req.method === "GET") {
       const [contacts, messages] = await Promise.all([db.getContacts(), allMessages()]);
@@ -3603,7 +3793,7 @@ function view(j) {
     error: j.error || ""
   };
 }
-async function handler19(req, res) {
+async function handler20(req, res) {
   if (job && Date.now() - job.startedAt > MAX_AGE_MS2) await closeJob();
   const url = new URL(req.url || "/", "http://localhost");
   if (req.method === "GET" && url.searchParams.get("download") === "1") {
@@ -3684,11 +3874,12 @@ var PROTECTED_ROUTES = {
   "/api/learnings": handler12,
   "/api/knowledge": handler13,
   "/api/metrics": handler14,
-  "/api/export": handler15,
-  "/api/ai-test": handler16,
-  "/api/ai-models": handler17,
-  "/api/followups": handler18,
-  "/api/personal-export": handler19
+  "/api/campaigns": handler15,
+  "/api/export": handler16,
+  "/api/ai-test": handler17,
+  "/api/ai-models": handler18,
+  "/api/followups": handler19,
+  "/api/personal-export": handler20
 };
 var PUBLIC_GET_ROUTES = {
   "/api/prospector": handler10
@@ -3700,7 +3891,7 @@ function match(table, urlPath) {
   }
   return null;
 }
-async function handler20(req, res) {
+async function handler21(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-hub-signature-256");
   if (req.method === "OPTIONS") {
@@ -3881,7 +4072,7 @@ var server = http.createServer(async (req, res) => {
         req.body = bodyData;
       }
       try {
-        await handler20(req, resCompat);
+        await handler21(req, resCompat);
       } catch (err) {
         console.error("[Server API Error]:", err);
         if (!res.writableEnded) {

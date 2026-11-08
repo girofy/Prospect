@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { LayoutDashboard, BookOpen, Cpu, Sparkles, RotateCcw } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Cpu, Sparkles, RotateCcw, Megaphone } from 'lucide-react';
 import DashboardTab from './DashboardTab';
 import KnowledgeTab from './KnowledgeTab';
 import ModelsTab from './ModelsTab';
 import LearningTab from './LearningTab';
 import FollowUpTab from './FollowUpTab';
+import CampaignsTab from './CampaignsTab';
 
 const TABS = [
+  { id: 'campanhas', label: 'Campanhas', icon: Megaphone },
   { id: 'resumo', label: 'Resumo', icon: LayoutDashboard },
   { id: 'retomar', label: 'Retomar', icon: RotateCcw },
   { id: 'conhecimento', label: 'Conhecimento', icon: BookOpen },
@@ -61,6 +63,7 @@ export default function IAHub() {
         </div>
       </div>
 
+      {tab === 'campanhas' && <CampaignsTab />}
       {tab === 'resumo' && <DashboardTab />}
       {tab === 'retomar' && <FollowUpTab />}
       {tab === 'conhecimento' && <KnowledgeTab />}

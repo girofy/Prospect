@@ -3,6 +3,7 @@
 import { db } from './db';
 import { getEvolutionCfg, sendEvolutionText, evolutionHasHistory, getEvolutionState } from './evolution';
 import { Contact } from './types';
+import { getCampaigns, activeCampaign } from './campaigns';
 import { isRealBrPhone, last8 } from './phone';
 import { AUTHORIZED_BUSINESS_NUMBER } from './whatsapp';
 
@@ -36,10 +37,10 @@ function bahiaNow(d = new Date()) {
 }
 
 const fmtH = (h: number) => `${Math.floor(h)}h${Math.round((h % 1) * 60) ? String(Math.round((h % 1) * 60)).padStart(2, '0') : ''}`;
-function inWindowNow(): boolean {
+function inWindowNow(endHour = WINDOW_END): boolean {
   const n = bahiaNow();
   if (SKIP_SUNDAY && n.sunday) return false;
-  return n.at >= WINDOW_START && n.at < WINDOW_END;
+  return n.at >= WINDOW_START && n.at < Math.min(endHour, WINDOW_END);
 }
 
 const rand = (min: number, max: number) => min + Math.random() * (max - min);
@@ -86,15 +87,19 @@ export async function getProspectStats() {
   const { day, hour } = bahiaNow();
   const sentToday = cfg.prospectDay === day ? cfg.prospectSentToday || 0 : 0;
   const repliedPhones = await db.getRepliedPhones();
+  const camp = activeCampaign(await getCampaigns());
+  const keys = new Set((camp?.phones || []).map(last8));
+  const end = camp ? Math.min(camp.endHour, WINDOW_END) : WINDOW_END;
   return {
     enabled: process.env.PROSPECTOR_ENABLED !== 'false',
     evolutionConfigured: !!getEvolutionCfg(),
-    inWindow: inWindowNow(),
-    window: `${fmtH(WINDOW_START)}-${fmtH(WINDOW_END)}${SKIP_SUNDAY ? ', exceto domingo' : ''} (America/Bahia)`,
+    inWindow: !!camp && inWindowNow(end),
+    window: `${fmtH(WINDOW_START)}-${fmtH(end)}${SKIP_SUNDAY ? ', exceto domingo' : ''} (America/Bahia)`,
+    campaign: camp ? camp.name : null,
     sentToday,
     paused: !!cfg.prospectorPaused,
-    dailyCap: DAILY_CAP,
-    queue: contacts.filter(isEligible).length,
+    dailyCap: camp ? camp.dailyCap : DAILY_CAP,
+    queue: camp ? contacts.filter(c => isEligible(c) && keys.has(last8(c.phone))).length : 0,
     inConversation: contacts.filter(c => c.status === 'em_conversa').length,
     replied: contacts.filter(c => repliedPhones.has(c.phone)).length,
     totalContacts: contacts.length,
@@ -126,6 +131,7 @@ async function watchdog() {
   try {
     const { day, at } = bahiaNow();
     if (at < 7 || at >= 8 || !inWindowNow()) return;
+    if (!activeCampaign(await getCampaigns())) return; // sem campanha ativa não é falha
     const cfg = await db.getConfig();
     const sentToday = cfg.prospectDay === day ? cfg.prospectSentToday || 0 : 0;
     if (sentToday > 0) return;
@@ -149,16 +155,20 @@ async function tick() {
     if (Date.now() < nextAt) return;
     if (!getEvolutionCfg()) return;
 
-    const { day, hour } = bahiaNow();
-    if (!inWindowNow()) return;
-
+    const { day, hour, at } = bahiaNow();
     const cfg = await db.getConfig();
     if (cfg.prospectorPaused) return; // pausa do dono (WhatsApp ou painel)
+    // Só envia para quem está numa campanha ATIVA. Sem campanha ativa, nada sai.
+    const camp = activeCampaign(await getCampaigns());
+    if (!camp) return;
+    const endHour = Math.min(camp.endHour, WINDOW_END);
+    if (!inWindowNow(endHour)) return;
     const sentToday = cfg.prospectDay === day ? cfg.prospectSentToday || 0 : 0;
-    if (sentToday >= DAILY_CAP) return;
+    if (sentToday >= camp.dailyCap) return;
+    const keys = new Set(camp.phones.map(last8));
 
     const queue = (await db.getContacts())
-      .filter(isEligible)
+      .filter(c => isEligible(c) && keys.has(last8(c.phone)))
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     const contact = queue[0];
     if (!contact) return;
@@ -202,7 +212,11 @@ async function tick() {
       return;
     }
 
-    nextAt = Date.now() + rand(MIN_GAP_S, MAX_GAP_S) * 1000;
+    // Ritmo calculado: espalha o que falta enviar até a hora de parar, com sorteio em volta da média.
+    const left = Math.max(1, Math.min(queue.length - 1, camp.dailyCap - (sentToday + 1)));
+    const meanGap = Math.max(0, (endHour - at) * 3600) / left;
+    const gap = Math.min(1500, Math.max(MIN_GAP_S, meanGap * rand(0.7, 1.3)));
+    nextAt = Date.now() + gap * 1000;
     failStreak = 0;
     if (sentToday === 0) {
       const hhmm = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Bahia', hour: '2-digit', minute: '2-digit' }).format(new Date());
@@ -226,7 +240,7 @@ async function tick() {
     await db.addAuditLog({
       type: 'ai_reply',
       phone: contact.phone,
-      summary: `Abordagem ${sentToday + 1}/${DAILY_CAP} enviada: "${text}"`,
+      summary: `Abordagem ${sentToday + 1}/${camp.dailyCap} enviada: "${text}"`,
     });
   } catch (err) {
     console.error('[Prospector] tick falhou:', err);
