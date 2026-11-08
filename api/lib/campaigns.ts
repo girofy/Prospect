@@ -16,8 +16,14 @@ export interface Campaign {
   createdAt: string;
 }
 
-export const AUTO_RE = /(mensagem autom[aá]tica|resposta autom[aá]tica|no momento (n[aã]o|estamos)|estamos (descansando|fora|ausentes)|fora do (nosso )?hor[aá]rio|hor[aá]rio de (atendimento|funcionamento)|responderemos (assim|em breve|o mais)|retornaremos|agradecemos (a |sua |o seu |pelo |pela )?(sua )?(mensagem|contato)|seja (muito )?bem[- ]?vind|obrigad[oa] por (entrar em contato|sua mensagem|nos contatar|escolher)|n[aã]o estamos dispon[ií]veis|logo (te )?responderemos|em breve (retornaremos|responderemos|daremos|um de nossos))/i;
 const PRICE_RE = /(quanto (custa|fica|sai|é|e)\b|pre[cç]o|valor|or[cç]amento|pr[eé]via|quero (ver|fechar|contratar)|manda (ver|a[ií])|pode (mandar|montar))/i;
+export const AUTO_RE = /(mensagem autom[aá]tica|resposta autom[aá]tica|no momento (n[aã]o|estamos)|estamos (descansando|fora|ausentes)|fora do (nosso )?hor[aá]rio|hor[aá]rio de (atendimento|funcionamento)|responderemos (assim|em breve|o mais)|retornaremos|retornamos|agradecemos (a |sua |o seu |pelo |pela )?(sua )?(mensagem|contato)|seja (muito )?bem[- ]?vind|obrigad[oa] por (entrar em contato|sua mensagem|nos contatar|escolher)|n[aã]o estamos dispon[ií]veis|logo (te )?responderemos|em breve (retornaremos|responderemos|daremos|um de nossos)|assistente virtual|sou (a|o) [^,.\n]{2,25},? (assistente|atendente|secret[aá]ri)|vou (te )?(conduzir|atender)|\*[A-ZÀ-Ú][\wÀ-ú ]{1,20}:\*|atendimento (automatizado|inicial)|repassar para a equipe)/i;
+// Despedida: não se responde (evita dois robôs se agradecendo para sempre).
+export const CLOSING_RE = /(obrigad[oa]|at[eé] mais|at[eé] logo|tenha (uma )?([oó]tim|boa|excelente)|igualmente|combinado|sucesso|fico no aguardo|boa semana|abra[cç]o)/i;
+export function isClosing(text: string): boolean {
+  const t = (text || '').trim();
+  return t.length < 90 && CLOSING_RE.test(t) && !PRICE_RE.test(t) && !/(\?|\bsim\b|quero|pode (mandar|ser)|manda)/i.test(t);
+}
 
 export async function getCampaigns(): Promise<Campaign[]> {
   const cfg: any = await db.getConfig();
