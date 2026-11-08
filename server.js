@@ -437,8 +437,13 @@ function last8(phone) {
 }
 
 // api/lib/campaigns.ts
-var AUTO_RE = /(mensagem autom[aá]tica|resposta autom[aá]tica|no momento (n[aã]o|estamos)|estamos (descansando|fora|ausentes)|fora do (nosso )?hor[aá]rio|hor[aá]rio de (atendimento|funcionamento)|responderemos (assim|em breve|o mais)|retornaremos|agradecemos (a |sua |o seu |pelo |pela )?(sua )?(mensagem|contato)|seja (muito )?bem[- ]?vind|obrigad[oa] por (entrar em contato|sua mensagem|nos contatar|escolher)|n[aã]o estamos dispon[ií]veis|logo (te )?responderemos|em breve (retornaremos|responderemos|daremos|um de nossos))/i;
 var PRICE_RE = /(quanto (custa|fica|sai|é|e)\b|pre[cç]o|valor|or[cç]amento|pr[eé]via|quero (ver|fechar|contratar)|manda (ver|a[ií])|pode (mandar|montar))/i;
+var AUTO_RE = /(mensagem autom[aá]tica|resposta autom[aá]tica|no momento (n[aã]o|estamos)|estamos (descansando|fora|ausentes)|fora do (nosso )?hor[aá]rio|hor[aá]rio de (atendimento|funcionamento)|responderemos (assim|em breve|o mais)|retornaremos|retornamos|agradecemos (a |sua |o seu |pelo |pela )?(sua )?(mensagem|contato)|seja (muito )?bem[- ]?vind|obrigad[oa] por (entrar em contato|sua mensagem|nos contatar|escolher)|n[aã]o estamos dispon[ií]veis|logo (te )?responderemos|em breve (retornaremos|responderemos|daremos|um de nossos)|assistente virtual|sou (a|o) [^,.\n]{2,25},? (assistente|atendente|secret[aá]ri)|vou (te )?(conduzir|atender)|\*[A-ZÀ-Ú][\wÀ-ú ]{1,20}:\*|atendimento (automatizado|inicial)|repassar para a equipe)/i;
+var CLOSING_RE = /(obrigad[oa]|at[eé] mais|at[eé] logo|tenha (uma )?([oó]tim|boa|excelente)|igualmente|combinado|sucesso|fico no aguardo|boa semana|abra[cç]o)/i;
+function isClosing(text) {
+  const t = (text || "").trim();
+  return t.length < 90 && CLOSING_RE.test(t) && !PRICE_RE.test(t) && !/(\?|\bsim\b|quero|pode (mandar|ser)|manda)/i.test(t);
+}
 async function getCampaigns() {
   const cfg = await db.getConfig();
   return Array.isArray(cfg.campaigns) ? cfg.campaigns : [];
@@ -615,6 +620,7 @@ Bom dia ou Boa tarde, sozinho. Quando a pessoa responder (um "oi", "bom dia", "s
 Mensagem 1: "Vi que voc\xEA ainda n\xE3o tem site e muita gente pesquisa no Google antes de escolher, e por n\xE3o ter um site pode n\xE3o aparecer nessas buscas e acaba indo pra outro lugar"
 Mensagem 2: "Posso te mostrar como voc\xEA perde com isso ou prefere ver uma pr\xE9via do site quando os clientes acessarem?"
 Regras desse par: n\xE3o se apresente, n\xE3o diga o tipo de neg\xF3cio (nada de "barbearia", "sal\xE3o"; s\xF3 "pesquisa no Google"), fale "voc\xEA" (uma pessoa), n\xE3o use "tudo bem/tudo certo". A pergunta tem duas sa\xEDdas e as duas s\xE3o um sim (mostrar o preju\xEDzo ou ver a pr\xE9via): nunca deixe a pessoa com um "n\xE3o" f\xE1cil.
+REGRA DE OURO: voc\xEA NUNCA envia link, imagem, captura ou arquivo e nunca inventa endere\xE7o de site. A pr\xE9via quem envia \xE9 o C\xE9sar: diga s\xF3 que o C\xE9sar manda a pr\xE9via por aqui e avise que ele j\xE1 foi chamado. Se quem responde for outro rob\xF4 ou assistente autom\xE1tico da empresa (apresenta-se como assistente, usa nome entre asteriscos), n\xE3o converse com ele: no m\xE1ximo uma resposta curta, ou nenhuma. Despedida (obrigado, at\xE9 mais) n\xE3o se responde.
 Depois, se ela escolher qualquer uma ou disser sim: "Posso montar uma pr\xE9via de como ficaria? Quer ver?" quando ainda n\xE3o pediu a pr\xE9via; se j\xE1 pediu a pr\xE9via, o C\xE9sar envia. Depois da pr\xE9via, uma pergunta de valor, uma vez s\xF3 ("Quer que eu ajuste algo ou j\xE1 coloca no ar?"). Depois pre\xE7o, e fechamento ou passar para o C\xE9sar.
 Se disser que j\xE1 tem site: responda s\xF3 isto, em uma mensagem, sem oferecer mais nada: "Ah, ent\xE3o foi engano meu. Me manda o link que eu confiro." Se disser que n\xE3o tem interesse: responda s\xF3 "Tranquilo, obrigado pela aten\xE7\xE3o." (despedida, sem pergunta) e encerre; s\xF3 volta depois de um m\xEAs.
 Voc\xEA n\xE3o precisa seguir na ordem se o lead pular etapas. Se ele perguntar "quanto?", responda valor e pre\xE7o. Se pedir a pr\xE9via logo, mande.
@@ -717,6 +723,8 @@ function validateReply(text, recentBot) {
   if (/\bLead\b|Em qualificação/.test(t)) return "usou r\xF3tulo interno no lugar do nome";
   if (/reunião|sem pressão|sem compromisso|se não for o momento|só passando/i.test(t)) return "usou frase proibida";
   if (/perdendo cliente|vai perder|está perdendo|como posso ajudar|tudo certo com você|procurei (você|vocês) no google|quem (é|cuida|decide|resolve|responde)|você é (o|a) respons|quem é o respons/i.test(t)) return "usou frase que trava a conversa";
+  if (/https?:\/\/|www\./i.test(t)) return "tem link (nunca inventar link)";
+  if (/(vou|vamos) (te )?(mandar|enviar|reenviar)[^.?!]{0,40}(captura|imagem|print|foto|arquivo|link|pdf)|segue o link|te mando o link|vou enviar agora/i.test(t)) return "prometeu enviar algo que n\xE3o pode enviar";
   const bubbles = t.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
   if (bubbles.length > 2) return "mais de duas mensagens";
   if (bubbles.some((b) => b.split(/\s+/).length > 34)) return "mensagem longa demais";
@@ -2925,9 +2933,8 @@ async function handleUpsert(d) {
 }
 var busy = /* @__PURE__ */ new Set();
 var again = /* @__PURE__ */ new Set();
-var AUTO_RE2 = /(mensagem autom[aá]tica|resposta autom[aá]tica|no momento (n[aã]o|estamos)|estamos (descansando|fora|ausentes)|fora do (nosso )?hor[aá]rio|hor[aá]rio de (atendimento|funcionamento)|responderemos (assim|em breve|o mais)|retornaremos|agradecemos (a |sua |o seu |pelo |pela )?(sua )?(mensagem|contato)|seja (muito )?bem[- ]?vind|obrigad[oa] por (entrar em contato|sua mensagem|nos contatar|escolher)|n[aã]o estamos dispon[ií]veis|logo (te )?responderemos|em breve (retornaremos|responderemos|daremos|um de nossos))/i;
 function looksAutomatic(text, history) {
-  if (AUTO_RE2.test(text)) return true;
+  if (AUTO_RE.test(text) || isClosing(text)) return true;
   const ours = history.filter((m) => m.from === "bot" || m.from === "operator");
   const theirs = history.filter((m) => m.from === "lead");
   const last = ours[ours.length - 1];
@@ -2947,6 +2954,13 @@ async function respond(phone, media) {
     let contact = await db.getContactByPhone(phone);
     if (!contact || contact.optOutDetected || contact.agentState !== "ai_active") return;
     const now = (/* @__PURE__ */ new Date()).toISOString();
+    const recentBot = prior.filter((m) => m.from === "bot" && Date.now() - Date.parse(m.timestamp) < 30 * 6e4).length;
+    if (recentBot >= 6) {
+      await db.saveContact({ ...contact, status: "aguardando_humano", lastInteractionAt: now });
+      await db.addAuditLog({ type: "status_change", phone, summary: `Conversa longa demais (${recentBot} respostas em 30 min). A IA parou; pode ser outro rob\xF4. Aguardando voc\xEA.` });
+      await sendEvolutionText(OWNER_PHONE, `Parei de responder ${contact.company || phone}: ${recentBot} mensagens em 30 min, parece outro rob\xF4. Veja a conversa no painel.`, 800);
+      return;
+    }
     const ai = await generateGirofyCommercialReply(contact, { text: aiInput, media }, prior);
     if (!ai.aiAvailable) {
       await db.saveContact({ ...contact, status: "aguardando_humano", lastInteractionAt: now });

@@ -45,6 +45,7 @@ Bom dia ou Boa tarde, sozinho. Quando a pessoa responder (um "oi", "bom dia", "s
 Mensagem 1: "Vi que você ainda não tem site e muita gente pesquisa no Google antes de escolher, e por não ter um site pode não aparecer nessas buscas e acaba indo pra outro lugar"
 Mensagem 2: "Posso te mostrar como você perde com isso ou prefere ver uma prévia do site quando os clientes acessarem?"
 Regras desse par: não se apresente, não diga o tipo de negócio (nada de "barbearia", "salão"; só "pesquisa no Google"), fale "você" (uma pessoa), não use "tudo bem/tudo certo". A pergunta tem duas saídas e as duas são um sim (mostrar o prejuízo ou ver a prévia): nunca deixe a pessoa com um "não" fácil.
+REGRA DE OURO: você NUNCA envia link, imagem, captura ou arquivo e nunca inventa endereço de site. A prévia quem envia é o César: diga só que o César manda a prévia por aqui e avise que ele já foi chamado. Se quem responde for outro robô ou assistente automático da empresa (apresenta-se como assistente, usa nome entre asteriscos), não converse com ele: no máximo uma resposta curta, ou nenhuma. Despedida (obrigado, até mais) não se responde.
 Depois, se ela escolher qualquer uma ou disser sim: "Posso montar uma prévia de como ficaria? Quer ver?" quando ainda não pediu a prévia; se já pediu a prévia, o César envia. Depois da prévia, uma pergunta de valor, uma vez só ("Quer que eu ajuste algo ou já coloca no ar?"). Depois preço, e fechamento ou passar para o César.
 Se disser que já tem site: responda só isto, em uma mensagem, sem oferecer mais nada: "Ah, então foi engano meu. Me manda o link que eu confiro." Se disser que não tem interesse: responda só "Tranquilo, obrigado pela atenção." (despedida, sem pergunta) e encerre; só volta depois de um mês.
 Você não precisa seguir na ordem se o lead pular etapas. Se ele perguntar "quanto?", responda valor e preço. Se pedir a prévia logo, mande.
@@ -155,6 +156,8 @@ export function validateReply(text: string, recentBot: string[]): string | null 
   if (/\bLead\b|Em qualificação/.test(t)) return 'usou rótulo interno no lugar do nome';
   if (/reunião|sem pressão|sem compromisso|se não for o momento|só passando/i.test(t)) return 'usou frase proibida';
   if (/perdendo cliente|vai perder|está perdendo|como posso ajudar|tudo certo com você|procurei (você|vocês) no google|quem (é|cuida|decide|resolve|responde)|você é (o|a) respons|quem é o respons/i.test(t)) return 'usou frase que trava a conversa';
+  if (/https?:\/\/|www\./i.test(t)) return 'tem link (nunca inventar link)';
+  if (/(vou|vamos) (te )?(mandar|enviar|reenviar)[^.?!]{0,40}(captura|imagem|print|foto|arquivo|link|pdf)|segue o link|te mando o link|vou enviar agora/i.test(t)) return 'prometeu enviar algo que não pode enviar';
   const bubbles = t.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
   if (bubbles.length > 2) return 'mais de duas mensagens';
   if (bubbles.some(b => b.split(/\s+/).length > 34)) return 'mensagem longa demais';

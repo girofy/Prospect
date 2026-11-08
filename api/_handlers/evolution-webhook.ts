@@ -8,6 +8,7 @@ import { sendEvolutionText, fetchEvolutionMedia, OPT_OUT_REGEX } from '../lib/ev
 import { getProspectStats } from '../lib/prospector';
 import { transcribeAudio } from '../lib/transcribe';
 import { markPending } from '../lib/catchup';
+import { AUTO_RE, isClosing } from '../lib/campaigns';
 import { sendLeadReply } from '../lib/bubbles';
 import { isOwner, handleOwnerMessage, OWNER_PHONE } from '../lib/owner';
 
@@ -164,10 +165,8 @@ async function handleUpsert(d: any) {
 
 const busy = new Set<string>();
 const again = new Set<string>();
-const AUTO_RE = /(mensagem autom[aá]tica|resposta autom[aá]tica|no momento (n[aã]o|estamos)|estamos (descansando|fora|ausentes)|fora do (nosso )?hor[aá]rio|hor[aá]rio de (atendimento|funcionamento)|responderemos (assim|em breve|o mais)|retornaremos|agradecemos (a |sua |o seu |pelo |pela )?(sua )?(mensagem|contato)|seja (muito )?bem[- ]?vind|obrigad[oa] por (entrar em contato|sua mensagem|nos contatar|escolher)|n[aã]o estamos dispon[ií]veis|logo (te )?responderemos|em breve (retornaremos|responderemos|daremos|um de nossos))/i;
-
 function looksAutomatic(text: string, history: ChatMessage[]): boolean {
-  if (AUTO_RE.test(text)) return true;
+  if (AUTO_RE.test(text) || isClosing(text)) return true;
   // Chegou segundos depois da nossa primeira mensagem e é um texto longo: quase sempre é saudação automática.
   const ours = history.filter(m => m.from === 'bot' || m.from === 'operator');
   const theirs = history.filter(m => m.from === 'lead');
@@ -190,6 +189,15 @@ async function respond(phone: string, media?: { mimeType: string; data: string }
     let contact = await db.getContactByPhone(phone);
     if (!contact || contact.optOutDetected || contact.agentState !== 'ai_active') return;
     const now = new Date().toISOString();
+
+    // Trava de conversa longa demais: no máximo 6 respostas nossas em 30 minutos. Passou disso, quase sempre é robô falando com robô.
+    const recentBot = prior.filter(m => m.from === 'bot' && Date.now() - Date.parse(m.timestamp) < 30 * 60_000).length;
+    if (recentBot >= 6) {
+      await db.saveContact({ ...contact, status: 'aguardando_humano', lastInteractionAt: now });
+      await db.addAuditLog({ type: 'status_change', phone, summary: `Conversa longa demais (${recentBot} respostas em 30 min). A IA parou; pode ser outro robô. Aguardando você.` });
+      await sendEvolutionText(OWNER_PHONE, `Parei de responder ${contact.company || phone}: ${recentBot} mensagens em 30 min, parece outro robô. Veja a conversa no painel.`, 800);
+      return;
+    }
 
     const ai = await generateGirofyCommercialReply(contact, { text: aiInput, media }, prior);
 
