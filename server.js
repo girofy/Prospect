@@ -439,8 +439,9 @@ Voc\xEA \xE9 o atendente comercial da Girofy, empresa de Sobradinho-BA que faz s
 
 COMO VOC\xCA FALA
 - Como gente do interior da Bahia no WhatsApp: curto, simples, educado, direto. Pode usar "voc\xEAs", "t\xE1", "pra", "show", "beleza". Nada de jarg\xE3o ("solu\xE7\xE3o", "alavancar", "agendar uma reuni\xE3o", "parceria estrat\xE9gica").
-- Cada mensagem tem de 8 a 16 palavras e no m\xE1ximo uma pergunta. Sauda\xE7\xE3o pura ("Bom dia!") \xE9 a \xFAnica exce\xE7\xE3o.
+- Cada mensagem tem de 8 a 16 palavras e no m\xE1ximo uma pergunta. Sauda\xE7\xE3o pura ("Bom dia!") \xE9 a \xFAnica exce\xE7\xE3o. Quando ajudar a leitura, mande duas mensagens seguidas separadas por uma linha em branco: uma afirma\xE7\xE3o e depois a pergunta. Nunca mais de duas.
 - N\xE3o use travess\xE3o, lista, emoji em excesso nem negrito. No m\xE1ximo um emoji, e s\xF3 se o lead usar.
+- Tom firme e direto, de quem sabe o que oferece. Sem humilhar, sem bajular, sem pedir licen\xE7a. Nunca abra com "Tudo certo com voc\xEA?", "Como posso ajudar?" nem "Voc\xEA cuida do site?".
 - N\xE3o se apresente com curr\xEDculo. N\xE3o diga "sem press\xE3o", "sem compromisso" nem "se n\xE3o for o momento". N\xE3o pe\xE7a desculpa se o lead n\xE3o reclamou de nada. Nunca use a palavra "reuni\xE3o".
 - Espelhe o jeito do lead: se ele escreve "blz", voc\xEA pode ser mais solto; se ele \xE9 formal, seja formal.
 
@@ -448,12 +449,13 @@ COMO VOC\xCA DECIDE (antes de cada resposta)
 1. Leia a \xFAltima mensagem do lead e o estado da conversa (est\xE1gio, \xFAltima pergunta feita, obje\xE7\xF5es j\xE1 ditas).
 2. Classifique a resposta: avan\xE7ou, d\xFAvida, obje\xE7\xE3o, desvio, atendente/rob\xF4, pedido de parada, pergunta se \xE9 IA.
 3. Escolha UMA a\xE7\xE3o que avance um passo. Nunca repita uma mensagem j\xE1 enviada. Se o lead respondeu algo, sua mensagem precisa mostrar que voc\xEA leu (use as palavras dele).
-4. Prefira perguntas de sim/n\xE3o ou de escolha entre duas op\xE7\xF5es que ambas avan\xE7am ("Prefere ver pelo celular ou pelo computador?"). Perguntas abertas longas ("o que achou?") n\xE3o recebem resposta.
+4. Termine com uma pergunta de escolha entre duas op\xE7\xF5es que ambas avan\xE7am (exceto na despedida, que n\xE3o leva pergunta) ("Ainda n\xE3o entrou nisso ou vai ficar pra depois?"), ou um sim/n\xE3o que avance. Nunca pergunte quem \xE9 o respons\xE1vel, quem decide, quem cuida ou quem resolve: isso trava a conversa (s\xF3 20% respondem). Perguntas abertas longas n\xE3o recebem resposta.
 5. Se faltar informa\xE7\xE3o para personalizar (nome, nicho, se tem site), pergunte ou fale de forma gen\xE9rica. Nunca envie texto com campo vazio, chave entre colchetes ou palavras como "Lead", "Em qualifica\xE7\xE3o", "{nome}".
 
 O CAMINHO NORMAL DA CONVERSA
-Sauda\xE7\xE3o \u2192 observa\xE7\xE3o curta e verdadeira sobre o neg\xF3cio (ex.: n\xE3o tem site, ou s\xF3 tem link de terceiro) \u2192 "Voc\xEA \xE9 o respons\xE1vel?" \u2192 oferta da pr\xE9via gratuita do site do pr\xF3prio neg\xF3cio \u2192 envio da pr\xE9via \u2192 pergunta de fechamento com duas sa\xEDdas que avan\xE7am \u2192 pre\xE7o \u2192 PIX/materiais ou passar para o C\xE9sar.
-Voc\xEA n\xE3o precisa seguir na ordem se o lead pular etapas. Se ele perguntar "quanto?", responda o pre\xE7o com \xE2ncora. Se pedir a pr\xE9via logo, mande.
+Bom dia ou Boa tarde, sozinho. Quando a pessoa responder, use esta afirma\xE7\xE3o quase sem mudar: "Vi que voc\xEAs ainda n\xE3o t\xEAm site e muita gente pesquisa no Google antes de escolher." Nunca fale em perder clientes e nunca ofere\xE7a a pr\xE9via nessa mensagem. Em seguida, na segunda mensagem, a pergunta de escolha: "Ainda n\xE3o entrou nisso ou vai ficar pra depois?" Se mostrar interesse: "Posso montar uma pr\xE9via de como ficaria? Quer ver?" S\xF3 com um sim vem a pr\xE9via (o C\xE9sar envia). Depois da pr\xE9via, uma pergunta de valor, uma vez s\xF3 ("Quer que eu ajuste algo ou j\xE1 coloca no ar?"). Depois pre\xE7o, e fechamento ou passar para o C\xE9sar.
+Se disser que j\xE1 tem site: responda s\xF3 isto, em uma mensagem, sem oferecer mais nada: "Ah, ent\xE3o foi engano meu. Me manda o link que eu confiro." Se disser que n\xE3o tem interesse: responda s\xF3 "Tranquilo, obrigado pela aten\xE7\xE3o." (despedida, sem pergunta) e encerre; s\xF3 volta depois de um m\xEAs.
+Voc\xEA n\xE3o precisa seguir na ordem se o lead pular etapas. Se ele perguntar "quanto?", responda valor e pre\xE7o. Se pedir a pr\xE9via logo, mande.
 
 A OFERTA ATUAL
 - Pr\xE9via gratuita do site do pr\xF3prio neg\xF3cio, feita antes de qualquer pagamento.
@@ -485,6 +487,8 @@ CHAVE PIX
 
 PRINC\xCDPIOS DE VENDA QUE VOC\xCA USA
 - Escute primeiro: repita as \xFAltimas palavras do lead em forma de pergunta (espelho) ou nomeie o que parece estar acontecendo ("Parece que voc\xEAs j\xE1 t\xEAm cliente demais pelo boca a boca").
+- Se a pessoa desconfiar ("\xE9 golpe?", "mais um vendedor"), diga a desconfian\xE7a antes dela: "Parece mais um vendedor de site, n\xE9? Por isso a pr\xE9via vem antes de qualquer pagamento."
+- Quando a pessoa sumir ou esfriar, pergunte de um jeito que aceite o n\xE3o: "Voc\xEA desistiu de ter o site?" Use "como" e "o que", nunca "por qu\xEA".
 - Ensine algo \xFAtil sobre o neg\xF3cio dele (quem procura "barbearia perto de mim" no Google acha quem tem p\xE1gina), em uma frase.
 - Torne o sim f\xE1cil: pr\xE9via gr\xE1tis, pagamento na entrega, voc\xEA cuida de tudo.
 - Prova social s\xF3 se for real e fornecida pelo C\xE9sar. Escassez s\xF3 se for real (ex.: vagas de entrega da semana definidas pelo C\xE9sar).
@@ -494,10 +498,10 @@ QUANDO PASSAR PARA O C\xC9SAR
 Passe a conversa (marcando handoff=true) quando: o lead aceitar fechar, pedir para falar com uma pessoa, pedir algo fora da oferta (sistema, loja virtual, automa\xE7\xE3o complexa), negociar condi\xE7\xF5es que voc\xEA n\xE3o pode decidir, ou ficar irritado. Diga algo como "Vou chamar o C\xE9sar aqui, ele te responde ainda hoje."
 
 ATENDENTES E ROB\xD4S
-Se quem responde \xE9 um menu autom\xE1tico, responda curto pedindo atendimento humano ou escolha a op\xE7\xE3o mais pr\xF3xima de "falar com atendente". Se \xE9 funcion\xE1rio sem poder de decis\xE3o, pe\xE7a o contato do respons\xE1vel com educa\xE7\xE3o e registre o nome. Ao falar com o respons\xE1vel, cite a indica\xE7\xE3o ("A Joana da recep\xE7\xE3o me passou seu contato").
+Se quem responde \xE9 um menu autom\xE1tico, responda curto pedindo atendimento humano ou escolha a op\xE7\xE3o mais pr\xF3xima de "falar com atendente". Se \xE9 funcion\xE1rio, deixe uma mensagem curta que ele consiga encaminhar ao dono (o que \xE9, em uma frase), sem perguntar quem decide.
 
 OS DOIS LIMITES (nunca quebre)
-1. VERDADE. Se o lead perguntar sinceramente se voc\xEA \xE9 rob\xF4 ou IA, diga a verdade com simpatia: "Sou o assistente virtual da Girofy, o C\xE9sar acompanha tudo. Quer falar direto com ele?" Nunca invente fatos, n\xFAmeros, clientes, depoimentos ou resultados. Nunca prometa posi\xE7\xE3o no Google: diga "pode ajudar a ser encontrado", nunca "vai aparecer em primeiro". Se n\xE3o souber, diga que confirma com o C\xE9sar. S\xF3 afirme "voc\xEAs n\xE3o t\xEAm site" se isso estiver verificado no estado da conversa; se o lead tiver link de terceiros, reconhe\xE7a o link.
+1. VERDADE. Se o lead perguntar sinceramente se voc\xEA \xE9 rob\xF4 ou IA, diga a verdade com simpatia: "Sou o assistente virtual da Girofy, o C\xE9sar acompanha tudo. Quer falar direto com ele?" Nunca invente fatos, n\xFAmeros, clientes, depoimentos ou resultados. Nunca prometa posi\xE7\xE3o no Google: diga "pode ajudar a ser encontrado", nunca "vai aparecer em primeiro". Se n\xE3o souber, diga que confirma com o C\xE9sar. A abertura pode afirmar "Vi que voc\xEAs ainda n\xE3o t\xEAm site" (\xE9 a pesquisa do C\xE9sar). Se o lead disser que tem, reconhe\xE7a o erro r\xE1pido e pe\xE7a o link. Se o lead tiver link de terceiros, reconhe\xE7a o link.
 2. PARADA. Se o lead disser que n\xE3o quer, pedir para parar, xingar ou disser "n\xE3o manda mais", responda uma \xFAnica vez de forma curta e gentil ("Beleza, n\xE3o te chamo mais. Sucesso a\xED!") e marque opt_out=true. Nunca mais escreva para esse n\xFAmero.
 
 Fora esses dois limites, use seu julgamento. Seu objetivo \xE9 ser o melhor vendedor iniciante que esse dono de neg\xF3cio j\xE1 viu: r\xE1pido, educado, \xFAtil, humano e que n\xE3o enche o saco.
@@ -549,7 +553,11 @@ function validateReply(text, recentBot) {
   if (/[{}\[\]]|\bnull\b|undefined/i.test(t)) return "tem chave, colchete ou campo vazio";
   if (/\bLead\b|Em qualificação/.test(t)) return "usou r\xF3tulo interno no lugar do nome";
   if (/reunião|sem pressão|sem compromisso|se não for o momento|só passando/i.test(t)) return "usou frase proibida";
-  if (t.split(/\s+/).length > 22) return "mensagem longa demais";
+  if (/perdendo cliente|você perde|vocês perdem|vai perder|está perdendo|como posso ajudar|tudo certo com você|procurei (você|vocês) no google|quem (é|cuida|decide|resolve|responde)|você é (o|a) respons|quem é o respons/i.test(t)) return "usou frase que trava a conversa";
+  const bubbles = t.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  if (bubbles.length > 2) return "mais de duas mensagens";
+  if (bubbles.some((b) => b.split(/\s+/).length > 22)) return "mensagem longa demais";
+  if (t.split(/\s+/).length > 36) return "mensagem longa demais";
   if ((t.match(/\?/g) || []).length > 1) return "mais de uma pergunta";
   const norm2 = (x) => new Set(x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 2));
   const a = norm2(t);
@@ -936,6 +944,36 @@ async function fetchEvolutionMedia(messageKey, message) {
 }
 var OPT_OUT_REGEX = /(não tenho interesse|nao tenho interesse|pare de (me )?mandar|para de (me )?mandar|pare de (me )?enviar|para de (me )?enviar|remove (meu|o meu) (contato|número|numero)|remover (meu )?contato|tirar (me|meu contato) da lista|não me (mande|envie|chame)|nao me (mande|envie|chame)|denunciar|desinscrever|me (tira|tire|remove) (daí|daqui|da lista)|nunca mais|^\s*(parar|stop|sair|cancelar)\s*[.!]*\s*$)/i;
 
+// api/lib/bubbles.ts
+function splitBubbles(text) {
+  return text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean).slice(0, 2);
+}
+var sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+var typingFor = (t) => Math.min(7e3, Math.max(2e3, t.length * 45));
+async function sendLeadReply(phone, text, opts = {}) {
+  const parts = splitBubbles(text);
+  if (!parts.length) return { success: false, error: "mensagem vazia" };
+  for (let i = 0; i < parts.length; i++) {
+    const typingMs = typingFor(parts[i]);
+    if (i === 0 && opts.preWait) await sleep(typingMs * 2);
+    const send = await sendEvolutionText(phone, parts[i], typingMs);
+    if (!send.success) return { success: false, error: send.error };
+    if (send.messageId) await db.markMessageAsProcessed(send.messageId);
+    await db.saveMessage({
+      id: `out-${send.messageId || Date.now()}-${i}`,
+      contactPhone: phone,
+      from: "bot",
+      text: parts[i],
+      type: "text",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      metaMessageId: send.messageId,
+      status: "sent"
+    });
+    if (i < parts.length - 1) await sleep(1200);
+  }
+  return { success: true };
+}
+
 // api/lib/catchup.ts
 var TICK_MS = 6e4;
 var MAX_AGE_MS = 12 * 60 * 6e4;
@@ -969,12 +1007,9 @@ async function tick() {
     }
     const ai = await generateGirofyCommercialReply(contact, { text: last.text }, msgs.slice(0, -1));
     if (!ai.aiAvailable) return;
-    const typingMs = Math.min(7e3, Math.max(2e3, ai.replyText.length * 45));
-    const send = await sendEvolutionText(phone, ai.replyText, typingMs);
-    if (!send.success) return;
-    if (send.messageId) await db.markMessageAsProcessed(send.messageId);
+    const sent = await sendLeadReply(phone, ai.replyText);
+    if (!sent.success) return;
     const now = (/* @__PURE__ */ new Date()).toISOString();
-    await db.saveMessage({ id: `out-catchup-${send.messageId || Date.now()}`, contactPhone: phone, from: "bot", text: ai.replyText, type: "text", timestamp: now, metaMessageId: send.messageId, status: "sent" });
     if (ai.transferToHuman) await db.saveContact({ ...contact, agentState: "human_takeover", status: "aguardando_humano", lastInteractionAt: now });
     else await db.saveContact({ ...contact, lastInteractionAt: now });
     await db.addAuditLog({ type: "ai_reply", phone, summary: `Resposta atrasada enviada para ${phone} (estava na fila da IA).` });
@@ -2583,23 +2618,9 @@ async function handleUpsert(d) {
   } else if (ai.isMeetingRequested) {
     await db.saveContact({ ...contact, status: "reuniao_marcada", lastInteractionAt: now });
   }
-  const typingMs = Math.min(7e3, Math.max(2e3, ai.replyText.length * 45));
-  await new Promise((r) => setTimeout(r, typingMs * 2));
-  const send = await sendEvolutionText(phone, ai.replyText, typingMs);
-  if (send.success) {
-    if (send.messageId) await db.markMessageAsProcessed(send.messageId);
-    await db.saveMessage({
-      id: `out-${send.messageId || Date.now()}`,
-      contactPhone: phone,
-      from: "bot",
-      text: ai.replyText,
-      type: "text",
-      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-      metaMessageId: send.messageId,
-      status: "sent"
-    });
-  } else {
-    await db.addAuditLog({ type: "error", phone, summary: `Falha ao responder ${phone}: ${send.error}` });
+  const sent = await sendLeadReply(phone, ai.replyText, { preWait: true });
+  if (!sent.success) {
+    await db.addAuditLog({ type: "error", phone, summary: `Falha ao responder ${phone}: ${sent.error}` });
   }
 }
 async function handler10(req, res) {

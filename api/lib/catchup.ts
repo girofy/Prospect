@@ -2,7 +2,7 @@
 // A cada minuto, o sistema tenta responder o primeiro da fila. Se a IA ainda estiver fora, espera.
 import { db } from './db';
 import { generateGirofyCommercialReply } from './gemini';
-import { sendEvolutionText } from './evolution';
+import { sendLeadReply } from './bubbles';
 import { ChatMessage } from './types';
 
 const TICK_MS = 60_000;
@@ -44,13 +44,10 @@ async function tick(): Promise<void> {
     const ai = await generateGirofyCommercialReply(contact, { text: last.text }, msgs.slice(0, -1));
     if (!ai.aiAvailable) return; // IA ainda fora: fica na fila para a próxima rodada
 
-    const typingMs = Math.min(7000, Math.max(2000, ai.replyText.length * 45));
-    const send = await sendEvolutionText(phone, ai.replyText, typingMs);
-    if (!send.success) return; // falha de envio: tenta de novo na próxima rodada
+    const sent = await sendLeadReply(phone, ai.replyText);
+    if (!sent.success) return; // falha de envio: tenta de novo na próxima rodada
 
-    if (send.messageId) await db.markMessageAsProcessed(send.messageId);
     const now = new Date().toISOString();
-    await db.saveMessage({ id: `out-catchup-${send.messageId || Date.now()}`, contactPhone: phone, from: 'bot', text: ai.replyText, type: 'text', timestamp: now, metaMessageId: send.messageId, status: 'sent' } as ChatMessage);
     if (ai.transferToHuman) await db.saveContact({ ...contact, agentState: 'human_takeover', status: 'aguardando_humano', lastInteractionAt: now });
     else await db.saveContact({ ...contact, lastInteractionAt: now });
     await db.addAuditLog({ type: 'ai_reply', phone, summary: `Resposta atrasada enviada para ${phone} (estava na fila da IA).` });

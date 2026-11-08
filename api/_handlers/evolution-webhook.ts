@@ -8,6 +8,7 @@ import { sendEvolutionText, fetchEvolutionMedia, OPT_OUT_REGEX } from '../lib/ev
 import { getProspectStats } from '../lib/prospector';
 import { transcribeAudio } from '../lib/transcribe';
 import { markPending } from '../lib/catchup';
+import { sendLeadReply } from '../lib/bubbles';
 import { isOwner, handleOwnerMessage, OWNER_PHONE } from '../lib/owner';
 
 // Aviso para o dono quando um lead mostra interesse de compra (no máximo um aviso a cada 30 min por contato).
@@ -177,24 +178,10 @@ async function handleUpsert(d: any) {
   }
 
   // Envio pela Evolution com "digitando" proporcional ao tamanho (≈ 45 ms por letra, entre 2 s e 7 s).
-  // Ritmo de gente: espera o dobro do "digitando" antes de começar a digitar (total ≈ 3x).
-  const typingMs = Math.min(7000, Math.max(2000, ai.replyText.length * 45));
-  await new Promise(r => setTimeout(r, typingMs * 2));
-  const send = await sendEvolutionText(phone, ai.replyText, typingMs);
-  if (send.success) {
-    if (send.messageId) await db.markMessageAsProcessed(send.messageId); // eco do envio não vira "manual"
-    await db.saveMessage({
-      id: `out-${send.messageId || Date.now()}`,
-      contactPhone: phone,
-      from: 'bot',
-      text: ai.replyText,
-      type: 'text',
-      timestamp: new Date().toISOString(),
-      metaMessageId: send.messageId,
-      status: 'sent',
-    });
-  } else {
-    await db.addAuditLog({ type: 'error', phone, summary: `Falha ao responder ${phone}: ${send.error}` });
+  // Envia em até duas mensagens seguidas, com ritmo de gente (≈ 3x o tempo de digitação antes da primeira).
+  const sent = await sendLeadReply(phone, ai.replyText, { preWait: true });
+  if (!sent.success) {
+    await db.addAuditLog({ type: 'error', phone, summary: `Falha ao responder ${phone}: ${sent.error}` });
   }
 }
 
