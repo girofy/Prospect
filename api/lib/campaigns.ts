@@ -106,3 +106,36 @@ export async function campaignStats() {
     hoje: { enviadas: cfg.prospectDay ? cfg.prospectSentToday || 0 : 0 },
   };
 }
+
+// Detalhe de uma campanha: cada empresa e em que ponto do funil ela está.
+export async function campaignDetail(id: string) {
+  const list = await getCampaigns();
+  const camp = list.find(c => c.id === id);
+  if (!camp) return null;
+  const [contacts, messages] = await Promise.all([db.getContacts(), db.getMessages()]);
+  const cbyKey = new Map(contacts.map(c => [last8(c.phone), c]));
+  const info = new Map<string, { bot: number; human: number; hot: boolean; firstBot?: string; last?: string; lastText?: string }>();
+  for (const m of messages) {
+    const k = last8(m.contactPhone);
+    const e = info.get(k) || { bot: 0, human: 0, hot: false };
+    if (m.from === 'bot') { e.bot++; if (!e.firstBot) e.firstBot = m.timestamp; }
+    else if (m.from === 'lead' && !AUTO_RE.test(m.text || '')) { e.human++; if (PRICE_RE.test(m.text || '')) e.hot = true; }
+    if (!e.last || m.timestamp > e.last) { e.last = m.timestamp; e.lastText = (m.text || '').slice(0, 90); }
+    info.set(k, e);
+  }
+  const rows = camp.phones.map(p => {
+    const k = last8(p);
+    const c = cbyKey.get(k);
+    const e = info.get(k);
+    let estado = 'na fila';
+    if (c && (c.optOutDetected || c.status === 'bloqueado')) estado = 'pediu para sair';
+    else if (c && c.status === 'reuniao_marcada') estado = 'fechou';
+    else if (e && e.hot) estado = 'interesse';
+    else if (e && e.human > 1) estado = 'conversando';
+    else if (e && e.human > 0) estado = 'respondeu';
+    else if (e && e.bot > 0) estado = 'enviada';
+    else if (c && c.status !== 'novo') estado = 'já tinha conversa';
+    return { phone: p, empresa: c && c.company && c.company !== 'Em qualificação' ? c.company : (c ? c.name : p), estado, ultima: e?.lastText || '', quando: e?.last || '' };
+  });
+  return { campaign: camp, contatos: rows };
+}

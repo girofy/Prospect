@@ -1133,7 +1133,7 @@ export default function App() {
 
               {/* Widget 3: Micro-Disparos Frios (5 a 10 contatos) */}
               <div 
-                onClick={() => setShowCampaignModal(true)}
+                onClick={() => { try { localStorage.setItem('girofy_ia_tab', 'campanhas'); } catch { /* sem storage */ } setActiveTab('ia'); }}
                 className="apple-widget p-4 sm:p-5 flex flex-col justify-between cursor-pointer hover:border-[#FF9500]/40 active:scale-[0.98] transition-all bg-white"
               >
                 <div className="flex items-center justify-between mb-3">
@@ -1141,15 +1141,15 @@ export default function App() {
                     <Send className="w-5 h-5 stroke-[2.2]" />
                   </div>
                   <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#FF9500]/10 text-[#FF9500] flex items-center gap-1">
-                    5–10 leads
+                    Abrir
                   </span>
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-[#1D1D1F] leading-snug">
-                    Micro-Disparos
+                    Campanhas
                   </h3>
                   <p className="text-xs text-zinc-500 font-medium mt-0.5">
-                    Delay seguro 25s · Grátis
+                    Listas, missão e funil
                   </p>
                 </div>
               </div>

@@ -1,10 +1,17 @@
-import { getCampaigns, saveCampaigns, campaignStats, importRows, activeCampaign, Campaign } from '../lib/campaigns';
+import { getCampaigns, saveCampaigns, campaignStats, campaignDetail, importRows, Campaign } from '../lib/campaigns';
 import { db } from '../lib/db';
 
 // Painel de campanhas. Protegido pelo login (ver api/index.ts).
 export default async function handler(req: any, res: any) {
   try {
-    if (req.method === 'GET') return res.status(200).json(await campaignStats());
+    if (req.method === 'GET') {
+      const id = new URL(req.url || '/', 'http://localhost').searchParams.get('id');
+      if (id) {
+        const d = await campaignDetail(id);
+        return d ? res.status(200).json(d) : res.status(404).json({ error: 'Campanha não encontrada' });
+      }
+      return res.status(200).json(await campaignStats());
+    }
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
     const b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
     const list = await getCampaigns();
@@ -55,6 +62,12 @@ export default async function handler(req: any, res: any) {
       camp.status = 'ativa';
       await saveCampaigns(list);
       return res.status(200).json({ ok: true, fila });
+    }
+    if (b.action === 'removePhone') {
+      const k = String(b.phone || '').slice(-8);
+      camp.phones = camp.phones.filter(p => p.slice(-8) !== k);
+      await saveCampaigns(list);
+      return res.status(200).json({ ok: true });
     }
     if (b.action === 'pause') {
       camp.status = 'pausada';
