@@ -1,3 +1,4 @@
+import { startCatchup } from './api/lib/catchup';
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
@@ -117,5 +118,6 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`[Prospectfy Production Server] running on http://0.0.0.0:${PORT}`);
   startProspector();
+  startCatchup();
   startLearning();
 });

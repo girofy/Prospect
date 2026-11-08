@@ -1,9 +1,3 @@
-// server.ts
-import http from "http";
-import fs2 from "fs";
-import path2 from "path";
-import { fileURLToPath } from "url";
-
 // api/lib/supabaseClient.ts
 import { createClient } from "@supabase/supabase-js";
 var client = null;
@@ -428,180 +422,6 @@ var db = {
   }
 };
 
-// api/lib/whatsapp.ts
-import crypto from "crypto";
-var AUTHORIZED_BUSINESS_NUMBER = "557488126578";
-var DEFAULT_PHONE_NUMBER_ID = "1221241567748320";
-var DEFAULT_APP_ID = "1572840733789529";
-var DEFAULT_BUSINESS_ID = "1232106109979142";
-function getMetaConfig() {
-  const dynamicConfig = db.getConfigSync();
-  const token = dynamicConfig.metaAccessToken || process.env.META_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || "";
-  const phoneNumberId = dynamicConfig.metaPhoneNumberId || process.env.META_PHONE_NUMBER_ID || process.env.PHONE_NUMBER_ID || DEFAULT_PHONE_NUMBER_ID;
-  const appSecret = dynamicConfig.metaAppSecret || process.env.META_APP_SECRET || "";
-  const verifyToken = dynamicConfig.webhookVerifyToken || process.env.META_WEBHOOK_VERIFY_TOKEN || process.env.WEBHOOK_VERIFY_TOKEN || "impossivel2008";
-  return {
-    token: token.trim().replace(/^Bearer\s+/i, ""),
-    phoneNumberId: phoneNumberId.trim(),
-    appSecret: appSecret.trim(),
-    verifyToken: verifyToken.trim(),
-    isConfigured: Boolean(token.trim()),
-    autoReplyEnabled: dynamicConfig.autoReplyEnabled !== false
-  };
-}
-function validateXHubSignature(rawBody, signatureHeader) {
-  const { appSecret } = getMetaConfig();
-  if (!appSecret) {
-    return true;
-  }
-  if (!signatureHeader) {
-    return false;
-  }
-  const parts = signatureHeader.split("=");
-  if (parts.length !== 2 || parts[0] !== "sha256") {
-    return false;
-  }
-  const expectedSignature = parts[1];
-  try {
-    const hmac = crypto.createHmac("sha256", appSecret);
-    const calculatedSignature = hmac.update(rawBody, "utf-8").digest("hex");
-    const expectedBuffer = Buffer.from(expectedSignature, "hex");
-    const calculatedBuffer = Buffer.from(calculatedSignature, "hex");
-    if (expectedBuffer.length !== calculatedBuffer.length) {
-      return false;
-    }
-    return crypto.timingSafeEqual(expectedBuffer, calculatedBuffer);
-  } catch (err) {
-    console.error("[WhatsApp Security] Error validating signature:", err);
-    return false;
-  }
-}
-function formatPhoneNumber(phone) {
-  let cleaned = phone.replace(/\D/g, "");
-  if (cleaned.length === 10 || cleaned.length === 11) {
-    cleaned = `55${cleaned}`;
-  }
-  if (cleaned.length === 12 && cleaned.startsWith("55")) {
-    const ddd = cleaned.slice(2, 4);
-    const rest = cleaned.slice(4);
-    if (rest.length === 8 && /^[6-9]/.test(rest)) {
-      cleaned = `55${ddd}9${rest}`;
-    }
-  }
-  return cleaned;
-}
-function isSelfMessage(from) {
-  const cleanFrom = from.replace(/\D/g, "");
-  const cleanBusiness = AUTHORIZED_BUSINESS_NUMBER.replace(/\D/g, "");
-  const { phoneNumberId } = getMetaConfig();
-  return cleanFrom === cleanBusiness || cleanFrom === phoneNumberId;
-}
-async function sendWhatsAppTextMessage(recipientPhone, text) {
-  const { token, phoneNumberId, isConfigured } = getMetaConfig();
-  if (!isConfigured) {
-    return {
-      success: false,
-      error: "META_ACCESS_TOKEN n\xE3o configurado no servidor. Adicione a vari\xE1vel de ambiente na Vercel."
-    };
-  }
-  const cleanRecipient = formatPhoneNumber(recipientPhone);
-  try {
-    const response = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(phoneNumberId)}/messages`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: cleanRecipient,
-        type: "text",
-        text: {
-          preview_url: false,
-          body: text
-        }
-      })
-    });
-    const data = await response.json();
-    if (!response.ok || data.error) {
-      const errorMsg = data.error?.message || `HTTP ${response.status}`;
-      const errorCode = data.error?.code;
-      let guidance = errorMsg;
-      if (errorCode === 131047) {
-        guidance = "Janela de 24 horas expirada. A Meta exige um template aprovado para reabrir conversa comercial.";
-      } else if (errorCode === 190) {
-        guidance = "Token de Acesso da Meta expirado ou inv\xE1lido. Necess\xE1rio gerar novo token permanente na Meta Developers.";
-      } else if (errorCode === 130429) {
-        guidance = "Limite de taxa (Rate Limit) da API do WhatsApp atingido. Aguarde alguns instantes.";
-      }
-      console.error(`[WhatsApp API Error] Code ${errorCode}: ${guidance}`);
-      return { success: false, error: guidance };
-    }
-    const messageId = data.messages?.[0]?.id;
-    return { success: true, messageId };
-  } catch (err) {
-    console.error("[WhatsApp Network Error]", err?.message);
-    return { success: false, error: err?.message || "Falha na comunica\xE7\xE3o com a Graph API da Meta" };
-  }
-}
-async function markWhatsAppMessageAsRead(messageId) {
-  const { token, phoneNumberId, isConfigured } = getMetaConfig();
-  if (!isConfigured || !messageId) return false;
-  try {
-    const res = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(phoneNumberId)}/messages`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        status: "read",
-        message_id: messageId
-      })
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-async function getWhatsAppNumberStatus() {
-  const { token, phoneNumberId, isConfigured } = getMetaConfig();
-  if (!isConfigured) {
-    return {
-      configured: false,
-      error: "Token da Meta n\xE3o configurado no ambiente Vercel/Node."
-    };
-  }
-  try {
-    const res = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(phoneNumberId)}`, {
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Accept": "application/json"
-      }
-    });
-    const data = await res.json();
-    if (data.error) {
-      return {
-        configured: true,
-        error: data.error.message
-      };
-    }
-    return {
-      configured: true,
-      verifiedName: data.verified_name || "N\xFAmero Meta Verificado",
-      displayPhoneNumber: data.display_phone_number || "+55 74 8812-6578",
-      qualityRating: data.quality_rating || "GREEN"
-    };
-  } catch (err) {
-    return {
-      configured: true,
-      error: err?.message || "Falha ao consultar Graph API"
-    };
-  }
-}
-
 // api/lib/gemini.ts
 import fs from "fs";
 import path from "path";
@@ -686,8 +506,10 @@ SA\xCDDA: responda SOMENTE com o texto da mensagem que vai para o WhatsApp.
 Se for passar a conversa para o C\xE9sar, escreva a mensagem e, no fim, [TRANSF_HUMANO: motivo].
 Se a pessoa pedir para parar, confirme em uma frase e n\xE3o escreva mais nada.
 `;
-var GROQ_KNOWLEDGE_CHARS = 2500;
-var GROQ_LESSONS = 4;
+var GROQ_KNOWLEDGE_CHARS = 1500;
+var GROQ_LESSONS = 2;
+var HISTORY_CHARS_FULL = 9e3;
+var HISTORY_CHARS_GROQ = 1500;
 var KNOWLEDGE_MAX_CHARS = 3e4;
 var knowledgeCache = null;
 async function loadKnowledge() {
@@ -880,13 +702,24 @@ async function generateOnce(contact, incoming, history) {
     const recent = history.slice(-12);
     const opening = history.length > 12 ? history.slice(0, 3) : [];
     const recentBot = recent.filter((m) => m.from === "bot").slice(-4).map((m) => `- "${m.text}"`).join("\n");
-    const transcript2 = recent.map((m) => {
-      const who = m.from === "bot" ? "Voc\xEA" : m.from === "operator" ? "C\xE9sar (humano)" : "Pessoa";
-      return `${who}: ${m.text}`;
-    }).join("\n");
+    const transcriptFor = (budget) => {
+      const lines = [];
+      let used = 0;
+      for (let i = history.length - 1; i >= 0 && lines.length < 80; i--) {
+        const m = history[i];
+        const who = m.from === "bot" ? "Voc\xEA" : m.from === "operator" ? "C\xE9sar (humano)" : "Pessoa";
+        const line = `${who}: ${m.text}`;
+        if (used + line.length > budget) break;
+        lines.unshift(line);
+        used += line.length + 1;
+      }
+      return lines.join("\n");
+    };
+    const transcriptFull = transcriptFor(HISTORY_CHARS_FULL);
+    const transcriptSlim = transcriptFor(HISTORY_CHARS_GROQ);
     const knowledge = await loadKnowledge();
     const learnings = await db.getTopLearnings(8);
-    const buildPrompt = (knowledge2, lessons) => `
+    const buildPrompt = (knowledge2, lessons, transcriptText) => `
 ${SYSTEM_PROMPT}
 ${cfg.pixKey && cfg.pixEnabled ? `
 CHAVE PIX DA GIROFY (use s\xF3 quando a pessoa disser que quer pagar agora): ${cfg.pixKey}
@@ -910,7 +743,7 @@ SUAS \xDALTIMAS MENSAGENS (n\xE3o repita nenhuma destas ideias):
 ${recentBot || "(nenhuma ainda)"}
 
 CONVERSA RECENTE:
-${transcript2 || "(in\xEDcio da conversa)"}
+${transcriptText || "(in\xEDcio da conversa)"}
 
 ${incoming.followup ? `SITUA\xC7\xC3O: a pessoa n\xE3o respondeu \xE0 sua \xFAltima mensagem. Escreva o follow-up n\xFAmero ${incoming.followup} (no m\xE1ximo 3 no total).
 Regras do follow-up: use um \xE2ngulo NOVO (n\xE3o repita a observa\xE7\xE3o anterior), termine com uma pergunta de escolha de duas sa\xEDdas, curto. Nunca escreva "s\xF3 passando pra lembrar" nem "voc\xEA viu minha mensagem?". Se ela j\xE1 tinha respondido antes, retome o ponto em que ela parou.` : `NOVA MENSAGEM DA PESSOA:
@@ -918,8 +751,8 @@ Regras do follow-up: use um \xE2ngulo NOVO (n\xE3o repita a observa\xE7\xE3o ant
 
 Responda s\xF3 com o texto da pr\xF3xima mensagem para o WhatsApp.
 `;
-    const promptFull = buildPrompt(knowledge, learnings);
-    const promptSlim = buildPrompt(knowledge.slice(0, GROQ_KNOWLEDGE_CHARS), learnings.slice(0, GROQ_LESSONS).map((l) => l.slice(0, 220)));
+    const promptFull = buildPrompt(knowledge, learnings, transcriptFull);
+    const promptSlim = buildPrompt(knowledge.slice(0, GROQ_KNOWLEDGE_CHARS), learnings.slice(0, GROQ_LESSONS).map((l) => l.slice(0, 220)), transcriptSlim);
     const recentBotTexts = recent.filter((m) => m.from === "bot").slice(-4).map((m) => m.text);
     let rawText = "";
     let lastProblem = "";
@@ -934,7 +767,7 @@ SUA TENTATIVA ANTERIOR FOI RECUSADA: ${lastProblem}. Escreva outra mensagem, com
         } catch (err) {
           const msg = String(err?.message || err);
           console.error(`[IA] ${item.provider}/${item.model} falhou:`, msg.slice(0, 300));
-          if (err?.status === 429 || /429|RESOURCE_EXHAUSTED|quota|rate limit/i.test(msg)) await pauseModel(item, err?.pauseMs ?? pauseMsFrom(msg));
+          if (err?.status !== 413 && (err?.status === 429 || /429|RESOURCE_EXHAUSTED|quota|rate limit/i.test(msg))) await pauseModel(item, err?.pauseMs ?? pauseMsFrom(msg));
           break;
         }
         const problem = validateReply(candidate, recentBotTexts);
@@ -1038,8 +871,307 @@ Responda SOMENTE um JSON, sem texto fora dele:
   return null;
 }
 
+// api/lib/evolution.ts
+function getEvolutionCfg() {
+  const url = (process.env.EVOLUTION_URL || "").trim().replace(/\/+$/, "");
+  const apiKey = (process.env.EVOLUTION_API_KEY || "").trim();
+  const instance = (process.env.EVOLUTION_INSTANCE || "prospectfy").trim();
+  if (!url || !apiKey) return null;
+  return { url, apiKey, instance };
+}
+async function sendEvolutionText(phone, text, delayMs = 3e3) {
+  const cfg = getEvolutionCfg();
+  if (!cfg) {
+    return { success: false, error: "EVOLUTION_URL / EVOLUTION_API_KEY n\xE3o configurados" };
+  }
+  try {
+    const res = await fetch(`${cfg.url}/message/sendText/${encodeURIComponent(cfg.instance)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: cfg.apiKey },
+      body: JSON.stringify({ number: phone, text, delay: delayMs, linkPreview: false })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { success: false, error: data?.message || data?.error || `HTTP ${res.status}` };
+    }
+    return { success: true, messageId: data?.key?.id };
+  } catch (err) {
+    return { success: false, error: err?.message || "Falha de rede na Evolution" };
+  }
+}
+async function getEvolutionState() {
+  const cfg = getEvolutionCfg();
+  if (!cfg) return "unknown";
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 5e3);
+    const res = await fetch(`${cfg.url}/instance/connectionState/${encodeURIComponent(cfg.instance)}`, { headers: { apikey: cfg.apiKey }, signal: ctrl.signal });
+    clearTimeout(t);
+    if (!res.ok) return "unknown";
+    const j = await res.json();
+    const st = j?.instance?.state;
+    return st === "open" || st === "connecting" || st === "close" ? st : "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+async function fetchEvolutionMedia(messageKey, message) {
+  const cfg = getEvolutionCfg();
+  if (!cfg) return null;
+  try {
+    const res = await fetch(`${cfg.url}/chat/getBase64FromMediaMessage/${encodeURIComponent(cfg.instance)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: cfg.apiKey },
+      body: JSON.stringify({ message: { key: messageKey, message }, convertToMp4: false })
+    });
+    if (!res.ok) return null;
+    const json = await res.json().catch(() => null);
+    if (!json?.base64) return null;
+    const mimeType = String(json.mimetype || "").split(";")[0] || (message?.audioMessage ? "audio/ogg" : "image/jpeg");
+    const data = String(json.base64).replace(/^data:[^;]+;base64,/, "");
+    return { mimeType, data };
+  } catch {
+    return null;
+  }
+}
+var OPT_OUT_REGEX = /(não tenho interesse|nao tenho interesse|pare de (me )?mandar|para de (me )?mandar|pare de (me )?enviar|para de (me )?enviar|remove (meu|o meu) (contato|número|numero)|remover (meu )?contato|tirar (me|meu contato) da lista|não me (mande|envie|chame)|nao me (mande|envie|chame)|denunciar|desinscrever|me (tira|tire|remove) (daí|daqui|da lista)|nunca mais|^\s*(parar|stop|sair|cancelar)\s*[.!]*\s*$)/i;
+
+// api/lib/catchup.ts
+var TICK_MS = 6e4;
+var MAX_AGE_MS = 12 * 60 * 6e4;
+async function markPending(phone) {
+  const cfg = await db.getConfig();
+  const list = new Set(cfg.aiPendingPhones || []);
+  list.add(phone);
+  await db.saveConfig({ aiPendingPhones: [...list].slice(-50) });
+}
+async function drop(phone) {
+  const cfg = await db.getConfig();
+  await db.saveConfig({ aiPendingPhones: (cfg.aiPendingPhones || []).filter((p) => p !== phone) });
+}
+var running = false;
+async function tick() {
+  if (running) return;
+  running = true;
+  try {
+    const cfg = await db.getConfig();
+    const pending = cfg.aiPendingPhones || [];
+    if (!pending.length) return;
+    const phone = pending[0];
+    const contact = await db.getContactByPhone(phone);
+    if (!contact || contact.optOutDetected || contact.agentState !== "ai_active") return drop(phone);
+    const msgs = await db.getMessages(phone);
+    const last = msgs[msgs.length - 1];
+    if (!last || last.from !== "lead") return drop(phone);
+    if (Date.now() - Date.parse(last.timestamp) > MAX_AGE_MS) {
+      await db.addAuditLog({ type: "status_change", phone, summary: `Resposta atrasada descartada: ${phone} chamou h\xE1 mais de 12 h.` });
+      return drop(phone);
+    }
+    const ai = await generateGirofyCommercialReply(contact, { text: last.text }, msgs.slice(0, -1));
+    if (!ai.aiAvailable) return;
+    const typingMs = Math.min(7e3, Math.max(2e3, ai.replyText.length * 45));
+    const send = await sendEvolutionText(phone, ai.replyText, typingMs);
+    if (!send.success) return;
+    if (send.messageId) await db.markMessageAsProcessed(send.messageId);
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    await db.saveMessage({ id: `out-catchup-${send.messageId || Date.now()}`, contactPhone: phone, from: "bot", text: ai.replyText, type: "text", timestamp: now, metaMessageId: send.messageId, status: "sent" });
+    if (ai.transferToHuman) await db.saveContact({ ...contact, agentState: "human_takeover", status: "aguardando_humano", lastInteractionAt: now });
+    else await db.saveContact({ ...contact, lastInteractionAt: now });
+    await db.addAuditLog({ type: "ai_reply", phone, summary: `Resposta atrasada enviada para ${phone} (estava na fila da IA).` });
+    await drop(phone);
+  } catch (err) {
+    console.error("[Catchup] falhou:", err);
+  } finally {
+    running = false;
+  }
+}
+function startCatchup() {
+  setInterval(tick, TICK_MS);
+  console.log("[Catchup] fila de respostas atrasadas ativa");
+}
+
+// server.ts
+import http from "http";
+import fs2 from "fs";
+import path2 from "path";
+import { fileURLToPath } from "url";
+
+// api/lib/whatsapp.ts
+import crypto from "crypto";
+var AUTHORIZED_BUSINESS_NUMBER = "557488126578";
+var DEFAULT_PHONE_NUMBER_ID = "1221241567748320";
+var DEFAULT_APP_ID = "1572840733789529";
+var DEFAULT_BUSINESS_ID = "1232106109979142";
+function getMetaConfig() {
+  const dynamicConfig = db.getConfigSync();
+  const token = dynamicConfig.metaAccessToken || process.env.META_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || "";
+  const phoneNumberId = dynamicConfig.metaPhoneNumberId || process.env.META_PHONE_NUMBER_ID || process.env.PHONE_NUMBER_ID || DEFAULT_PHONE_NUMBER_ID;
+  const appSecret = dynamicConfig.metaAppSecret || process.env.META_APP_SECRET || "";
+  const verifyToken = dynamicConfig.webhookVerifyToken || process.env.META_WEBHOOK_VERIFY_TOKEN || process.env.WEBHOOK_VERIFY_TOKEN || "impossivel2008";
+  return {
+    token: token.trim().replace(/^Bearer\s+/i, ""),
+    phoneNumberId: phoneNumberId.trim(),
+    appSecret: appSecret.trim(),
+    verifyToken: verifyToken.trim(),
+    isConfigured: Boolean(token.trim()),
+    autoReplyEnabled: dynamicConfig.autoReplyEnabled !== false
+  };
+}
+function validateXHubSignature(rawBody, signatureHeader) {
+  const { appSecret } = getMetaConfig();
+  if (!appSecret) {
+    return true;
+  }
+  if (!signatureHeader) {
+    return false;
+  }
+  const parts = signatureHeader.split("=");
+  if (parts.length !== 2 || parts[0] !== "sha256") {
+    return false;
+  }
+  const expectedSignature = parts[1];
+  try {
+    const hmac = crypto.createHmac("sha256", appSecret);
+    const calculatedSignature = hmac.update(rawBody, "utf-8").digest("hex");
+    const expectedBuffer = Buffer.from(expectedSignature, "hex");
+    const calculatedBuffer = Buffer.from(calculatedSignature, "hex");
+    if (expectedBuffer.length !== calculatedBuffer.length) {
+      return false;
+    }
+    return crypto.timingSafeEqual(expectedBuffer, calculatedBuffer);
+  } catch (err) {
+    console.error("[WhatsApp Security] Error validating signature:", err);
+    return false;
+  }
+}
+function formatPhoneNumber(phone) {
+  let cleaned = phone.replace(/\D/g, "");
+  if (cleaned.length === 10 || cleaned.length === 11) {
+    cleaned = `55${cleaned}`;
+  }
+  if (cleaned.length === 12 && cleaned.startsWith("55")) {
+    const ddd = cleaned.slice(2, 4);
+    const rest = cleaned.slice(4);
+    if (rest.length === 8 && /^[6-9]/.test(rest)) {
+      cleaned = `55${ddd}9${rest}`;
+    }
+  }
+  return cleaned;
+}
+function isSelfMessage(from) {
+  const cleanFrom = from.replace(/\D/g, "");
+  const cleanBusiness = AUTHORIZED_BUSINESS_NUMBER.replace(/\D/g, "");
+  const { phoneNumberId } = getMetaConfig();
+  return cleanFrom === cleanBusiness || cleanFrom === phoneNumberId;
+}
+async function sendWhatsAppTextMessage(recipientPhone, text) {
+  const { token, phoneNumberId, isConfigured } = getMetaConfig();
+  if (!isConfigured) {
+    return {
+      success: false,
+      error: "META_ACCESS_TOKEN n\xE3o configurado no servidor. Adicione a vari\xE1vel de ambiente na Vercel."
+    };
+  }
+  const cleanRecipient = formatPhoneNumber(recipientPhone);
+  try {
+    const response = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(phoneNumberId)}/messages`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: cleanRecipient,
+        type: "text",
+        text: {
+          preview_url: false,
+          body: text
+        }
+      })
+    });
+    const data = await response.json();
+    if (!response.ok || data.error) {
+      const errorMsg = data.error?.message || `HTTP ${response.status}`;
+      const errorCode = data.error?.code;
+      let guidance = errorMsg;
+      if (errorCode === 131047) {
+        guidance = "Janela de 24 horas expirada. A Meta exige um template aprovado para reabrir conversa comercial.";
+      } else if (errorCode === 190) {
+        guidance = "Token de Acesso da Meta expirado ou inv\xE1lido. Necess\xE1rio gerar novo token permanente na Meta Developers.";
+      } else if (errorCode === 130429) {
+        guidance = "Limite de taxa (Rate Limit) da API do WhatsApp atingido. Aguarde alguns instantes.";
+      }
+      console.error(`[WhatsApp API Error] Code ${errorCode}: ${guidance}`);
+      return { success: false, error: guidance };
+    }
+    const messageId = data.messages?.[0]?.id;
+    return { success: true, messageId };
+  } catch (err) {
+    console.error("[WhatsApp Network Error]", err?.message);
+    return { success: false, error: err?.message || "Falha na comunica\xE7\xE3o com a Graph API da Meta" };
+  }
+}
+async function markWhatsAppMessageAsRead(messageId) {
+  const { token, phoneNumberId, isConfigured } = getMetaConfig();
+  if (!isConfigured || !messageId) return false;
+  try {
+    const res = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(phoneNumberId)}/messages`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        status: "read",
+        message_id: messageId
+      })
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+async function getWhatsAppNumberStatus() {
+  const { token, phoneNumberId, isConfigured } = getMetaConfig();
+  if (!isConfigured) {
+    return {
+      configured: false,
+      error: "Token da Meta n\xE3o configurado no ambiente Vercel/Node."
+    };
+  }
+  try {
+    const res = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(phoneNumberId)}`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Accept": "application/json"
+      }
+    });
+    const data = await res.json();
+    if (data.error) {
+      return {
+        configured: true,
+        error: data.error.message
+      };
+    }
+    return {
+      configured: true,
+      verifiedName: data.verified_name || "N\xFAmero Meta Verificado",
+      displayPhoneNumber: data.display_phone_number || "+55 74 8812-6578",
+      qualityRating: data.quality_rating || "GREEN"
+    };
+  } catch (err) {
+    return {
+      configured: true,
+      error: err?.message || "Falha ao consultar Graph API"
+    };
+  }
+}
+
 // api/_handlers/webhook.ts
-var OPT_OUT_REGEX = /(não tenho interesse|nao tenho interesse|pare de mandar|para de mandar|remove meu contato|remover contato|tirar da lista|não me mande|nao me mande|denunciar|spam|sair|desinscrever|bloqueado|nunca mais)/i;
+var OPT_OUT_REGEX2 = /(não tenho interesse|nao tenho interesse|pare de mandar|para de mandar|remove meu contato|remover contato|tirar da lista|não me mande|nao me mande|denunciar|spam|sair|desinscrever|bloqueado|nunca mais)/i;
 async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -1175,7 +1307,7 @@ async function handler(req, res) {
               };
               await db.saveMessage(incomingChatMessage);
               await markWhatsAppMessageAsRead(messageId);
-              if (OPT_OUT_REGEX.test(messageText)) {
+              if (OPT_OUT_REGEX2.test(messageText)) {
                 await db.saveContact({
                   ...contact,
                   status: "bloqueado",
@@ -1336,71 +1468,6 @@ async function handler2(req, res) {
     return res.status(500).json({ error: err?.message || "Internal Server Error" });
   }
 }
-
-// api/lib/evolution.ts
-function getEvolutionCfg() {
-  const url = (process.env.EVOLUTION_URL || "").trim().replace(/\/+$/, "");
-  const apiKey = (process.env.EVOLUTION_API_KEY || "").trim();
-  const instance = (process.env.EVOLUTION_INSTANCE || "prospectfy").trim();
-  if (!url || !apiKey) return null;
-  return { url, apiKey, instance };
-}
-async function sendEvolutionText(phone, text, delayMs = 3e3) {
-  const cfg = getEvolutionCfg();
-  if (!cfg) {
-    return { success: false, error: "EVOLUTION_URL / EVOLUTION_API_KEY n\xE3o configurados" };
-  }
-  try {
-    const res = await fetch(`${cfg.url}/message/sendText/${encodeURIComponent(cfg.instance)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: cfg.apiKey },
-      body: JSON.stringify({ number: phone, text, delay: delayMs, linkPreview: false })
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      return { success: false, error: data?.message || data?.error || `HTTP ${res.status}` };
-    }
-    return { success: true, messageId: data?.key?.id };
-  } catch (err) {
-    return { success: false, error: err?.message || "Falha de rede na Evolution" };
-  }
-}
-async function getEvolutionState() {
-  const cfg = getEvolutionCfg();
-  if (!cfg) return "unknown";
-  try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 5e3);
-    const res = await fetch(`${cfg.url}/instance/connectionState/${encodeURIComponent(cfg.instance)}`, { headers: { apikey: cfg.apiKey }, signal: ctrl.signal });
-    clearTimeout(t);
-    if (!res.ok) return "unknown";
-    const j = await res.json();
-    const st = j?.instance?.state;
-    return st === "open" || st === "connecting" || st === "close" ? st : "unknown";
-  } catch {
-    return "unknown";
-  }
-}
-async function fetchEvolutionMedia(messageKey, message) {
-  const cfg = getEvolutionCfg();
-  if (!cfg) return null;
-  try {
-    const res = await fetch(`${cfg.url}/chat/getBase64FromMediaMessage/${encodeURIComponent(cfg.instance)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: cfg.apiKey },
-      body: JSON.stringify({ message: { key: messageKey, message }, convertToMp4: false })
-    });
-    if (!res.ok) return null;
-    const json = await res.json().catch(() => null);
-    if (!json?.base64) return null;
-    const mimeType = String(json.mimetype || "").split(";")[0] || (message?.audioMessage ? "audio/ogg" : "image/jpeg");
-    const data = String(json.base64).replace(/^data:[^;]+;base64,/, "");
-    return { mimeType, data };
-  } catch {
-    return null;
-  }
-}
-var OPT_OUT_REGEX2 = /(não tenho interesse|nao tenho interesse|pare de (me )?mandar|para de (me )?mandar|pare de (me )?enviar|para de (me )?enviar|remove (meu|o meu) (contato|número|numero)|remover (meu )?contato|tirar (me|meu contato) da lista|não me (mande|envie|chame)|nao me (mande|envie|chame)|denunciar|desinscrever|me (tira|tire|remove) (daí|daqui|da lista)|nunca mais|^\s*(parar|stop|sair|cancelar)\s*[.!]*\s*$)/i;
 
 // api/_handlers/messages.ts
 async function handler3(req, res) {
@@ -1996,7 +2063,7 @@ var WINDOW_END = Number(process.env.PROSPECTOR_END_HOUR ?? 19);
 var MIN_GAP_S = Number(process.env.PROSPECTOR_MIN_GAP_S ?? 120);
 var MAX_GAP_S = Number(process.env.PROSPECTOR_MAX_GAP_S ?? 420);
 var DAILY_CAP = Number(process.env.PROSPECTOR_DAILY_CAP ?? 40);
-var TICK_MS = 15e3;
+var TICK_MS2 = 15e3;
 function bahiaNow(d = /* @__PURE__ */ new Date()) {
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat("en-CA", {
@@ -2051,10 +2118,10 @@ async function getProspectStats() {
   };
 }
 var nextAt = 0;
-var running = false;
-async function tick() {
-  if (running) return;
-  running = true;
+var running2 = false;
+async function tick2() {
+  if (running2) return;
+  running2 = true;
   try {
     if (Date.now() < nextAt) return;
     if (!getEvolutionCfg()) return;
@@ -2107,7 +2174,7 @@ async function tick() {
   } catch (err) {
     console.error("[Prospector] tick falhou:", err);
   } finally {
-    running = false;
+    running2 = false;
   }
 }
 function startProspector() {
@@ -2118,7 +2185,7 @@ function startProspector() {
   if (!getEvolutionCfg()) {
     console.warn("[Prospector] EVOLUTION_URL/EVOLUTION_API_KEY ausentes: loop iniciado, mas sem envio.");
   }
-  setInterval(tick, TICK_MS);
+  setInterval(tick2, TICK_MS2);
   console.log(
     `[Prospector] ativo. Janela ${WINDOW_START}h-${WINDOW_END}h, teto ${DAILY_CAP}/dia, intervalo ${MIN_GAP_S}-${MAX_GAP_S}s`
   );
@@ -2481,7 +2548,7 @@ async function handleUpsert(d) {
     metaMessageId: msgId,
     status: "received"
   });
-  if (OPT_OUT_REGEX2.test(text)) {
+  if (OPT_OUT_REGEX.test(text)) {
     await db.saveContact({
       ...contact,
       status: "bloqueado",
@@ -2501,6 +2568,7 @@ async function handleUpsert(d) {
   const ai = await generateGirofyCommercialReply(contact, { text: aiInput, media }, history);
   if (!ai.aiAvailable) {
     await db.saveContact({ ...contact, status: "aguardando_humano", lastInteractionAt: now });
+    if (ai.unavailableReason === "quota" || ai.unavailableReason === "error") await markPending(phone);
     const why = ai.unavailableReason === "quota" ? "cota di\xE1ria da IA atingida" : ai.unavailableReason === "no_key" ? "chave da IA n\xE3o configurada" : "erro da IA";
     await db.addAuditLog({ type: "error", phone, summary: `IA n\xE3o respondeu (${why}). Aguardando voc\xEA: ${phone}.` });
     return;
@@ -3161,7 +3229,7 @@ async function handler18(req, res) {
 
 // api/_handlers/personal-export.ts
 var job = null;
-var MAX_AGE_MS = 60 * 6e4;
+var MAX_AGE_MS2 = 60 * 6e4;
 var MAX_PAGES_PER_CHAT = 50;
 var MAX_AUDIOS = 80;
 async function evo(method, path3, body2, timeoutMs = 9e4) {
@@ -3295,7 +3363,7 @@ function view(j) {
   };
 }
 async function handler19(req, res) {
-  if (job && Date.now() - job.startedAt > MAX_AGE_MS) await closeJob();
+  if (job && Date.now() - job.startedAt > MAX_AGE_MS2) await closeJob();
   const url = new URL(req.url || "/", "http://localhost");
   if (req.method === "GET" && url.searchParams.get("download") === "1") {
     if (!job || job.status !== "ready" || !job.file) return res.status(404).json({ error: "Nada pronto para baixar." });
@@ -3514,5 +3582,6 @@ var server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`[Prospectfy Production Server] running on http://0.0.0.0:${PORT}`);
   startProspector();
+  startCatchup();
   startLearning();
 });
