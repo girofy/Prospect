@@ -31,7 +31,7 @@ export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method Not Allowed' });
   try {
     const [contacts, messages, learnings] = await Promise.all([
-      allRows('contacts', 'phone, status, opt_out_detected, created_at'),
+      allRows('contacts', 'phone, name, company, status, opt_out_detected, created_at, last_interaction_at'),
       allRows('messages', 'contact_phone, "from", type, "timestamp"'),
       allRows('learnings', 'outcome, created_at'),
     ]);
@@ -47,6 +47,37 @@ export default async function handler(req: any, res: any) {
       if (m.timestamp < c.first) { c.first = m.timestamp; c.firstFrom = m.from; }
       if (m.timestamp > c.last) c.last = m.timestamp;
       byPhone.set(m.contact_phone, c);
+    }
+
+    // Pote de biscoito: cada lead que respondeu a uma conversa nossa é uma vitória, com a data da primeira resposta.
+    const firstLead = new Map<string, string>();
+    for (const m of messages) {
+      if (m.from !== 'lead') continue;
+      const f = firstLead.get(m.contact_phone);
+      if (!f || m.timestamp < f) firstLead.set(m.contact_phone, m.timestamp);
+    }
+    const contactBy = new Map(contacts.map((c: any) => [c.phone, c]));
+    const label = (c: any, phone: string) => {
+      const company = c?.company && c.company !== 'Em qualificação' ? c.company : '';
+      const name = c?.name && !/^contato /i.test(c.name) ? c.name : '';
+      return company || name || `final ${phone.slice(-4)}`;
+    };
+    const vitorias: { quando: string; quem: string; tipo: string }[] = [];
+    for (const [phone, c] of byPhone) {
+      if (c.firstFrom === 'lead' || c.lead === 0) continue;
+      const when = firstLead.get(phone);
+      if (when) vitorias.push({ quando: when, quem: label(contactBy.get(phone), phone), tipo: 'respondeu' });
+    }
+    for (const c of contacts as any[]) {
+      if (c.status === 'reuniao_marcada') vitorias.push({ quando: c.last_interaction_at || c.created_at, quem: label(c, c.phone), tipo: 'reuniao' });
+    }
+    vitorias.sort((a, b) => (a.quando < b.quando ? 1 : -1));
+    // Abordagens por dia: conversas que nós começamos, contadas no dia da primeira mensagem.
+    const aberturas: Record<string, number> = {};
+    for (const c of byPhone.values()) {
+      if (c.firstFrom === 'lead') continue;
+      const d = bahiaDay(c.first);
+      aberturas[d] = (aberturas[d] || 0) + 1;
     }
 
     const conversas = [...byPhone.values()];
@@ -143,7 +174,10 @@ export default async function handler(req: any, res: any) {
       status,
       desfechos,
       porHora,
-      porDia: Object.entries(porDia).sort(([a], [b]) => (a < b ? -1 : 1)).slice(-30).map(([dia, v]) => ({ dia, ...v })),
+      vitorias: vitorias.slice(0, 60),
+      vitorias_total: vitorias.length,
+      aguardando_voce: (contacts as any[]).filter(c => c.status === 'aguardando_humano').length,
+      porDia: Object.entries(porDia).sort(([a], [b]) => (a < b ? -1 : 1)).slice(-35).map(([dia, v]) => ({ dia, ...v, abordagens: aberturas[dia] || 0 })),
     });
   } catch (err: any) {
     return res.status(500).json({ error: err?.message || 'Falha ao calcular métricas.' });

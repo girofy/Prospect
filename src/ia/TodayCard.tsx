@@ -75,7 +75,7 @@ export default function TodayCard() {
         </div>
         <div className={`text-right transition-transform duration-500 ${bump ? 'scale-110' : ''}`}>
           <div className={`text-[32px] leading-none font-black tabular-nums ${bump ? 'text-[#34C759]' : 'text-[#0071E3]'}`}>{s.replied}</div>
-          <div className="text-[13px] text-[#6e6e73] mt-1">responderam</div>
+          <div className="text-[13px] text-[#6e6e73] mt-1">responderam no total</div>
         </div>
       </div>
 

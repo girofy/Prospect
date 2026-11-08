@@ -1,4 +1,5 @@
 import TodayCard from './ia/TodayCard';
+import FocoCard from './ia/FocoCard';
 import IAHub from './ia/IAHub.tsx';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
@@ -1070,6 +1071,7 @@ export default function App() {
             </div>
 
             <TodayCard />
+            <FocoCard />
 
             {/* 2x2 Modular Big Action Widgets (Eliminates boxy/cramped feel) */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
