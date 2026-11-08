@@ -18,6 +18,7 @@ interface Stats {
 export default function TodayCard() {
   const [s, setS] = useState<Stats | null>(null);
   const [bump, setBump] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -26,18 +27,28 @@ export default function TodayCard() {
       fetch('/api/prospector')
         .then(r => (r.ok ? r.json() : null))
         .then((j: Stats | null) => {
-          if (!alive || !j) return;
+          if (!alive) return;
+          if (!j) { setFailed(true); return; }
+          setFailed(false);
           if (last >= 0 && j.replied > last) { setBump(true); setTimeout(() => setBump(false), 1800); }
           last = j.replied;
           setS(j);
         })
-        .catch(() => {});
+        .catch(() => { if (alive) setFailed(true); });
     load();
     const t = setInterval(load, 20_000);
     return () => { alive = false; clearInterval(t); };
   }, []);
 
-  if (!s) return <Card><div className="h-24 animate-pulse rounded-2xl bg-black/[0.04]" /></Card>;
+  if (!s) {
+    return (
+      <Card>
+        {failed
+          ? <p className="text-[14px] text-[#6e6e73]">Não consegui carregar o placar. Tentando de novo a cada 20 segundos.</p>
+          : <div className="h-24 animate-pulse rounded-2xl bg-black/[0.04]" />}
+      </Card>
+    );
+  }
 
   const pct = Math.min(100, Math.round((s.sentToday / Math.max(1, s.dailyCap)) * 100));
   const rate = s.totalContacts ? Math.round((s.replied / s.totalContacts) * 100) : 0;
@@ -58,7 +69,7 @@ export default function TodayCard() {
       <div className="flex items-end justify-between gap-3">
         <div>
           <div className="text-[40px] leading-none font-black tracking-tight tabular-nums text-[#1D1D1F]">
-            {s.sentToday}<span className="text-[20px] font-bold text-[#86868B]"> / {s.dailyCap}</span>
+            {s.sentToday}<span className="text-[20px] font-bold text-[#6e6e73]"> / {s.dailyCap}</span>
           </div>
           <div className="text-[13px] text-[#6e6e73] mt-1">abordagens enviadas</div>
         </div>
@@ -68,7 +79,7 @@ export default function TodayCard() {
         </div>
       </div>
 
-      <div className="mt-4 h-3 rounded-full bg-black/[0.06] overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+      <div className="mt-4 h-3 rounded-full bg-black/[0.06] overflow-hidden" role="progressbar" aria-label="Abordagens enviadas hoje" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
         <div className="h-full rounded-full bg-gradient-to-r from-[#0071E3] to-[#34C759] transition-[width] duration-700 ease-out" style={{ width: `${pct}%` }} />
       </div>
       <p className="text-[13px] font-semibold text-[#1D1D1F] mt-2">{goal}</p>

@@ -1667,14 +1667,14 @@ export default function App() {
               <ul className="divide-y divide-black/[0.05]">
                 {auditLogs.slice(0, 10).map(log => (
                   <li key={log.id} className="py-2.5">
-                    <div className="flex items-center justify-between gap-2 text-[11px] text-zinc-400 font-mono">
+                    <div className="flex items-center justify-between gap-2 text-[11px] text-zinc-500 font-mono">
                       <span>{log.type}</span>
                       <span>{new Date(log.timestamp).toLocaleTimeString('pt-BR')}</span>
                     </div>
                     <p className="text-[13px] text-zinc-700 leading-snug break-words line-clamp-3">{log.summary}</p>
                   </li>
                 ))}
-                {auditLogs.length === 0 && <li className="py-4 text-center text-sm text-zinc-400">Nada registrado ainda.</li>}
+                {auditLogs.length === 0 && <li className="py-4 text-center text-sm text-zinc-400">Sem atividade ainda. Envios e respostas aparecem aqui.</li>}
               </ul>
             </div>
 
