@@ -7,6 +7,7 @@ import { generateGirofyCommercialReply } from '../lib/gemini';
 import { sendEvolutionText, fetchEvolutionMedia, OPT_OUT_REGEX } from '../lib/evolution';
 import { getProspectStats } from '../lib/prospector';
 import { transcribeAudio } from '../lib/transcribe';
+import { markPending } from '../lib/catchup';
 import { isOwner, handleOwnerMessage, OWNER_PHONE } from '../lib/owner';
 
 // Aviso para o dono quando um lead mostra interesse de compra (no máximo um aviso a cada 30 min por contato).
@@ -154,6 +155,8 @@ async function handleUpsert(d: any) {
   if (!ai.aiAvailable) {
     // IA não rodou (sem chave, cota ou erro): nada improvisado. Fica sinalizado para você.
     await db.saveContact({ ...contact, status: 'aguardando_humano', lastInteractionAt: now });
+    // Lead sem resposta entra na fila: quando a IA voltar, o sistema responde a ele sozinho.
+    if (ai.unavailableReason === 'quota' || ai.unavailableReason === 'error') await markPending(phone);
     const why =
       ai.unavailableReason === 'quota' ? 'cota diária da IA atingida'
       : ai.unavailableReason === 'no_key' ? 'chave da IA não configurada'

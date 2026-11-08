@@ -26,6 +26,7 @@ export interface AppConfig {
   aiChain?: { provider: 'gemini' | 'groq'; model: string }[]; // ordem de uso dos modelos
   groqApiKey?: string;
   pixKey?: string; // chave Pix da Girofy
+  aiPendingPhones?: string[]; // leads que ficaram sem resposta da IA
   pixEnabled?: boolean; // liberado pelo César: só então o agente pode mandar a chave (depois que o valor à vista for definido)
   prospectorPaused?: boolean; // dono pausou a prospecção (respostas a leads continuam)
   ownerUnlockedUntil?: string; // (legado: senha, não é mais usado)

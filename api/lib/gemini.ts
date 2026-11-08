@@ -93,8 +93,10 @@ Se a pessoa pedir para parar, confirme em uma frase e não escreva mais nada.
 `;
 
 // Groq grátis: ~7-8 mil tokens por minuto e por requisição. Acima disso ele recusa (413), então a versão enxuta é curta.
-const GROQ_KNOWLEDGE_CHARS = 2500;
-const GROQ_LESSONS = 4;
+const GROQ_KNOWLEDGE_CHARS = 1500;
+const GROQ_LESSONS = 2;
+const HISTORY_CHARS_FULL = 9000; // histórico que vai para modelos Gemini
+const HISTORY_CHARS_GROQ = 1500; // histórico que vai para o Groq (limite por minuto)
 const KNOWLEDGE_MAX_CHARS = 30000; // ~8k tokens por mensagem; ajuste se a cota gratuita apertar
 
 // Base de conhecimento = documentos do painel (banco, ativos) + arquivos .md da pasta knowledge/ do repo.
@@ -348,18 +350,28 @@ async function generateOnce(
     const recent = history.slice(-12);
     const opening = history.length > 12 ? history.slice(0, 3) : [];
     const recentBot = recent.filter(m => m.from === 'bot').slice(-4).map(m => `- "${m.text}"`).join('\n');
-    const transcript = recent
-      .map(m => {
+    // Histórico com orçamento de caracteres: pega as mensagens mais recentes que cabem, em ordem.
+    const transcriptFor = (budget: number) => {
+      const lines: string[] = [];
+      let used = 0;
+      for (let i = history.length - 1; i >= 0 && lines.length < 80; i--) {
+        const m = history[i];
         const who = m.from === 'bot' ? 'Você' : m.from === 'operator' ? 'César (humano)' : 'Pessoa';
-        return `${who}: ${m.text}`;
-      })
-      .join('\n');
+        const line = `${who}: ${m.text}`;
+        if (used + line.length > budget) break;
+        lines.unshift(line);
+        used += line.length + 1;
+      }
+      return lines.join('\n');
+    };
+    const transcriptFull = transcriptFor(HISTORY_CHARS_FULL);
+    const transcriptSlim = transcriptFor(HISTORY_CHARS_GROQ);
 
     const knowledge = await loadKnowledge();
     const learnings = await db.getTopLearnings(8);
 
     // O Groq grátis limita ~7 mil tokens por minuto: ele recebe uma versão enxuta da base de conhecimento.
-    const buildPrompt = (knowledge: string, lessons: string[]) => `
+    const buildPrompt = (knowledge: string, lessons: string[], transcriptText: string) => `
 ${SYSTEM_PROMPT}
 ${cfg.pixKey && cfg.pixEnabled ? `\nCHAVE PIX DA GIROFY (use só quando a pessoa disser que quer pagar agora): ${cfg.pixKey}\n` : ''}${knowledge ? `\nBASE DE CONHECIMENTO DA GIROFY:\n${knowledge}\n` : ''}
 ${lessons.length ? `\nO QUE JÁ FUNCIONOU E NÃO FUNCIONOU (aprendido de conversas anteriores, use como guia):\n${lessons.map(l => `- ${l}`).join('\n')}\n` : ''}
@@ -375,7 +387,7 @@ SUAS ÚLTIMAS MENSAGENS (não repita nenhuma destas ideias):
 ${recentBot || '(nenhuma ainda)'}
 
 CONVERSA RECENTE:
-${transcript || '(início da conversa)'}
+${transcriptText || '(início da conversa)'}
 
 ${incoming.followup
   ? `SITUAÇÃO: a pessoa não respondeu à sua última mensagem. Escreva o follow-up número ${incoming.followup} (no máximo 3 no total).
@@ -384,8 +396,8 @@ Regras do follow-up: use um ângulo NOVO (não repita a observação anterior), 
 
 Responda só com o texto da próxima mensagem para o WhatsApp.
 `;
-    const promptFull = buildPrompt(knowledge, learnings);
-    const promptSlim = buildPrompt(knowledge.slice(0, GROQ_KNOWLEDGE_CHARS), learnings.slice(0, GROQ_LESSONS).map(l => l.slice(0, 220)));
+    const promptFull = buildPrompt(knowledge, learnings, transcriptFull);
+    const promptSlim = buildPrompt(knowledge.slice(0, GROQ_KNOWLEDGE_CHARS), learnings.slice(0, GROQ_LESSONS).map(l => l.slice(0, 220)), transcriptSlim);
 
     const recentBotTexts = recent.filter(m => m.from === 'bot').slice(-4).map(m => m.text);
 
@@ -406,7 +418,8 @@ Responda só com o texto da próxima mensagem para o WhatsApp.
         } catch (err: any) {
           const msg = String(err?.message || err);
           console.error(`[IA] ${item.provider}/${item.model} falhou:`, msg.slice(0, 300));
-          if (err?.status === 429 || /429|RESOURCE_EXHAUSTED|quota|rate limit/i.test(msg)) await pauseModel(item, err?.pauseMs ?? pauseMsFrom(msg));
+          // 413 = pedido grande demais para o modelo: não é limite de uso, então não pausa o modelo.
+          if (err?.status !== 413 && (err?.status === 429 || /429|RESOURCE_EXHAUSTED|quota|rate limit/i.test(msg))) await pauseModel(item, err?.pauseMs ?? pauseMsFrom(msg));
           break; // próximo modelo da cadeia
         }
         const problem = validateReply(candidate, recentBotTexts);
