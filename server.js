@@ -985,17 +985,17 @@ async function sendLeadReply(phone, text, opts = {}) {
   for (let i = 0; i < parts.length; i++) {
     const typingMs = typingFor(parts[i]);
     if (i === 0 && opts.preWait) await sleep(Math.max(typingMs * 2, 8e3));
-    const send = await sendEvolutionText(phone, parts[i], typingMs);
-    if (!send.success) return { success: false, error: send.error };
-    if (send.messageId) await db.markMessageAsProcessed(send.messageId);
+    const send2 = await sendEvolutionText(phone, parts[i], typingMs);
+    if (!send2.success) return { success: false, error: send2.error };
+    if (send2.messageId) await db.markMessageAsProcessed(send2.messageId);
     await db.saveMessage({
-      id: `out-${send.messageId || Date.now()}-${i}`,
+      id: `out-${send2.messageId || Date.now()}-${i}`,
       contactPhone: phone,
       from: "bot",
       text: parts[i],
       type: "text",
       timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-      metaMessageId: send.messageId,
+      metaMessageId: send2.messageId,
       status: "sent"
     });
     if (i < parts.length - 1) await sleep(1200);
@@ -3725,6 +3725,89 @@ async function handler20(req, res) {
   return res.status(404).json({ error: "Endpoint n\xE3o encontrado", path: urlPath });
 }
 
+// api/lib/backup.ts
+var URL_ = (process.env.BACKUP_URL || "").trim().replace(/\/+$/, "");
+var KEY = (process.env.BACKUP_KEY || "").trim();
+var EVERY_MS = Number(process.env.BACKUP_EVERY_MIN ?? 60) * 6e4;
+var BATCH = 100;
+var SPECS = [
+  { table: "messages", id: "id", since: "timestamp" },
+  { table: "audit_logs", id: "id", since: "timestamp" },
+  { table: "learnings", id: "id", since: "created_at" },
+  { table: "knowledge_docs", id: "id" },
+  // poucos documentos: sempre inteiros
+  { table: "contacts", id: "phone" }
+  // mudam o tempo todo: sempre inteiros (centenas de linhas)
+];
+async function send(table, rows) {
+  for (let i = 0; i < rows.length; i += BATCH) {
+    const res = await fetch(URL_, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-girofy-key": KEY },
+      body: JSON.stringify({ table, rows: rows.slice(i, i + BATCH) }),
+      signal: AbortSignal.timeout(3e4)
+    });
+    if (!res.ok) throw new Error(`backup ${table}: HTTP ${res.status}`);
+  }
+}
+async function fetchRows(spec, since) {
+  const all = [];
+  for (let from = 0; ; from += 1e3) {
+    let q = supabase().from(spec.table).select("*").range(from, from + 999);
+    if (spec.since) {
+      q = q.order(spec.since, { ascending: true });
+      if (since) q = q.gt(spec.since, since);
+    }
+    const { data, error } = await q;
+    if (error) throw new Error(`${spec.table}: ${error.message}`);
+    if (!data?.length) break;
+    all.push(...data);
+    if (data.length < 1e3) break;
+  }
+  return all;
+}
+function cleanConfig(cfg) {
+  return Object.fromEntries(Object.entries(cfg).filter(([k]) => !/key|token|secret|password|pix/i.test(k)));
+}
+var running4 = false;
+async function runBackup() {
+  if (!URL_ || !KEY || running4) return null;
+  running4 = true;
+  const saved = {};
+  try {
+    const cfg = await db.getConfig();
+    const marks = { ...cfg.backupMarks || {} };
+    for (const spec of SPECS) {
+      const rows = await fetchRows(spec, marks[spec.table] || null);
+      if (!rows.length) {
+        saved[spec.table] = 0;
+        continue;
+      }
+      await send(spec.table, rows.map((r) => ({ id: String(r[spec.id]), data: r })));
+      saved[spec.table] = rows.length;
+      if (spec.since) marks[spec.table] = String(rows[rows.length - 1][spec.since]);
+    }
+    await send("app_config", [{ id: "config", data: cleanConfig(cfg) }]);
+    await db.saveConfig({ backupMarks: marks, backupAt: (/* @__PURE__ */ new Date()).toISOString() });
+    console.log("[Backup] ok", JSON.stringify(saved));
+    return { saved };
+  } catch (err) {
+    console.warn("[Backup] falhou:", err);
+    return null;
+  } finally {
+    running4 = false;
+  }
+}
+function startBackup() {
+  if (!URL_ || !KEY) {
+    console.log("[Backup] desligado (BACKUP_URL/BACKUP_KEY ausentes)");
+    return;
+  }
+  setTimeout(() => void runBackup(), 6e4);
+  setInterval(() => void runBackup(), EVERY_MS);
+  console.log(`[Backup] ativo, a cada ${EVERY_MS / 6e4} min`);
+}
+
 // server.ts
 var __filename = fileURLToPath(import.meta.url);
 var __dirname = path2.dirname(__filename);
@@ -3826,4 +3909,5 @@ server.listen(PORT, () => {
   startCatchup();
   startReminders();
   startLearning();
+  startBackup();
 });

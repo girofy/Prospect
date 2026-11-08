@@ -19,6 +19,8 @@ export interface AppConfig {
   directPairingConnectedAt?: string;
   prospectDay?: string; // dia (America/Bahia) da contagem de abordagens
   prospectSentToday?: number;
+  backupMarks?: Record<string, string>; // até onde cada tabela já foi copiada para o backup
+  backupAt?: string;
   ownerNotice?: Record<string, string>; // avisos automáticos já mandados ao dono (tipo -> dia), para não repetir
   aiUsageDay?: string; // dia da contagem de chamadas da IA (cota gratuita)
   aiUsageCount?: number;
