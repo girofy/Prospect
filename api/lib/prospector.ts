@@ -1,7 +1,7 @@
 // Agente de prospecção ativa: roda dentro do processo do servidor (sem depender do navegador).
 // Envia abordagem fria só em horário comercial, com intervalo aleatório e teto diário.
 import { db } from './db';
-import { getEvolutionCfg, sendEvolutionText, evolutionHasHistory } from './evolution';
+import { getEvolutionCfg, sendEvolutionText, evolutionHasHistory, getEvolutionState } from './evolution';
 import { Contact } from './types';
 import { isRealBrPhone, last8 } from './phone';
 import { AUTHORIZED_BUSINESS_NUMBER } from './whatsapp';
@@ -103,6 +103,44 @@ export async function getProspectStats() {
 
 let nextAt = 0;
 let running = false;
+let failStreak = 0;
+
+const OWNER = (process.env.OWNER_PHONE || '5574981017188').replace(/\D/g, '');
+
+// Avisa o dono pelo WhatsApp uma vez por dia por tipo de aviso. Não depende do painel nem de ninguém acordado.
+async function notifyOwnerOnce(kind: string, day: string, text: string) {
+  try {
+    const cfg = await db.getConfig();
+    const sent = cfg.ownerNotice || {};
+    if (sent[kind] === day) return;
+    const r = await sendEvolutionText(OWNER, text, 800);
+    if (r.success) await db.saveConfig({ ownerNotice: { ...sent, [kind]: day } });
+    await db.addAuditLog({ type: 'status_change', summary: `Aviso ao dono (${kind}): ${text.slice(0, 120)}${r.success ? '' : ' [falhou: ' + r.error + ']'}` });
+  } catch (err) {
+    console.warn('[Prospector] aviso ao dono falhou:', err);
+  }
+}
+
+// Vigia própria do servidor: às 7h, se nada saiu, descobre o motivo e avisa o dono.
+async function watchdog() {
+  try {
+    const { day, at } = bahiaNow();
+    if (at < 7 || at >= 8 || !inWindowNow()) return;
+    const cfg = await db.getConfig();
+    const sentToday = cfg.prospectDay === day ? cfg.prospectSentToday || 0 : 0;
+    if (sentToday > 0) return;
+    let why = '';
+    if (cfg.prospectorPaused) why = 'a prospecção está pausada. Mande "retomar" aqui para ligar.';
+    else if ((await db.getContacts()).filter(isEligible).length === 0) why = 'a fila está vazia. Precisa colocar empresas novas.';
+    else {
+      const st = await getEvolutionState();
+      why = st === 'open' ? 'o WhatsApp está conectado, mas o envio falhou. Veja Ajustes, Atividade recente.' : `o WhatsApp está "${st}". Reconecte pelo painel.`;
+    }
+    await notifyOwnerOnce('nao_comecou', day, `Atenção: até as 7h nenhuma abordagem saiu hoje. Motivo: ${why}`);
+  } catch (err) {
+    console.warn('[Prospector] vigia falhou:', err);
+  }
+}
 
 async function tick() {
   if (running) return;
@@ -154,6 +192,8 @@ async function tick() {
 
     if (!res.success) {
       nextAt = Date.now() + 5 * 60_000; // backoff em falha de envio
+      failStreak++;
+      if (failStreak === 3) await notifyOwnerOnce('falhas', day, `Atenção: 3 envios seguidos falharam. Último erro: ${String(res.error).slice(0, 120)}`);
       await db.addAuditLog({
         type: 'error',
         phone: contact.phone,
@@ -163,6 +203,11 @@ async function tick() {
     }
 
     nextAt = Date.now() + rand(MIN_GAP_S, MAX_GAP_S) * 1000;
+    failStreak = 0;
+    if (sentToday === 0) {
+      const hhmm = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Bahia', hour: '2-digit', minute: '2-digit' }).format(new Date());
+      void notifyOwnerOnce('comecou', day, `Prospecção começou: a 1ª mensagem do dia saiu às ${hhmm} para ${contact.company || contact.phone}. Fila: ${queue.length - 1}.`);
+    }
     if (res.messageId) await db.markMessageAsProcessed(res.messageId); // eco do envio não vira "mensagem manual"
 
     const now = new Date().toISOString();
@@ -199,6 +244,7 @@ export function startProspector() {
     console.warn('[Prospector] EVOLUTION_URL/EVOLUTION_API_KEY ausentes: loop iniciado, mas sem envio.');
   }
   setInterval(tick, TICK_MS);
+  setInterval(watchdog, 5 * 60_000);
   console.log(
     `[Prospector] ativo. Janela ${fmtH(WINDOW_START)}-${fmtH(WINDOW_END)}, teto ${DAILY_CAP}/dia, intervalo ${MIN_GAP_S}-${MAX_GAP_S}s`
   );

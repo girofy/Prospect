@@ -1309,6 +1309,39 @@ async function getProspectStats() {
 }
 var nextAt = 0;
 var running2 = false;
+var failStreak = 0;
+var OWNER = (process.env.OWNER_PHONE || "5574981017188").replace(/\D/g, "");
+async function notifyOwnerOnce(kind, day, text) {
+  try {
+    const cfg = await db.getConfig();
+    const sent = cfg.ownerNotice || {};
+    if (sent[kind] === day) return;
+    const r = await sendEvolutionText(OWNER, text, 800);
+    if (r.success) await db.saveConfig({ ownerNotice: { ...sent, [kind]: day } });
+    await db.addAuditLog({ type: "status_change", summary: `Aviso ao dono (${kind}): ${text.slice(0, 120)}${r.success ? "" : " [falhou: " + r.error + "]"}` });
+  } catch (err) {
+    console.warn("[Prospector] aviso ao dono falhou:", err);
+  }
+}
+async function watchdog() {
+  try {
+    const { day, at } = bahiaNow();
+    if (at < 7 || at >= 8 || !inWindowNow()) return;
+    const cfg = await db.getConfig();
+    const sentToday = cfg.prospectDay === day ? cfg.prospectSentToday || 0 : 0;
+    if (sentToday > 0) return;
+    let why = "";
+    if (cfg.prospectorPaused) why = 'a prospec\xE7\xE3o est\xE1 pausada. Mande "retomar" aqui para ligar.';
+    else if ((await db.getContacts()).filter(isEligible).length === 0) why = "a fila est\xE1 vazia. Precisa colocar empresas novas.";
+    else {
+      const st = await getEvolutionState();
+      why = st === "open" ? "o WhatsApp est\xE1 conectado, mas o envio falhou. Veja Ajustes, Atividade recente." : `o WhatsApp est\xE1 "${st}". Reconecte pelo painel.`;
+    }
+    await notifyOwnerOnce("nao_comecou", day, `Aten\xE7\xE3o: at\xE9 as 7h nenhuma abordagem saiu hoje. Motivo: ${why}`);
+  } catch (err) {
+    console.warn("[Prospector] vigia falhou:", err);
+  }
+}
 async function tick2() {
   if (running2) return;
   running2 = true;
@@ -1346,6 +1379,8 @@ async function tick2() {
     const res = await sendEvolutionText(contact.phone, text, 2500);
     if (!res.success) {
       nextAt = Date.now() + 5 * 6e4;
+      failStreak++;
+      if (failStreak === 3) await notifyOwnerOnce("falhas", day, `Aten\xE7\xE3o: 3 envios seguidos falharam. \xDAltimo erro: ${String(res.error).slice(0, 120)}`);
       await db.addAuditLog({
         type: "error",
         phone: contact.phone,
@@ -1354,6 +1389,11 @@ async function tick2() {
       return;
     }
     nextAt = Date.now() + rand(MIN_GAP_S, MAX_GAP_S) * 1e3;
+    failStreak = 0;
+    if (sentToday === 0) {
+      const hhmm = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Bahia", hour: "2-digit", minute: "2-digit" }).format(/* @__PURE__ */ new Date());
+      void notifyOwnerOnce("comecou", day, `Prospec\xE7\xE3o come\xE7ou: a 1\xAA mensagem do dia saiu \xE0s ${hhmm} para ${contact.company || contact.phone}. Fila: ${queue.length - 1}.`);
+    }
     if (res.messageId) await db.markMessageAsProcessed(res.messageId);
     const now = (/* @__PURE__ */ new Date()).toISOString();
     await db.saveMessage({
@@ -1388,6 +1428,7 @@ function startProspector() {
     console.warn("[Prospector] EVOLUTION_URL/EVOLUTION_API_KEY ausentes: loop iniciado, mas sem envio.");
   }
   setInterval(tick2, TICK_MS2);
+  setInterval(watchdog, 5 * 6e4);
   console.log(
     `[Prospector] ativo. Janela ${fmtH(WINDOW_START)}-${fmtH(WINDOW_END)}, teto ${DAILY_CAP}/dia, intervalo ${MIN_GAP_S}-${MAX_GAP_S}s`
   );
