@@ -2882,9 +2882,11 @@ Sem texto fora do JSON. Sem inventar fatos que n\xE3o est\xE3o na conversa.`;
   }
   return saved;
 }
-function startLearning(everyMs = 6 * 36e5) {
+function startLearning(everyMs = 3 * 36e5) {
   if (process.env.LEARNING_ENABLED === "false") return;
   setInterval(() => {
+    const h = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "America/Bahia", hour: "2-digit", hourCycle: "h23" }).format(/* @__PURE__ */ new Date()));
+    if (h >= 5 && h < 20) return;
     runLearningPass().catch((err) => console.warn("[Learning] passe falhou:", err));
   }, everyMs);
 }
