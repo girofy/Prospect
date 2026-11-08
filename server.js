@@ -4150,8 +4150,24 @@ var server = http.createServer(async (req, res) => {
     return;
   }
   const potentialFile = path2.join(DIST_DIR, pathname);
+  if (!potentialFile.startsWith(DIST_DIR)) {
+    res.writeHead(403);
+    res.end("Forbidden");
+    return;
+  }
   if (serveStatic(res, potentialFile)) {
     return;
+  }
+  try {
+    if (fs2.existsSync(potentialFile) && fs2.statSync(potentialFile).isDirectory() && fs2.existsSync(path2.join(potentialFile, "index.html"))) {
+      if (!pathname.endsWith("/")) {
+        res.writeHead(301, { Location: pathname + "/" });
+        res.end();
+        return;
+      }
+      if (serveStatic(res, path2.join(potentialFile, "index.html"))) return;
+    }
+  } catch {
   }
   const indexPath = path2.join(DIST_DIR, "index.html");
   if (serveStatic(res, indexPath)) {
