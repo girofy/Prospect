@@ -585,6 +585,28 @@ async function campaignDetail(id) {
   });
   return { campaign: camp, contatos: rows };
 }
+async function companyProfile(phone) {
+  const k = last8(phone);
+  const contacts = await db.getContacts();
+  const c = contacts.find((x) => last8(x.phone) === k);
+  if (!c) return null;
+  const msgs = (await db.getMessages(c.phone)).slice(-80);
+  const notes = c.notes || "";
+  const addr = (notes.match(/Endere[cç]o:\s*([^.]+(?:\.[^.]*)?)/i) || [])[1] || "";
+  const company = c.company && c.company !== "Em qualifica\xE7\xE3o" ? c.company : c.name;
+  const q = encodeURIComponent([company, addr.split(" - ")[0], "Barreiras"].filter(Boolean).join(" ").slice(0, 140));
+  const ig = (notes.match(/instagram\.com\/([\w.]+)/i) || notes.match(/@([\w.]{3,30})/) || [])[1];
+  return {
+    contato: { phone: c.phone, company, name: c.name, status: c.status, agentState: c.agentState, notes, criadoEm: c.createdAt, ultimaInteracao: c.lastInteractionAt },
+    links: {
+      whatsapp: `https://wa.me/${c.phone}`,
+      maps: `https://www.google.com/maps/search/?api=1&query=${q}`,
+      google: `https://www.google.com/search?q=${encodeURIComponent(company + " " + (addr.split(" - ")[0] || ""))}`,
+      instagram: ig ? `https://instagram.com/${ig}` : `https://www.google.com/search?q=${encodeURIComponent(company + " instagram")}`
+    },
+    mensagens: msgs.map((m) => ({ de: m.from, texto: m.text, quando: m.timestamp }))
+  };
+}
 
 // api/lib/gemini.ts
 var DEFAULT_MODEL = "gemini-3.6-flash";
@@ -3413,7 +3435,13 @@ async function handler14(req, res) {
 async function handler15(req, res) {
   try {
     if (req.method === "GET") {
-      const id = new URL(req.url || "/", "http://localhost").searchParams.get("id");
+      const sp = new URL(req.url || "/", "http://localhost").searchParams;
+      const prof = sp.get("profile");
+      if (prof) {
+        const d = await companyProfile(prof);
+        return d ? res.status(200).json(d) : res.status(404).json({ error: "Empresa n\xE3o encontrada" });
+      }
+      const id = sp.get("id");
       if (id) {
         const d = await campaignDetail(id);
         return d ? res.status(200).json(d) : res.status(404).json({ error: "Campanha n\xE3o encontrada" });

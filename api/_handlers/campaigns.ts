@@ -1,11 +1,17 @@
-import { getCampaigns, saveCampaigns, campaignStats, campaignDetail, importRows, Campaign } from '../lib/campaigns';
+import { getCampaigns, saveCampaigns, campaignStats, campaignDetail, companyProfile, importRows, Campaign } from '../lib/campaigns';
 import { db } from '../lib/db';
 
 // Painel de campanhas. Protegido pelo login (ver api/index.ts).
 export default async function handler(req: any, res: any) {
   try {
     if (req.method === 'GET') {
-      const id = new URL(req.url || '/', 'http://localhost').searchParams.get('id');
+      const sp = new URL(req.url || '/', 'http://localhost').searchParams;
+      const prof = sp.get('profile');
+      if (prof) {
+        const d = await companyProfile(prof);
+        return d ? res.status(200).json(d) : res.status(404).json({ error: 'Empresa não encontrada' });
+      }
+      const id = sp.get('id');
       if (id) {
         const d = await campaignDetail(id);
         return d ? res.status(200).json(d) : res.status(404).json({ error: 'Campanha não encontrada' });

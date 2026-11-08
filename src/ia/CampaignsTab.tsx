@@ -46,6 +46,69 @@ function ListPicker({ onRows }: { onRows: (rows: Row[], label: string) => void }
   );
 }
 
+
+interface Perfil {
+  contato: { phone: string; company: string; name: string; status: string; agentState: string; notes: string; criadoEm: string };
+  links: { whatsapp: string; maps: string; google: string; instagram: string };
+  mensagens: { de: string; texto: string; quando: string }[];
+}
+
+// Perfil completo: ficha da empresa, links úteis e a conversa inteira. Toque numa empresa da lista para abrir.
+function Profile({ phone, onClose }: { phone: string; onClose: () => void }) {
+  const [d, setD] = useState<Perfil | null>(null);
+  const [notes, setNotes] = useState('');
+  const [msg, setMsg] = useState('');
+  useEffect(() => {
+    api(undefined, `?profile=${encodeURIComponent(phone)}`).then(r => { if (r.ok) { setD(r.j); setNotes(r.j.contato.notes || ''); } else setMsg(r.j.error || 'Não achei esta empresa.'); });
+  }, [phone]);
+  const save = async () => {
+    const r = await fetch('/api/contacts', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, notes }) });
+    setMsg(r.ok ? 'Pesquisa salva.' : 'Não consegui salvar.');
+  };
+  const link = 'px-3 py-2 rounded-xl bg-black/[0.06] text-[13px] font-semibold text-[#1D1D1F]';
+  return (
+    <div className="fixed inset-0 z-[80] bg-black/50 flex items-end sm:items-center justify-center" onClick={onClose}>
+      <div className="bg-white w-full sm:max-w-xl max-h-[88vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl p-5" onClick={e => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-[18px] font-bold text-[#1D1D1F] break-words">{d ? d.contato.company : 'Carregando...'}</h3>
+            {d && <p className="text-xs text-[#6e6e73]">{d.contato.phone} · {d.contato.status} · IA {d.contato.agentState === 'ai_active' ? 'ligada' : 'parada'}</p>}
+          </div>
+          <button onClick={onClose} className="px-3 py-1.5 rounded-full bg-black/[0.06] text-sm font-bold">Fechar</button>
+        </div>
+        {msg && !d && <p className="mt-3 text-sm">{msg}</p>}
+        {d && (
+          <div className="space-y-4 mt-4">
+            <div className="flex flex-wrap gap-2">
+              <a className={link} href={d.links.whatsapp} target="_blank" rel="noopener noreferrer">WhatsApp</a>
+              <a className={link} href={d.links.maps} target="_blank" rel="noopener noreferrer">Google Maps</a>
+              <a className={link} href={d.links.google} target="_blank" rel="noopener noreferrer">Pesquisar no Google</a>
+              <a className={link} href={d.links.instagram} target="_blank" rel="noopener noreferrer">Instagram</a>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-[#6e6e73] mb-1">Pesquisa da empresa (a IA lê isto). Cole aqui links, Instagram, o que achar.</p>
+              <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={6} className="w-full px-3 py-3 rounded-2xl bg-[#F5F5F7] text-sm" />
+              <button onClick={save} className="mt-2 w-full py-2.5 rounded-xl bg-[#0071E3] text-white text-sm font-bold">Salvar pesquisa</button>
+              {msg && <p className="mt-1 text-xs text-[#1D1D1F]">{msg}</p>}
+            </div>
+            <div>
+              <p className="text-xs font-bold text-[#6e6e73] mb-1">Conversa ({d.mensagens.length})</p>
+              <ul className="space-y-1.5">
+                {d.mensagens.map((m, i) => (
+                  <li key={i} className={`text-[13px] px-3 py-2 rounded-2xl max-w-[88%] break-words ${m.de === 'lead' ? 'bg-black/[0.06] mr-auto' : 'bg-[#DCF8C6] ml-auto'}`}>
+                    {m.texto}<div className="text-[10px] text-[#6e6e73] mt-0.5">{m.de === 'lead' ? 'Empresa' : m.de === 'bot' ? 'IA' : 'Você'} · {hora(m.quando)}</div>
+                  </li>
+                ))}
+                {!d.mensagens.length && <li className="text-sm text-[#6e6e73]">Ainda sem conversa.</li>}
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Detail({ id, onBack }: { id: string; onBack: () => void }) {
   const [d, setD] = useState<{ campaign: Camp & { phones: string[] }; contatos: Contato[] } | null>(null);
   const [stats, setStats] = useState<Camp | null>(null);
@@ -57,6 +120,7 @@ function Detail({ id, onBack }: { id: string; onBack: () => void }) {
   const [cap, setCap] = useState(40);
   const [filtro, setFiltro] = useState('todos');
   const [extra, setExtra] = useState<Row[]>([]);
+  const [prof, setProf] = useState<string | null>(null);
 
   const load = async (first = false) => {
     const r = await api(undefined, `?id=${id}`);
@@ -116,12 +180,12 @@ function Detail({ id, onBack }: { id: string; onBack: () => void }) {
         <ul className="divide-y divide-black/[0.05]">
           {lista.map(x => (
             <li key={x.phone} className="py-2.5">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-2 cursor-pointer" onClick={() => setProf(x.phone)}>
                 <span className="text-[14px] font-semibold text-[#1D1D1F] truncate">{x.empresa}</span>
                 <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold shrink-0 ${estadoCor[x.estado] || 'bg-black/[0.06]'}`}>{x.estado}</span>
               </div>
               <div className="flex items-center justify-between gap-2 mt-0.5">
-                <span className="text-[12px] text-[#6e6e73] truncate">{x.ultima ? `${hora(x.quando)}: ${x.ultima}` : x.phone}</span>
+                <button onClick={() => setProf(x.phone)} className="text-[12px] text-[#6e6e73] truncate text-left">{x.ultima ? `${hora(x.quando)}: ${x.ultima}` : x.phone} · <span className="text-[#0071E3] font-semibold">perfil completo</span></button>
                 {x.estado === 'na fila' && <button disabled={busy} onClick={() => run({ action: 'removePhone', phone: x.phone }, 'Tirei da campanha.')} className="text-[12px] font-semibold text-[#FF3B30] shrink-0">Tirar</button>}
               </div>
             </li>
@@ -148,6 +212,7 @@ function Detail({ id, onBack }: { id: string; onBack: () => void }) {
         <button disabled={busy} onClick={() => run({ action: 'update', mission, objective, endHour, dailyCap: cap }, 'Salvo.')} className="mt-3 w-full py-3 rounded-2xl bg-[#0071E3] text-white text-sm font-bold">Salvar</button>
         {c.status !== 'ativa' && <button disabled={busy} onClick={async () => { if (await run({ action: 'remove' }, 'Campanha apagada.')) onBack(); }} className="mt-2 w-full py-2.5 rounded-2xl bg-black/[0.06] text-[#FF3B30] text-sm font-semibold">Apagar campanha</button>}
       </Card>
+      {prof && <Profile phone={prof} onClose={() => setProf(null)} />}
     </div>
   );
 }
