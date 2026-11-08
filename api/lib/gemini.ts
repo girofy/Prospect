@@ -22,6 +22,8 @@ const DAILY_CALL_LIMIT = Number(process.env.GEMINI_DAILY_CALL_LIMIT ?? 200);
 const SYSTEM_PROMPT = `
 Você é o atendente comercial da Girofy, empresa de Sobradinho-BA que faz sites e automações para negócios locais de Sobradinho, Juazeiro e Petrolina. Você conversa pelo WhatsApp com donos e funcionários de barbearias, salões, hotéis e pousadas, academias, pet shops, mecânicas, empresas de eventos e profissionais autônomos. Você fala em nome da Girofy. O fundador é o César.
 
+REGRA DE PRIORIDADE: se a base de conhecimento abaixo tiver uma frase que contrarie estas regras (ex.: perguntar quem é o responsável, "tudo certo com você", "como posso ajudar", falar R$), valem estas regras.
+
 COMO VOCÊ FALA
 - Como gente do interior da Bahia no WhatsApp: curto, simples, educado, direto. Pode usar "vocês", "tá", "pra", "show", "beleza". Nada de jargão ("solução", "alavancar", "agendar uma reunião", "parceria estratégica").
 - Cada mensagem tem de 8 a 16 palavras e no máximo uma pergunta. Saudação pura ("Bom dia!") é a única exceção. Quando ajudar a leitura, mande duas mensagens seguidas separadas por uma linha em branco: uma afirmação e depois a pergunta. Nunca mais de duas.
@@ -101,7 +103,7 @@ const GROQ_KNOWLEDGE_CHARS = 1500;
 const GROQ_LESSONS = 2;
 const HISTORY_CHARS_FULL = 9000; // histórico que vai para modelos Gemini
 const HISTORY_CHARS_GROQ = 1500; // histórico que vai para o Groq (limite por minuto)
-const KNOWLEDGE_MAX_CHARS = 12000; // enxuto: menos tokens por chamada; a biblioteca longa de frases fica por último e é a que corta // ~8k tokens por mensagem; ajuste se a cota gratuita apertar
+const KNOWLEDGE_MAX_CHARS = 30000; // a base inteira vai para o Gemini; o Groq recebe só um pedaço (limite por minuto) // ~8k tokens por mensagem; ajuste se a cota gratuita apertar
 
 // Base de conhecimento = documentos do painel (banco, ativos) + arquivos .md da pasta knowledge/ do repo.
 // Lido com cache de 60 s para não consultar o banco a cada mensagem.
@@ -470,8 +472,8 @@ Responda só com o texto da próxima mensagem para o WhatsApp.
 
 // Conversa com o dono (seu WhatsApp pessoal). O modelo responde em linguagem natural e escolhe UMA ação
 // de uma lista fixa. Quem executa é o código (api/lib/owner.ts), nunca o modelo.
-export type OwnerAction = 'none' | 'status' | 'pause' | 'resume' | 'summarize' | 'list' | 'send' | 'read';
-export type OwnerOut = { reply: string; action: OwnerAction; target: string; message: string };
+export type OwnerAction = 'none' | 'status' | 'pause' | 'resume' | 'summarize' | 'list' | 'send' | 'read' | 'schedule';
+export type OwnerOut = { reply: string; action: OwnerAction; target: string; message: string; when: string; todo: string };
 
 function parseOwnerJson(raw: string): OwnerOut | null {
   const m = raw.match(/\{[\s\S]*\}/);
@@ -480,9 +482,9 @@ function parseOwnerJson(raw: string): OwnerOut | null {
     const j = JSON.parse(m[0]);
     const reply = String(j.reply || '').trim();
     if (!reply) return null;
-    const actions: OwnerAction[] = ['status', 'pause', 'resume', 'summarize', 'list', 'send', 'read'];
+    const actions: OwnerAction[] = ['status', 'pause', 'resume', 'summarize', 'list', 'send', 'read', 'schedule'];
     const action: OwnerAction = actions.includes(j.action) ? j.action : 'none';
-    return { reply, action, target: String(j.target || '').trim(), message: String(j.message || '').trim() };
+    return { reply, action, target: String(j.target || '').trim(), message: String(j.message || '').trim(), when: String(j.when || '').trim(), todo: String(j.todo || '').trim() };
   } catch {
     return null;
   }
@@ -510,6 +512,7 @@ AÇÕES (escolha UMA por resposta e preencha os campos certos):
 - "summarize": resumir a conversa de um lead. Em "target" coloque o nome ou o número como ele disse
 - "send": mandar mensagem para um lead. Em "target" o nome ou número; em "message" o texto exato a enviar. O sistema pede confirmação antes de enviar.
 - "read": ler uma página da internet (site, landing page, preço) e analisar o que ele pediu. Em "target" coloque o link completo.
+- "schedule": agendar para um horário. Em "when" coloque a data e a hora ISO com fuso da Bahia (ex.: 2026-11-09T06:30:00-03:00; use a HORA EM SALVADOR do ESTADO AGORA para calcular "daqui a 5 minutos" ou "amanhã às 6h30"). Em "todo" escolha: "lembrar" (te manda uma mensagem no horário, com o texto em "message"), "retomar" (liga a prospecção no horário) ou "pausar" (desliga no horário).
 - "none": só conversar, explicar, responder dúvidas
 Quando ele faz perguntas para você montar um plano ou um consultor, conduza em conversa: faça uma pergunta por vez e espere a resposta.
 Se ele pedir algo fora dessas ações, diga com honestidade que ainda não faz e o que faz. Nunca diga que fez algo que não está na ação escolhida.
@@ -524,7 +527,7 @@ MENSAGEM DO CÉSAR AGORA:
 "${text}"
 
 Responda SOMENTE um JSON, sem texto fora dele:
-{"reply":"texto para o WhatsApp","action":"none|status|pause|resume|list|summarize|send|read","target":"","message":""}`;
+{"reply":"texto para o WhatsApp","action":"none|status|pause|resume|list|summarize|send|read|schedule","target":"","message":"","when":"","todo":""}`;
 
   for (const item of chainFrom(cfg)) {
     if (isPaused(cfg, item)) continue;
