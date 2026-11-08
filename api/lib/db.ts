@@ -25,7 +25,8 @@ export interface AppConfig {
   aiPausedModels?: Record<string, string>; // 'provedor:modelo' -> ISO até quando pausado
   aiChain?: { provider: 'gemini' | 'groq'; model: string }[]; // ordem de uso dos modelos
   groqApiKey?: string;
-  pixKey?: string; // chave Pix da Girofy, enviada só quando a pessoa aceita pagar à vista
+  pixKey?: string; // chave Pix da Girofy
+  pixEnabled?: boolean; // liberado pelo César: só então o agente pode mandar a chave (depois que o valor à vista for definido)
   prospectorPaused?: boolean; // dono pausou a prospecção (respostas a leads continuam)
   ownerUnlockedUntil?: string; // (legado: senha, não é mais usado)
   ownerPending?: string; // ação esperando um 'sim' do dono (ex.: 'resume')
