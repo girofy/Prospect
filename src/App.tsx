@@ -1048,7 +1048,7 @@ export default function App() {
         {/* TOP MOBILE HERO & MODULAR 2x2 WIDGET HUB (Inspired by reference photos) */}
         {/* ========================================================================= */}
         {/* Only shown on main list view or when on widgets tab to keep phone organized */}
-        {activeTab !== 'ia' && (activeTab !== 'conversas' || mobilePane === 'list') && (
+        {activeTab === 'widgets' && (
           <section className="space-y-3.5">
             
             {/* Big Welcome Card with Clock & Date */}
@@ -1591,26 +1591,6 @@ export default function App() {
         {activeTab === 'widgets' && (
           <div className="space-y-4">
             
-            {/* Header Widget */}
-            <div className="apple-widget p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold text-[#1D1D1F] tracking-tight">
-                  Painel de Operações Comerciais
-                </h2>
-                <p className="text-xs sm:text-sm text-zinc-500 font-medium">
-                  Monitoramento em tempo real do atendimento automatizado da Girofy Tecnologia
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-500 font-medium">Status do Sistema:</span>
-                <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#34C759]/15 text-[#248A3D] font-bold text-xs">
-                  <span className="w-2 h-2 rounded-full bg-[#34C759]" />
-                  Operacional
-                </span>
-              </div>
-            </div>
-
             {/* 4 iOS-Style Modular KPI Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               
