@@ -181,7 +181,8 @@ async function handleUpsert(d: any) {
   // Envia em até duas mensagens seguidas, com ritmo de gente (≈ 3x o tempo de digitação antes da primeira).
   const sent = await sendLeadReply(phone, ai.replyText, { preWait: true });
   if (!sent.success) {
-    await db.addAuditLog({ type: 'error', phone, summary: `Falha ao responder ${phone}: ${sent.error}` });
+    await db.addAuditLog({ type: 'error', phone, summary: `Falha ao responder ${phone}: ${sent.error}. Vai para a fila de respostas.` });
+    await markPending(phone);
   }
 }
 

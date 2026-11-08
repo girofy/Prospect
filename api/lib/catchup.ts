@@ -44,7 +44,7 @@ async function tick(): Promise<void> {
     const ai = await generateGirofyCommercialReply(contact, { text: last.text }, msgs.slice(0, -1));
     if (!ai.aiAvailable) return; // IA ainda fora: fica na fila para a próxima rodada
 
-    const sent = await sendLeadReply(phone, ai.replyText);
+    const sent = await sendLeadReply(phone, ai.replyText, { preWait: true });
     if (!sent.success) return; // falha de envio: tenta de novo na próxima rodada
 
     const now = new Date().toISOString();

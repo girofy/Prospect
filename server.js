@@ -591,7 +591,7 @@ function defaultChain(cfg) {
 }
 function chainFrom(cfg) {
   const saved = Array.isArray(cfg.aiChain) ? cfg.aiChain : [];
-  const valid = saved.filter((x) => x && (x.provider === "gemini" || x.provider === "groq") && typeof x.model === "string" && x.model.trim());
+  const valid = saved.filter((x) => x && (x.provider === "gemini" || x.provider === "groq") && typeof x.model === "string" && x.model.trim() && !/^(gsk_|AIza|AQ\.|sk-)/.test(x.model.trim()));
   return valid.length ? valid.map((x) => ({ provider: x.provider, model: x.model.trim() })) : defaultChain(cfg);
 }
 function pauseKey(item) {
@@ -943,6 +943,26 @@ async function fetchEvolutionMedia(messageKey, message) {
   }
 }
 var OPT_OUT_REGEX = /(não tenho interesse|nao tenho interesse|pare de (me )?mandar|para de (me )?mandar|pare de (me )?enviar|para de (me )?enviar|remove (meu|o meu) (contato|número|numero)|remover (meu )?contato|tirar (me|meu contato) da lista|não me (mande|envie|chame)|nao me (mande|envie|chame)|denunciar|desinscrever|me (tira|tire|remove) (daí|daqui|da lista)|nunca mais|^\s*(parar|stop|sair|cancelar)\s*[.!]*\s*$)/i;
+async function evolutionHasHistory(phone) {
+  const cfg = getEvolutionCfg();
+  if (!cfg) throw new Error("Evolution n\xE3o configurada");
+  const digits = phone.replace(/\D/g, "");
+  const variants = /* @__PURE__ */ new Set([digits]);
+  if (/^55\d{2}9\d{8}$/.test(digits)) variants.add(digits.slice(0, 4) + digits.slice(5));
+  for (const v of variants) {
+    const res = await fetch(`${cfg.url}/chat/findMessages/${encodeURIComponent(cfg.instance)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: cfg.apiKey },
+      body: JSON.stringify({ where: { key: { remoteJid: `${v}@s.whatsapp.net` } }, page: 1 }),
+      signal: AbortSignal.timeout(2e4)
+    });
+    if (!res.ok) throw new Error(`findMessages HTTP ${res.status}`);
+    const j = await res.json().catch(() => null);
+    const total = Number(j?.messages?.total ?? (j?.messages?.records || []).length ?? 0);
+    if (total > 0) return true;
+  }
+  return false;
+}
 
 // api/lib/bubbles.ts
 function splitBubbles(text) {
@@ -955,7 +975,7 @@ async function sendLeadReply(phone, text, opts = {}) {
   if (!parts.length) return { success: false, error: "mensagem vazia" };
   for (let i = 0; i < parts.length; i++) {
     const typingMs = typingFor(parts[i]);
-    if (i === 0 && opts.preWait) await sleep(typingMs * 2);
+    if (i === 0 && opts.preWait) await sleep(Math.max(typingMs * 2, 8e3));
     const send = await sendEvolutionText(phone, parts[i], typingMs);
     if (!send.success) return { success: false, error: send.error };
     if (send.messageId) await db.markMessageAsProcessed(send.messageId);
@@ -1007,7 +1027,7 @@ async function tick() {
     }
     const ai = await generateGirofyCommercialReply(contact, { text: last.text }, msgs.slice(0, -1));
     if (!ai.aiAvailable) return;
-    const sent = await sendLeadReply(phone, ai.replyText);
+    const sent = await sendLeadReply(phone, ai.replyText, { preWait: true });
     if (!sent.success) return;
     const now = (/* @__PURE__ */ new Date()).toISOString();
     if (ai.transferToHuman) await db.saveContact({ ...contact, agentState: "human_takeover", status: "aguardando_humano", lastInteractionAt: now });
@@ -1763,7 +1783,15 @@ async function handler7(req, res) {
         updates.groqApiKey = body2.groqApiKey.trim();
       }
       if (Array.isArray(body2.aiChain)) {
-        updates.aiChain = body2.aiChain.filter((x) => x && (x.provider === "gemini" || x.provider === "groq") && typeof x.model === "string" && x.model.trim()).slice(0, 6).map((x) => ({ provider: x.provider, model: String(x.model).trim().slice(0, 80) }));
+        const keyLike = /^(gsk_|AIza|AQ\.|sk-)/;
+        for (const x of body2.aiChain) {
+          const m = x && typeof x.model === "string" ? x.model.trim() : "";
+          if (!keyLike.test(m)) continue;
+          if (m.startsWith("gsk_") && !updates.groqApiKey) updates.groqApiKey = m;
+          else if (!m.startsWith("gsk_") && !updates.geminiApiKey) updates.geminiApiKey = m;
+        }
+        const cleaned = body2.aiChain.filter((x) => x && (x.provider === "gemini" || x.provider === "groq") && typeof x.model === "string" && x.model.trim() && !keyLike.test(x.model.trim())).slice(0, 6).map((x) => ({ provider: x.provider, model: String(x.model).trim().slice(0, 80) }));
+        if (cleaned.length) updates.aiChain = cleaned;
       }
       if (typeof body2.geminiModel === "string" && body2.geminiModel.trim()) {
         updates.geminiModel = body2.geminiModel.trim();
@@ -2173,6 +2201,18 @@ async function tick2() {
       await db.saveContact({ ...contact, status: "esfriou", lastInteractionAt: (/* @__PURE__ */ new Date()).toISOString() });
       await db.addAuditLog({ type: "status_change", phone: contact.phone, summary: `Pulado: j\xE1 havia conversa com ${contact.phone}. N\xE3o abordado de novo.` });
       nextAt = 0;
+      return;
+    }
+    try {
+      if (await evolutionHasHistory(contact.phone)) {
+        await db.saveContact({ ...contact, status: "esfriou", lastInteractionAt: (/* @__PURE__ */ new Date()).toISOString() });
+        await db.addAuditLog({ type: "status_change", phone: contact.phone, summary: `Pulado: o WhatsApp j\xE1 tem conversa com ${contact.phone}. N\xE3o abordado de novo.` });
+        nextAt = 0;
+        return;
+      }
+    } catch (err) {
+      nextAt = Date.now() + 2 * 6e4;
+      await db.addAuditLog({ type: "error", phone: contact.phone, summary: `N\xE3o consegui conferir o hist\xF3rico no WhatsApp (${String(err?.message || err).slice(0, 80)}). Envio adiado.` });
       return;
     }
     const text = buildOpener(contact, hour);
@@ -2620,7 +2660,8 @@ async function handleUpsert(d) {
   }
   const sent = await sendLeadReply(phone, ai.replyText, { preWait: true });
   if (!sent.success) {
-    await db.addAuditLog({ type: "error", phone, summary: `Falha ao responder ${phone}: ${sent.error}` });
+    await db.addAuditLog({ type: "error", phone, summary: `Falha ao responder ${phone}: ${sent.error}. Vai para a fila de respostas.` });
+    await markPending(phone);
   }
 }
 async function handler10(req, res) {

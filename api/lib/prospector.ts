@@ -1,7 +1,7 @@
 // Agente de prospecção ativa: roda dentro do processo do servidor (sem depender do navegador).
 // Envia abordagem fria só em horário comercial, com intervalo aleatório e teto diário.
 import { db } from './db';
-import { getEvolutionCfg, sendEvolutionText } from './evolution';
+import { getEvolutionCfg, sendEvolutionText, evolutionHasHistory } from './evolution';
 import { Contact } from './types';
 import { isRealBrPhone, last8 } from './phone';
 import { AUTHORIZED_BUSINESS_NUMBER } from './whatsapp';
@@ -114,6 +114,21 @@ async function tick() {
       await db.saveContact({ ...contact, status: 'esfriou', lastInteractionAt: new Date().toISOString() });
       await db.addAuditLog({ type: 'status_change', phone: contact.phone, summary: `Pulado: já havia conversa com ${contact.phone}. Não abordado de novo.` });
       nextAt = 0;
+      return;
+    }
+
+    // Segunda trava: o WhatsApp conectado já tem conversa com esse número? (o banco pode não conhecer)
+    // Se a Evolution não responder, não envia agora e tenta de novo daqui a pouco.
+    try {
+      if (await evolutionHasHistory(contact.phone)) {
+        await db.saveContact({ ...contact, status: 'esfriou', lastInteractionAt: new Date().toISOString() });
+        await db.addAuditLog({ type: 'status_change', phone: contact.phone, summary: `Pulado: o WhatsApp já tem conversa com ${contact.phone}. Não abordado de novo.` });
+        nextAt = 0;
+        return;
+      }
+    } catch (err: any) {
+      nextAt = Date.now() + 2 * 60_000;
+      await db.addAuditLog({ type: 'error', phone: contact.phone, summary: `Não consegui conferir o histórico no WhatsApp (${String(err?.message || err).slice(0, 80)}). Envio adiado.` });
       return;
     }
 
