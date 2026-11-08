@@ -145,3 +145,27 @@ export async function campaignDetail(id: string) {
   });
   return { campaign: camp, contatos: rows };
 }
+
+// Perfil completo de uma empresa: ficha, links úteis e a conversa inteira.
+export async function companyProfile(phone: string) {
+  const k = last8(phone);
+  const contacts = await db.getContacts();
+  const c = contacts.find(x => last8(x.phone) === k);
+  if (!c) return null;
+  const msgs = (await db.getMessages(c.phone)).slice(-80);
+  const notes = c.notes || '';
+  const addr = (notes.match(/Endere[cç]o:\s*([^.]+(?:\.[^.]*)?)/i) || [])[1] || '';
+  const company = c.company && c.company !== 'Em qualificação' ? c.company : c.name;
+  const q = encodeURIComponent([company, addr.split(' - ')[0], 'Barreiras'].filter(Boolean).join(' ').slice(0, 140));
+  const ig = (notes.match(/instagram\.com\/([\w.]+)/i) || notes.match(/@([\w.]{3,30})/) || [])[1];
+  return {
+    contato: { phone: c.phone, company, name: c.name, status: c.status, agentState: c.agentState, notes, criadoEm: c.createdAt, ultimaInteracao: c.lastInteractionAt },
+    links: {
+      whatsapp: `https://wa.me/${c.phone}`,
+      maps: `https://www.google.com/maps/search/?api=1&query=${q}`,
+      google: `https://www.google.com/search?q=${encodeURIComponent(company + ' ' + (addr.split(' - ')[0] || ''))}`,
+      instagram: ig ? `https://instagram.com/${ig}` : `https://www.google.com/search?q=${encodeURIComponent(company + ' instagram')}`,
+    },
+    mensagens: msgs.map(m => ({ de: m.from, texto: m.text, quando: m.timestamp })),
+  };
+}
