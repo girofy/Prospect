@@ -391,7 +391,7 @@ DADOS DA PESSOA (use SÓ isto; nunca cite nome, negócio, cidade ou ramo que nã
 - Nome: ${contact.name && !/^(lead|contato)/i.test(contact.name) ? contact.name : 'não sei o nome'}
 - Negócio: ${contact.company && contact.company !== 'Em qualificação' ? contact.company : 'não sei o nome do negócio'}
 - Nicho: ${contact.niche || 'não informado'}
-${opening.length ? `
+${contact.notes ? `- Pesquisa sobre a empresa (use só estes fatos; a proposta é uma ideia, nunca um fato; respeite o que diz "não fazer"): ${contact.notes.slice(0, 700)}\n` : ''}${opening.length ? `
 COMO A CONVERSA COMEÇOU (primeiras mensagens, para você lembrar quem falou o quê):
 ${opening.map(m => `${m.from === 'bot' ? 'Você' : m.from === 'operator' ? 'César (humano)' : 'Pessoa'}: ${m.text}`).join('\n')}
 ` : ''}
