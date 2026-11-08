@@ -2746,29 +2746,63 @@ async function handleUpsert(d) {
   if (contact.status === "novo") {
     contact = await db.saveContact({ ...contact, status: "em_conversa", lastInteractionAt: now });
   }
-  await alertOwnerIfHot(phone, contact.name, aiInput);
-  const ai = await generateGirofyCommercialReply(contact, { text: aiInput, media }, history);
-  if (!ai.aiAvailable) {
-    await db.saveContact({ ...contact, status: "aguardando_humano", lastInteractionAt: now });
-    if (ai.unavailableReason === "quota" || ai.unavailableReason === "error") await markPending(phone);
-    const why = ai.unavailableReason === "quota" ? "cota di\xE1ria da IA atingida" : ai.unavailableReason === "no_key" ? "chave da IA n\xE3o configurada" : "erro da IA";
-    await db.addAuditLog({ type: "error", phone, summary: `IA n\xE3o respondeu (${why}). Aguardando voc\xEA: ${phone}.` });
+  if (!mediaKind && looksAutomatic(aiInput, history)) {
+    await db.addAuditLog({ type: "status_change", phone, summary: `Resposta autom\xE1tica da empresa ignorada, esperando a pessoa: "${aiInput.slice(0, 80)}"` });
     return;
   }
-  if (ai.transferToHuman) {
-    await db.saveContact({ ...contact, agentState: "human_takeover", status: "aguardando_humano", lastInteractionAt: now });
-    await db.addAuditLog({
-      type: "status_change",
-      phone,
-      summary: `Transferido para humano: ${ai.transferReason || "complexidade da negocia\xE7\xE3o"}`
-    });
-  } else if (ai.isMeetingRequested) {
-    await db.saveContact({ ...contact, status: "reuniao_marcada", lastInteractionAt: now });
+  await alertOwnerIfHot(phone, contact.name, aiInput);
+  if (busy.has(phone)) {
+    again.add(phone);
+    return;
   }
-  const sent = await sendLeadReply(phone, ai.replyText, { preWait: true });
-  if (!sent.success) {
-    await db.addAuditLog({ type: "error", phone, summary: `Falha ao responder ${phone}: ${sent.error}. Vai para a fila de respostas.` });
-    await markPending(phone);
+  await respond(phone, media);
+}
+var busy = /* @__PURE__ */ new Set();
+var again = /* @__PURE__ */ new Set();
+var AUTO_RE = /(mensagem autom[aá]tica|resposta autom[aá]tica|no momento (n[aã]o|estamos)|estamos (descansando|fora|ausentes)|fora do (nosso )?hor[aá]rio|hor[aá]rio de (atendimento|funcionamento)|responderemos (assim|em breve|o mais)|retornaremos|agradecemos (a |sua |o seu |pelo |pela )?(sua )?(mensagem|contato)|seja (muito )?bem[- ]?vind|obrigad[oa] por (entrar em contato|sua mensagem|nos contatar|escolher)|n[aã]o estamos dispon[ií]veis|logo (te )?responderemos|em breve (retornaremos|responderemos|daremos|um de nossos))/i;
+function looksAutomatic(text, history) {
+  if (AUTO_RE.test(text)) return true;
+  const ours = history.filter((m) => m.from === "bot" || m.from === "operator");
+  const theirs = history.filter((m) => m.from === "lead");
+  const last = ours[ours.length - 1];
+  return !!last && ours.length === 1 && theirs.length === 0 && Date.now() - Date.parse(last.timestamp) < 2e4 && text.length > 80;
+}
+async function respond(phone, media) {
+  busy.add(phone);
+  try {
+    await new Promise((r) => setTimeout(r, 4e3));
+    const all = await db.getMessages(phone);
+    let cut = all.length;
+    while (cut > 0 && all[cut - 1].from === "lead") cut--;
+    const prior = all.slice(0, cut);
+    const pending = all.slice(cut).filter((m) => !looksAutomatic(m.text || "", prior));
+    if (!pending.length) return;
+    const aiInput = pending.map((m) => String(m.text || "").replace(/^\[Áudio\] /, "")).join("\n");
+    let contact = await db.getContactByPhone(phone);
+    if (!contact || contact.optOutDetected || contact.agentState !== "ai_active") return;
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const ai = await generateGirofyCommercialReply(contact, { text: aiInput, media }, prior);
+    if (!ai.aiAvailable) {
+      await db.saveContact({ ...contact, status: "aguardando_humano", lastInteractionAt: now });
+      if (ai.unavailableReason === "quota" || ai.unavailableReason === "error") await markPending(phone);
+      const why = ai.unavailableReason === "quota" ? "cota di\xE1ria da IA atingida" : ai.unavailableReason === "no_key" ? "chave da IA n\xE3o configurada" : "erro da IA";
+      await db.addAuditLog({ type: "error", phone, summary: `IA n\xE3o respondeu (${why}). Aguardando voc\xEA: ${phone}.` });
+      return;
+    }
+    if (ai.transferToHuman) {
+      contact = await db.saveContact({ ...contact, agentState: "human_takeover", status: "aguardando_humano", lastInteractionAt: now });
+      await db.addAuditLog({ type: "status_change", phone, summary: `Transferido para humano: ${ai.transferReason || "complexidade da negocia\xE7\xE3o"}` });
+    } else if (ai.isMeetingRequested) {
+      await db.saveContact({ ...contact, status: "reuniao_marcada", lastInteractionAt: now });
+    }
+    const sent = await sendLeadReply(phone, ai.replyText, { preWait: true });
+    if (!sent.success) {
+      await db.addAuditLog({ type: "error", phone, summary: `Falha ao responder ${phone}: ${sent.error}. Vai para a fila de respostas.` });
+      await markPending(phone);
+    }
+  } finally {
+    busy.delete(phone);
+    if (again.delete(phone)) await respond(phone);
   }
 }
 async function handler10(req, res) {
