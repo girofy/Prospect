@@ -1507,6 +1507,7 @@ async function getProspectStats() {
   };
 }
 var nextAt = 0;
+var sendFails = /* @__PURE__ */ new Map();
 var running2 = false;
 var failStreak = 0;
 var OWNER = (process.env.OWNER_PHONE || "5574981017188").replace(/\D/g, "");
@@ -1582,7 +1583,15 @@ async function tick2() {
     const text = buildOpener(contact, hour);
     const res = await sendEvolutionText(contact.phone, text, 2500);
     if (!res.success) {
-      nextAt = Date.now() + 5 * 6e4;
+      const n = (sendFails.get(contact.phone) || 0) + 1;
+      sendFails.set(contact.phone, n);
+      if (/bad request|exists|not.*whatsapp|invalid/i.test(String(res.error)) || n >= 2) {
+        await db.saveContact({ ...contact, status: "esfriou", lastInteractionAt: (/* @__PURE__ */ new Date()).toISOString() });
+        await db.addAuditLog({ type: "status_change", phone: contact.phone, summary: `N\xFAmero ${contact.phone} recusou o envio (${String(res.error).slice(0, 60)}). Saiu da fila; segue para o pr\xF3ximo.` });
+        nextAt = Date.now() + 2e4;
+        return;
+      }
+      nextAt = Date.now() + 6e4;
       failStreak++;
       if (failStreak === 3) await notifyOwnerOnce("falhas", day, `Aten\xE7\xE3o: 3 envios seguidos falharam. \xDAltimo erro: ${String(res.error).slice(0, 120)}`);
       await db.addAuditLog({
