@@ -1623,7 +1623,12 @@ async function tick2() {
     }
     const left = Math.max(1, Math.min(queue.length - 1, camp.dailyCap - (sentToday + 1)));
     const meanGap = Math.max(0, (endHour - at) * 3600) / left;
-    const gap = Math.min(1500, Math.max(MIN_GAP_S, meanGap * rand(0.7, 1.3)));
+    let gap = Math.min(1500, Math.max(MIN_GAP_S, meanGap * rand(0.7, 1.3)));
+    const boost = cfg.prospectorBoost || 0;
+    if (boost > 0) {
+      gap = rand(120, 300);
+      await db.saveConfig({ prospectorBoost: boost - 1 });
+    }
     nextAt = Date.now() + gap * 1e3;
     failStreak = 0;
     if (sentToday === 0) {
@@ -2516,7 +2521,7 @@ async function handler7(req, res) {
           if (m.startsWith("gsk_") && !updates.groqApiKey) updates.groqApiKey = m;
           else if (!m.startsWith("gsk_") && !updates.geminiApiKey) updates.geminiApiKey = m;
         }
-        const cleaned = body2.aiChain.filter((x) => x && (x.provider === "gemini" || x.provider === "groq") && typeof x.model === "string" && x.model.trim() && !keyLike.test(x.model.trim())).slice(0, 6).map((x) => ({ provider: x.provider, model: String(x.model).trim().slice(0, 80) }));
+        const cleaned = body2.aiChain.filter((x) => x && (x.provider === "gemini" || x.provider === "groq" || x.provider === "cf") && typeof x.model === "string" && x.model.trim() && !keyLike.test(x.model.trim())).slice(0, 6).map((x) => ({ provider: x.provider, model: String(x.model).trim().slice(0, 80) }));
         if (cleaned.length) updates.aiChain = cleaned;
       }
       if (typeof body2.geminiModel === "string" && body2.geminiModel.trim()) {
@@ -3534,6 +3539,7 @@ async function handler15(req, res) {
       for (const c of list) if (c.status === "ativa") c.status = "pausada";
       camp.status = "ativa";
       await saveCampaigns(list);
+      await db.saveConfig({ prospectorPaused: false, prospectorBoost: 15 });
       return res.status(200).json({ ok: true, fila });
     }
     if (b.action === "removePhone") {

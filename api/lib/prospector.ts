@@ -215,7 +215,13 @@ async function tick() {
     // Ritmo calculado: espalha o que falta enviar até a hora de parar, com sorteio em volta da média.
     const left = Math.max(1, Math.min(queue.length - 1, camp.dailyCap - (sentToday + 1)));
     const meanGap = Math.max(0, (endHour - at) * 3600) / left;
-    const gap = Math.min(1500, Math.max(MIN_GAP_S, meanGap * rand(0.7, 1.3)));
+    let gap = Math.min(1500, Math.max(MIN_GAP_S, meanGap * rand(0.7, 1.3)));
+    // Turbo: recupera atraso com intervalos de 2 a 5 minutos nos próximos envios, depois volta ao ritmo normal.
+    const boost = cfg.prospectorBoost || 0;
+    if (boost > 0) {
+      gap = rand(120, 300);
+      await db.saveConfig({ prospectorBoost: boost - 1 });
+    }
     nextAt = Date.now() + gap * 1000;
     failStreak = 0;
     if (sentToday === 0) {

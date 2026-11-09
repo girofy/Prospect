@@ -33,6 +33,7 @@ export interface AppConfig {
   ownerReminders?: { id: string; at: string; todo: 'lembrar' | 'retomar' | 'pausar'; message: string }[]; // alarmes pedidos pelo dono
   aiPendingPhones?: string[]; // leads que ficaram sem resposta da IA
   pixEnabled?: boolean; // liberado pelo César: só então o agente pode mandar a chave (depois que o valor à vista for definido)
+  prospectorBoost?: number; // quantos envios ainda saem em ritmo rápido (2 a 5 min) para recuperar atraso
   prospectorPaused?: boolean; // dono pausou a prospecção (respostas a leads continuam)
   ownerUnlockedUntil?: string; // (legado: senha, não é mais usado)
   ownerPending?: string; // ação esperando um 'sim' do dono (ex.: 'resume')
