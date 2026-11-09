@@ -82,7 +82,7 @@ export default async function handler(req: any, res: any) {
           else if (!m.startsWith('gsk_') && !updates.geminiApiKey) updates.geminiApiKey = m;
         }
         const cleaned = body.aiChain
-          .filter((x: any) => x && (x.provider === 'gemini' || x.provider === 'groq') && typeof x.model === 'string' && x.model.trim() && !keyLike.test(x.model.trim()))
+          .filter((x: any) => x && (x.provider === 'gemini' || x.provider === 'groq' || x.provider === 'cf') && typeof x.model === 'string' && x.model.trim() && !keyLike.test(x.model.trim()))
           .slice(0, 6)
           .map((x: any) => ({ provider: x.provider, model: String(x.model).trim().slice(0, 80) }));
         // Lista vazia nunca é gravada: a IA ficaria sem modelo. Mantém a que já existe.

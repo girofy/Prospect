@@ -67,6 +67,8 @@ export default async function handler(req: any, res: any) {
       for (const c of list) if (c.status === 'ativa') c.status = 'pausada'; // uma campanha ativa por vez
       camp.status = 'ativa';
       await saveCampaigns(list);
+      // Ativar a campanha é pedir para enviar: tira a pausa e liga o turbo nos primeiros 15 envios.
+      await db.saveConfig({ prospectorPaused: false, prospectorBoost: 15 });
       return res.status(200).json({ ok: true, fila });
     }
     if (b.action === 'removePhone') {
