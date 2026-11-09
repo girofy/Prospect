@@ -648,6 +648,8 @@ COMO VOC\xCA DECIDE (antes de cada resposta)
 
 O CAMINHO NORMAL DA CONVERSA
 Bom dia ou Boa tarde, sozinho. Quando a pessoa responder (um "oi", "bom dia", "sim" ou qualquer resposta de gente), mande DUAS mensagens seguidas, quase sem mudar, este \xE9 o modelo validado:
+PRIMEIRA RESPOSTA, OBSERVA\xC7\xC3O CONCRETA: se as notas da empresa trouxerem um fato verdadeiro (n\xFAmero de avalia\xE7\xF5es, fotos, tipo de servi\xE7o, nome do profissional), comece por ele, mostre o que isso significa pra ela e s\xF3 depois proponha a pr\xE9via. Ex.: "Vi que voc\xEA tem 30 avalia\xE7\xF5es boas no Google, mas n\xE3o achei um site seu. Quem pesquisa e gosta do que v\xEA fica sem um lugar pra ver seus atendimentos e chamar na hora" e depois "Quer ver uma pr\xE9via de como ficaria o seu?". Use s\xF3 fatos que est\xE3o nas notas; nunca invente.
+Sem fato concreto nas notas, use o modelo validado, quase sem mudar:
 Mensagem 1: "Vi que voc\xEA ainda n\xE3o tem site e muita gente pesquisa no Google antes de escolher, e por n\xE3o ter um site pode n\xE3o aparecer nessas buscas e acaba indo pra outro lugar"
 Mensagem 2: "Posso te mostrar como voc\xEA perde com isso ou prefere ver uma pr\xE9via do site quando os clientes acessarem?"
 Regras desse par: n\xE3o se apresente, n\xE3o diga o tipo de neg\xF3cio (nada de "barbearia", "sal\xE3o"; s\xF3 "pesquisa no Google"), fale "voc\xEA" (uma pessoa), n\xE3o use "tudo bem/tudo certo". A pergunta tem duas sa\xEDdas e as duas s\xE3o um sim (mostrar o preju\xEDzo ou ver a pr\xE9via): nunca deixe a pessoa com um "n\xE3o" f\xE1cil.
@@ -789,14 +791,20 @@ function defaultChain(cfg) {
   return [
     { provider: "gemini", model: resolveModel(cfg.geminiModel) },
     { provider: "gemini", model: "gemini-3.1-flash-lite" },
+    { provider: "cf", model: "gpt-oss-120b" },
     { provider: "groq", model: "qwen/qwen3.8-27b" },
     { provider: "groq", model: "openai/gpt-oss-120b" }
   ];
 }
 function chainFrom(cfg) {
   const saved = Array.isArray(cfg.aiChain) ? cfg.aiChain : [];
-  const valid = saved.filter((x) => x && (x.provider === "gemini" || x.provider === "groq") && typeof x.model === "string" && x.model.trim() && !/^(gsk_|AIza|AQ\.|sk-)/.test(x.model.trim()));
-  return valid.length ? valid.map((x) => ({ provider: x.provider, model: x.model.trim() })) : defaultChain(cfg);
+  const valid = saved.filter((x) => x && (x.provider === "gemini" || x.provider === "groq" || x.provider === "cf") && typeof x.model === "string" && x.model.trim() && !/^(gsk_|AIza|AQ\.|sk-)/.test(x.model.trim()));
+  const chain = valid.length ? valid.map((x) => ({ provider: x.provider, model: x.model.trim() })) : defaultChain(cfg);
+  if (!chain.some((x) => x.provider === "cf")) {
+    const i = chain.findIndex((x) => x.provider === "groq");
+    chain.splice(i < 0 ? chain.length : i, 0, { provider: "cf", model: "gpt-oss-120b" });
+  }
+  return chain;
 }
 function pauseKey(item) {
   return `${item.provider}:${item.model}`;
@@ -852,6 +860,25 @@ async function callGroq(apiKey, model, text) {
   const j = await res.json();
   return String(j.choices?.[0]?.message?.content || "").replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 }
+function cfConfigured() {
+  return !!(process.env.IA_URL && process.env.IA_KEY);
+}
+async function callCf(text) {
+  const res = await fetch(`${process.env.IA_URL.replace(/\/$/, "")}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-girofy-key": process.env.IA_KEY },
+    body: JSON.stringify({ messages: [{ role: "user", content: text }], max_tokens: 2500 }),
+    signal: AbortSignal.timeout(45e3)
+  });
+  const body2 = await res.text();
+  if (!res.ok) {
+    const err = new Error(`cf ${res.status}: ${body2.slice(0, 200)}`);
+    err.status = res.status;
+    throw err;
+  }
+  const j = JSON.parse(body2);
+  return String(j.text || "").replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+}
 async function probeModel(provider, model, apiKey, text = "Oi, quem \xE9?") {
   const prompt = `${SYSTEM_PROMPT}
 
@@ -868,7 +895,7 @@ NOVA MENSAGEM DA PESSOA:
 Responda s\xF3 com o texto da pr\xF3xima mensagem para o WhatsApp.`;
   const t0 = Date.now();
   try {
-    const reply = provider === "gemini" ? await callGemini(apiKey, model, prompt) : await callGroq(apiKey, model, prompt);
+    const reply = provider === "gemini" ? await callGemini(apiKey, model, prompt) : provider === "cf" ? await callCf(prompt) : await callGroq(apiKey, model, prompt);
     return { ok: !!reply, reply, ms: Date.now() - t0, problem: reply ? validateReply(reply, []) : "vazio" };
   } catch (err) {
     return { ok: false, reply: "", ms: Date.now() - t0, problem: null, error: String(err?.message || err).slice(0, 160) };
@@ -894,7 +921,7 @@ async function generateOnce(contact, incoming, history) {
   const cfg = await db.getConfig();
   const geminiKey = (cfg.geminiApiKey || process.env.GEMINI_API_KEY || "").trim();
   const groqKey = (cfg.groqApiKey || process.env.GROQ_API_KEY || "").trim();
-  if (!geminiKey && !groqKey) {
+  if (!geminiKey && !groqKey && !cfConfigured()) {
     console.error("[IA] nenhuma chave configurada (Gemini ou Groq): resposta n\xE3o enviada.");
     return fail("no_key");
   }
@@ -902,6 +929,7 @@ async function generateOnce(contact, incoming, history) {
     if (isPaused(cfg, item)) return false;
     if (item.provider === "gemini" && !geminiKey) return false;
     if (item.provider === "groq" && !groqKey) return false;
+    if (item.provider === "cf" && !cfConfigured()) return false;
     if (incoming.media && item.provider !== "gemini") return false;
     return true;
   });
@@ -949,7 +977,7 @@ DADOS DA PESSOA (use S\xD3 isto; nunca cite nome, neg\xF3cio, cidade ou ramo que
 - Neg\xF3cio: ${contact.company && contact.company !== "Em qualifica\xE7\xE3o" ? contact.company : "n\xE3o sei o nome do neg\xF3cio"}
 - Nicho: ${contact.niche || "n\xE3o informado"}
 ${camp && camp.mission ? `- Miss\xE3o desta campanha (o que voc\xEA quer conseguir; sem pressionar, e se a pessoa disser n\xE3o, encerre com educa\xE7\xE3o): ${camp.mission}${camp.objective ? " | Objetivo: " + camp.objective : ""}
-` : ""}${contact.notes ? `- Pesquisa sobre a empresa (fatos para voc\xEA saber; a proposta \xE9 s\xF3 uma ideia, nunca um fato; n\xE3o cite endere\xE7o nem nota do Google; respeite o que diz "n\xE3o fazer"): ${contact.notes.slice(0, 700)}
+` : ""}${contact.notes ? `- Pesquisa sobre a empresa (fatos para voc\xEA saber; a proposta \xE9 s\xF3 uma ideia, nunca um fato; pode citar n\xFAmero de avalia\xE7\xF5es e de fotos, nunca endere\xE7o; respeite o que diz "n\xE3o fazer"): ${contact.notes.slice(0, 700)}
 ` : ""}${opening.length ? `
 COMO A CONVERSA COME\xC7OU (primeiras mensagens, para voc\xEA lembrar quem falou o qu\xEA):
 ${opening.map((m) => `${m.from === "bot" ? "Voc\xEA" : m.from === "operator" ? "Voc\xEA (digitado \xE0 m\xE3o)" : "Pessoa"}: ${m.text}`).join("\n")}
@@ -978,7 +1006,7 @@ Responda s\xF3 com o texto da pr\xF3xima mensagem para o WhatsApp.
 SUA TENTATIVA ANTERIOR FOI RECUSADA: ${lastProblem}. Escreva outra mensagem, com outras palavras, seguindo as regras.` : "";
         let candidate = "";
         try {
-          candidate = item.provider === "gemini" ? await callGemini(geminiKey, item.model, promptFull + feedback, incoming.media) : await callGroq(groqKey, item.model, promptSlim + feedback);
+          candidate = item.provider === "gemini" ? await callGemini(geminiKey, item.model, promptFull + feedback, incoming.media) : item.provider === "cf" ? await callCf(promptFull + feedback) : await callGroq(groqKey, item.model, promptSlim + feedback);
         } catch (err) {
           const msg = String(err?.message || err);
           console.error(`[IA] ${item.provider}/${item.model} falhou:`, msg.slice(0, 300));
@@ -1072,9 +1100,10 @@ Responda SOMENTE um JSON, sem texto fora dele:
     if (isPaused(cfg, item)) continue;
     if (item.provider === "gemini" && !geminiKey) continue;
     if (item.provider === "groq" && !groqKey) continue;
+    if (item.provider === "cf" && !cfConfigured()) continue;
     if (!await reserveAiCall()) return null;
     try {
-      const raw = item.provider === "gemini" ? await callGemini(geminiKey, item.model, prompt) : await callGroq(groqKey, item.model, prompt);
+      const raw = item.provider === "gemini" ? await callGemini(geminiKey, item.model, prompt) : item.provider === "cf" ? await callCf(prompt) : await callGroq(groqKey, item.model, prompt);
       const parsed = parseOwnerJson(raw);
       if (parsed) return parsed;
       console.warn("[Dono] resposta sem JSON v\xE1lido:", raw.slice(0, 160));
