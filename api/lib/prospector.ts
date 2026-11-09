@@ -107,6 +107,7 @@ export async function getProspectStats() {
 }
 
 let nextAt = 0;
+const sendFails = new Map<string, number>();
 let running = false;
 let failStreak = 0;
 
@@ -201,7 +202,16 @@ async function tick() {
     const res = await sendEvolutionText(contact.phone, text, 2500);
 
     if (!res.success) {
-      nextAt = Date.now() + 5 * 60_000; // backoff em falha de envio
+      // Um número ruim nunca pode travar a fila: "Bad Request" = número sem WhatsApp. Sai da fila e segue para o próximo.
+      const n = (sendFails.get(contact.phone) || 0) + 1;
+      sendFails.set(contact.phone, n);
+      if (/bad request|exists|not.*whatsapp|invalid/i.test(String(res.error)) || n >= 2) {
+        await db.saveContact({ ...contact, status: 'esfriou', lastInteractionAt: new Date().toISOString() });
+        await db.addAuditLog({ type: 'status_change', phone: contact.phone, summary: `Número ${contact.phone} recusou o envio (${String(res.error).slice(0, 60)}). Saiu da fila; segue para o próximo.` });
+        nextAt = Date.now() + 20_000;
+        return;
+      }
+      nextAt = Date.now() + 60_000; // uma segunda chance rápida, nunca 5 min
       failStreak++;
       if (failStreak === 3) await notifyOwnerOnce('falhas', day, `Atenção: 3 envios seguidos falharam. Último erro: ${String(res.error).slice(0, 120)}`);
       await db.addAuditLog({
