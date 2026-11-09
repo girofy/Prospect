@@ -51,7 +51,7 @@ COMO VOCÊ DECIDE (antes de cada resposta)
 
 A ESCADA DA CONVERSA (uma etapa por mensagem; nunca pule etapa; quem vende é a conexão, não a prévia)
 Bom dia ou Boa tarde, sozinho, é a abertura. Resposta educada ("bom dia", "oi") é gentileza, não interesse.
-1. PRIMEIRA RESPOSTA: UM balão só, até 14 palavras, que ela responde com uma frase. Uma pergunta leve sobre o dia a dia do negócio dela, sem falar de site, Google, avaliação, nota ou foto, e sem oferecer nada. Use o ÂNGULO DESTE CONTATO que vem nos dados, com as suas palavras e o nome dela quando souber. Ângulos: A) como as clientes chegam hoje (indicação, Instagram, passando na rua); B) o que mais tá saindo ultimamente no trabalho dela; C) quem responde o WhatsApp e como dá conta; D) se quem procura o serviço dela na cidade encontra fácil.
+1. PRIMEIRA RESPOSTA: UM balão só, até 14 palavras, que faça a pessoa PENSAR ("nunca olhei por esse lado") e que ela responda fácil, em uma palavra ou frase. Pergunta de PROBLEMA, não de situação: você já chega sabendo o ramo dela. Nada de questionário ("como funciona aí?"), nada de avaliação, nota, estrelas ou fotos, e não ofereça nada. Escreva uma frase NOVA a cada contato, com o nome ou o serviço dela; nunca copie exemplo. Siga o ESTILO DESTA VEZ que vem nos dados.
 2. ESCUTAR: quando ela contar algo, repita uma palavra dela, mostre que entendeu em meia frase e faça UMA pergunta que aprofunda o que ela disse (o que acontece com quem ouve falar dela e vai procurar; quanto tempo isso toma; o que ela já tentou). Ela fala mais que você.
 3. SÓ QUANDO ELA MESMA admitir uma dificuldade ou mostrar curiosidade, ligue ao site em palavras de todo dia ("um lugar seu, com seu trabalho e um botão pra chamar na hora") e ofereça fazer um exemplo do negócio dela, sem custo, como convite que traga o que ela ganha. Nunca ofereça a prévia na primeira ou na segunda mensagem.
 4. DEPOIS DA PRÉVIA: pergunte o que ela achou ligando ao que ela disse querer, ajuste o que ela pedir e só então fale de preço (ou antes, se ela perguntar).
@@ -369,6 +369,49 @@ export async function generateGirofyCommercialReply(
   return generateOnce(contact, incoming, history);
 }
 
+// Estilos de primeira pergunta (depois do "Bom dia"). O sistema sorteia, mede quem responde e passa a favorecer o que funciona.
+const GANCHOS: { id: string; nome: string; como: string }[] = [
+  { id: 'G1', nome: 'Quem chega até quem', como: 'Pergunte se, quando alguém novo procura o serviço dela na cidade, a pessoa chega até ela ou até outra. Ex. de ideia: cliente nova procurando, achou você ou a concorrente?' },
+  { id: 'G2', nome: 'Curiosidade com licença', como: 'Diga que reparou numa coisa sobre como as pessoas chegam até o negócio dela e peça licença para contar. Ex. de ideia: posso te falar uma coisa que reparei?' },
+  { id: 'G3', nome: 'Palpite provocativo', como: 'Solte um palpite leve e ousado sobre o dia a dia dela e pergunte se acertou. Ex. de ideia: aposto que boa parte das clientes vem por indicação, acertei?' },
+  { id: 'G4', nome: 'Mini cena da cliente', como: 'Descreva em uma frase o que a cliente faz depois de ouvir falar dela (vai procurar) e pergunte se já aconteceu de ela não achar o que queria.' },
+  { id: 'G5', nome: 'Comparação leve', como: 'Pergunte o que a cliente vê primeiro quando compara ela com outra do mesmo ramo, em tom de curiosidade e sem acusar.' },
+  { id: 'G6', nome: 'Humor do ramo', como: 'Pergunta bem-humorada sobre um perrengue comum do ramo dela, curta, que arranque um sorriso e uma resposta.' },
+];
+let ganchoCache: { at: number; rate: Record<string, { n: number; r: number }> } | null = null;
+
+async function ganchoStats(): Promise<Record<string, { n: number; r: number }>> {
+  if (ganchoCache && Date.now() - ganchoCache.at < 10 * 60_000) return ganchoCache.rate;
+  const rate: Record<string, { n: number; r: number }> = {};
+  try {
+    const logs = (await db.getAuditLogs(1500)).filter(l => /^Gancho G\d:/.test(l.summary || '') && l.phone);
+    const msgs = await db.getMessages();
+    for (const l of logs) {
+      const id = (l.summary as string).slice(7, 9);
+      const t = Date.parse(l.timestamp);
+      const answered = msgs.some(m => m.contactPhone === l.phone && m.from === 'lead' && Date.parse(m.timestamp) > t + 60_000);
+      const e = (rate[id] ||= { n: 0, r: 0 });
+      e.n++;
+      if (answered) e.r++;
+    }
+  } catch (err) {
+    console.warn('[Ganchos] sem estatística:', err);
+  }
+  ganchoCache = { at: Date.now(), rate };
+  return rate;
+}
+
+// 70% usa o estilo com melhor taxa de resposta (com pelo menos 4 testes); 30% testa os menos usados.
+async function pickGancho(): Promise<(typeof GANCHOS)[number]> {
+  const st = await ganchoStats();
+  const tested = GANCHOS.filter(g => (st[g.id]?.n || 0) >= 4);
+  const least = [...GANCHOS].sort((a, b) => (st[a.id]?.n || 0) - (st[b.id]?.n || 0));
+  if (tested.length === GANCHOS.length && Math.random() < 0.7) {
+    return [...GANCHOS].sort((a, b) => (st[b.id].r + 1) / (st[b.id].n + 2) - (st[a.id].r + 1) / (st[a.id].n + 2))[0];
+  }
+  return least[Math.floor(Math.random() * Math.min(3, least.length))];
+}
+
 async function generateOnce(
   contact: Contact,
   incoming: IncomingMessage,
@@ -409,6 +452,9 @@ async function generateOnce(
   try {
     // Últimas mensagens, com as do bot marcadas para evitar repetição.
     const recent = history.slice(-12);
+    // Primeira resposta depois do "Bom dia": só existe a abertura enviada pelo robô.
+    const firstReply = history.filter(m => m.from === 'bot').length <= 1 && !history.some(m => m.from === 'operator');
+    const gancho = firstReply ? await pickGancho() : null;
     const opening = history.length > 12 ? history.slice(0, 3) : [];
     const recentBot = recent.filter(m => m.from === 'bot').slice(-4).map(m => `- "${m.text}"`).join('\n');
     // Histórico com orçamento de caracteres: pega as mensagens mais recentes que cabem, em ordem.
@@ -441,8 +487,7 @@ DADOS DA PESSOA (use SÓ isto; nunca cite nome, negócio, cidade ou ramo que nã
 - Nome: ${contact.name && !/^(lead|contato)/i.test(contact.name) ? contact.name : 'não sei o nome'}
 - Negócio: ${contact.company && contact.company !== 'Em qualificação' ? contact.company : 'não sei o nome do negócio'}
 - Nicho: ${contact.niche || 'não informado'}
-- ÂNGULO DESTE CONTATO (só para a sua primeira resposta): ${'ABCD'[[...String(contact.phone).replace(/\D/g, '')].reduce((a, d) => a + Number(d), 0) % 4]}
-${camp && camp.mission ? `- Missão desta campanha (o que você quer conseguir; sem pressionar, e se a pessoa disser não, encerre com educação): ${camp.mission}${camp.objective ? ' | Objetivo: ' + camp.objective : ''}\n` : ''}${contact.notes ? `- Pesquisa sobre a empresa (fatos para você saber; a proposta é só uma ideia, nunca um fato; nunca cite avaliações, nota, fotos nem endereço; respeite o que diz "não fazer"): ${contact.notes.slice(0, 700)}\n` : ''}${opening.length ? `
+${gancho ? `- ESTILO DESTA VEZ (só para a sua primeira resposta; crie a frase, não copie): ${gancho.nome}. ${gancho.como}\n` : ''}${camp && camp.mission ? `- Missão desta campanha (o que você quer conseguir; sem pressionar, e se a pessoa disser não, encerre com educação): ${camp.mission}${camp.objective ? ' | Objetivo: ' + camp.objective : ''}\n` : ''}${contact.notes ? `- Pesquisa sobre a empresa (fatos para você saber; a proposta é só uma ideia, nunca um fato; nunca cite avaliações, nota, fotos nem endereço; respeite o que diz "não fazer"): ${contact.notes.slice(0, 700)}\n` : ''}${opening.length ? `
 COMO A CONVERSA COMEÇOU (primeiras mensagens, para você lembrar quem falou o quê):
 ${opening.map(m => `${m.from === 'bot' ? 'Você' : m.from === 'operator' ? 'Você (digitado à mão)' : 'Pessoa'}: ${m.text}`).join('\n')}
 ` : ''}
@@ -515,6 +560,9 @@ Responda só com o texto da próxima mensagem para o WhatsApp.
     }
     if (!rawText) return fail('empty');
 
+    if (gancho && !transferToHuman) {
+      void db.addAuditLog({ type: 'ai_reply', phone: contact.phone, summary: `Gancho ${gancho.id}: ${gancho.nome}` });
+    }
     const isMeetingRequested = /meet\.google\.com|reunião|15 min/i.test(rawText);
     return { replyText: rawText, aiAvailable: true, transferToHuman, transferReason, isMeetingRequested };
   } catch (err: any) {
