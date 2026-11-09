@@ -42,7 +42,12 @@ export default async function handler(req: any, res: any) {
     ]);
     const byPhone = new Map(contacts.map(c => [c.phone, c]));
 
-    const rows = messages
+    // ?since=AAAA-MM-DD: só mensagens a partir desse dia (dia de Salvador, BA)
+    const since = url.searchParams.get('since');
+    const sinceMs = since ? Date.parse(`${since}T00:00:00-03:00`) : 0;
+    const scoped = sinceMs ? messages.filter(m => Date.parse(m.timestamp) >= sinceMs) : messages;
+
+    const rows = scoped
       .sort((a, b) => (a.timestamp < b.timestamp ? -1 : 1))
       .map(m => {
         const c: any = byPhone.get(m.contact_phone) || {};
@@ -59,7 +64,7 @@ export default async function handler(req: any, res: any) {
         };
       });
 
-    const stamp = new Date().toISOString().slice(0, 10);
+    const stamp = since ? `${since}` : new Date().toISOString().slice(0, 10);
     if (format === 'json') {
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="conversas-girofy-${stamp}.json"`);

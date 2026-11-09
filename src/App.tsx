@@ -129,6 +129,27 @@ export const getDynamicGreeting = (date: Date = new Date()): string => {
   return 'Boa noite';
 };
 
+// Baixa o CSV de conversas pelo login atual. "hoje" usa o dia em Salvador (BA).
+async function baixarExport(quando: 'hoje' | 'tudo') {
+  const token = localStorage.getItem('girofy_painel_token') || '';
+  let qs = '';
+  if (quando === 'hoje') {
+    const dia = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bahia', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    qs = `&since=${dia}`;
+  }
+  const res = await fetch(`/api/export?format=csv${qs}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (!res.ok) { alert('Não consegui exportar agora. Tente de novo.'); return; }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = quando === 'hoje' ? 'conversas-hoje.csv' : 'conversas-tudo.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export default function App() {
   // Public URL routing support for Vercel (/privacy and /data-deletion)
   const [currentPath, setCurrentPath] = useState<string>(() => {
@@ -1660,6 +1681,18 @@ export default function App() {
         {activeTab === 'ajustes' && (
           <div className="space-y-4 max-w-4xl mx-auto w-full">
             
+            {/* Exportar conversas: hoje ou tudo, a qualquer momento */}
+            <div className="apple-widget p-5 sm:p-6 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold text-[#1D1D1F] tracking-tight">Exportar conversas</h3>
+                <p className="text-[13px] text-[#6e6e73]">Baixa um CSV com cada mensagem, empresa e quem falou.</p>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => baixarExport('hoje')} className="px-4 h-10 rounded-full bg-[#0071E3] text-white text-[14px] font-semibold">Hoje</button>
+                <button type="button" onClick={() => baixarExport('tudo')} className="px-4 h-10 rounded-full bg-black/[0.06] text-[#1D1D1F] text-[14px] font-semibold">Tudo</button>
+              </div>
+            </div>
+
             {/* Atividade recente */}
             <div className="apple-widget p-5 sm:p-6">
               <div className="flex items-center justify-between mb-3">
