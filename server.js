@@ -648,7 +648,7 @@ COMO VOC\xCA DECIDE (antes de cada resposta)
 
 A ESCADA DA CONVERSA (uma etapa por mensagem; nunca pule etapa; quem vende \xE9 a conex\xE3o, n\xE3o a pr\xE9via)
 Bom dia ou Boa tarde, sozinho, \xE9 a abertura. Resposta educada ("bom dia", "oi") \xE9 gentileza, n\xE3o interesse.
-1. PRIMEIRA RESPOSTA: UM bal\xE3o s\xF3, at\xE9 14 palavras, que ela responde com uma frase. Uma pergunta leve sobre o dia a dia do neg\xF3cio dela, sem falar de site, Google, avalia\xE7\xE3o, nota ou foto, e sem oferecer nada. Use o \xC2NGULO DESTE CONTATO que vem nos dados, com as suas palavras e o nome dela quando souber. \xC2ngulos: A) como as clientes chegam hoje (indica\xE7\xE3o, Instagram, passando na rua); B) o que mais t\xE1 saindo ultimamente no trabalho dela; C) quem responde o WhatsApp e como d\xE1 conta; D) se quem procura o servi\xE7o dela na cidade encontra f\xE1cil.
+1. PRIMEIRA RESPOSTA: UM bal\xE3o s\xF3, at\xE9 14 palavras, que fa\xE7a a pessoa PENSAR ("nunca olhei por esse lado") e que ela responda f\xE1cil, em uma palavra ou frase. Pergunta de PROBLEMA, n\xE3o de situa\xE7\xE3o: voc\xEA j\xE1 chega sabendo o ramo dela. Nada de question\xE1rio ("como funciona a\xED?"), nada de avalia\xE7\xE3o, nota, estrelas ou fotos, e n\xE3o ofere\xE7a nada. Escreva uma frase NOVA a cada contato, com o nome ou o servi\xE7o dela; nunca copie exemplo. Siga o ESTILO DESTA VEZ que vem nos dados.
 2. ESCUTAR: quando ela contar algo, repita uma palavra dela, mostre que entendeu em meia frase e fa\xE7a UMA pergunta que aprofunda o que ela disse (o que acontece com quem ouve falar dela e vai procurar; quanto tempo isso toma; o que ela j\xE1 tentou). Ela fala mais que voc\xEA.
 3. S\xD3 QUANDO ELA MESMA admitir uma dificuldade ou mostrar curiosidade, ligue ao site em palavras de todo dia ("um lugar seu, com seu trabalho e um bot\xE3o pra chamar na hora") e ofere\xE7a fazer um exemplo do neg\xF3cio dela, sem custo, como convite que traga o que ela ganha. Nunca ofere\xE7a a pr\xE9via na primeira ou na segunda mensagem.
 4. DEPOIS DA PR\xC9VIA: pergunte o que ela achou ligando ao que ela disse querer, ajuste o que ela pedir e s\xF3 ent\xE3o fale de pre\xE7o (ou antes, se ela perguntar).
@@ -910,6 +910,44 @@ async function generateGirofyCommercialReply(contact, incoming, history) {
   await new Promise((r) => setTimeout(r, shortest + 500));
   return generateOnce(contact, incoming, history);
 }
+var GANCHOS = [
+  { id: "G1", nome: "Quem chega at\xE9 quem", como: "Pergunte se, quando algu\xE9m novo procura o servi\xE7o dela na cidade, a pessoa chega at\xE9 ela ou at\xE9 outra. Ex. de ideia: cliente nova procurando, achou voc\xEA ou a concorrente?" },
+  { id: "G2", nome: "Curiosidade com licen\xE7a", como: "Diga que reparou numa coisa sobre como as pessoas chegam at\xE9 o neg\xF3cio dela e pe\xE7a licen\xE7a para contar. Ex. de ideia: posso te falar uma coisa que reparei?" },
+  { id: "G3", nome: "Palpite provocativo", como: "Solte um palpite leve e ousado sobre o dia a dia dela e pergunte se acertou. Ex. de ideia: aposto que boa parte das clientes vem por indica\xE7\xE3o, acertei?" },
+  { id: "G4", nome: "Mini cena da cliente", como: "Descreva em uma frase o que a cliente faz depois de ouvir falar dela (vai procurar) e pergunte se j\xE1 aconteceu de ela n\xE3o achar o que queria." },
+  { id: "G5", nome: "Compara\xE7\xE3o leve", como: "Pergunte o que a cliente v\xEA primeiro quando compara ela com outra do mesmo ramo, em tom de curiosidade e sem acusar." },
+  { id: "G6", nome: "Humor do ramo", como: "Pergunta bem-humorada sobre um perrengue comum do ramo dela, curta, que arranque um sorriso e uma resposta." }
+];
+var ganchoCache = null;
+async function ganchoStats() {
+  if (ganchoCache && Date.now() - ganchoCache.at < 10 * 6e4) return ganchoCache.rate;
+  const rate = {};
+  try {
+    const logs = (await db.getAuditLogs(1500)).filter((l) => /^Gancho G\d:/.test(l.summary || "") && l.phone);
+    const msgs = await db.getMessages();
+    for (const l of logs) {
+      const id = l.summary.slice(7, 9);
+      const t = Date.parse(l.timestamp);
+      const answered = msgs.some((m) => m.contactPhone === l.phone && m.from === "lead" && Date.parse(m.timestamp) > t + 6e4);
+      const e = rate[id] ||= { n: 0, r: 0 };
+      e.n++;
+      if (answered) e.r++;
+    }
+  } catch (err) {
+    console.warn("[Ganchos] sem estat\xEDstica:", err);
+  }
+  ganchoCache = { at: Date.now(), rate };
+  return rate;
+}
+async function pickGancho() {
+  const st = await ganchoStats();
+  const tested = GANCHOS.filter((g) => (st[g.id]?.n || 0) >= 4);
+  const least = [...GANCHOS].sort((a, b) => (st[a.id]?.n || 0) - (st[b.id]?.n || 0));
+  if (tested.length === GANCHOS.length && Math.random() < 0.7) {
+    return [...GANCHOS].sort((a, b) => (st[b.id].r + 1) / (st[b.id].n + 2) - (st[a.id].r + 1) / (st[a.id].n + 2))[0];
+  }
+  return least[Math.floor(Math.random() * Math.min(3, least.length))];
+}
 async function generateOnce(contact, incoming, history) {
   const fail = (reason) => ({
     replyText: "",
@@ -939,6 +977,8 @@ async function generateOnce(contact, incoming, history) {
   }
   try {
     const recent = history.slice(-12);
+    const firstReply = history.filter((m) => m.from === "bot").length <= 1 && !history.some((m) => m.from === "operator");
+    const gancho = firstReply ? await pickGancho() : null;
     const opening = history.length > 12 ? history.slice(0, 3) : [];
     const recentBot = recent.filter((m) => m.from === "bot").slice(-4).map((m) => `- "${m.text}"`).join("\n");
     const transcriptFor = (budget) => {
@@ -975,8 +1015,8 @@ DADOS DA PESSOA (use S\xD3 isto; nunca cite nome, neg\xF3cio, cidade ou ramo que
 - Nome: ${contact.name && !/^(lead|contato)/i.test(contact.name) ? contact.name : "n\xE3o sei o nome"}
 - Neg\xF3cio: ${contact.company && contact.company !== "Em qualifica\xE7\xE3o" ? contact.company : "n\xE3o sei o nome do neg\xF3cio"}
 - Nicho: ${contact.niche || "n\xE3o informado"}
-- \xC2NGULO DESTE CONTATO (s\xF3 para a sua primeira resposta): ${"ABCD"[[...String(contact.phone).replace(/\D/g, "")].reduce((a, d) => a + Number(d), 0) % 4]}
-${camp && camp.mission ? `- Miss\xE3o desta campanha (o que voc\xEA quer conseguir; sem pressionar, e se a pessoa disser n\xE3o, encerre com educa\xE7\xE3o): ${camp.mission}${camp.objective ? " | Objetivo: " + camp.objective : ""}
+${gancho ? `- ESTILO DESTA VEZ (s\xF3 para a sua primeira resposta; crie a frase, n\xE3o copie): ${gancho.nome}. ${gancho.como}
+` : ""}${camp && camp.mission ? `- Miss\xE3o desta campanha (o que voc\xEA quer conseguir; sem pressionar, e se a pessoa disser n\xE3o, encerre com educa\xE7\xE3o): ${camp.mission}${camp.objective ? " | Objetivo: " + camp.objective : ""}
 ` : ""}${contact.notes ? `- Pesquisa sobre a empresa (fatos para voc\xEA saber; a proposta \xE9 s\xF3 uma ideia, nunca um fato; nunca cite avalia\xE7\xF5es, nota, fotos nem endere\xE7o; respeite o que diz "n\xE3o fazer"): ${contact.notes.slice(0, 700)}
 ` : ""}${opening.length ? `
 COMO A CONVERSA COME\xC7OU (primeiras mensagens, para voc\xEA lembrar quem falou o qu\xEA):
@@ -1039,6 +1079,9 @@ SUA TENTATIVA ANTERIOR FOI RECUSADA: ${lastProblem}. Escreva outra mensagem, com
       if (!rawText) rawText = "Claro. Deixa eu confirmar isso aqui e j\xE1 te respondo.";
     }
     if (!rawText) return fail("empty");
+    if (gancho && !transferToHuman) {
+      void db.addAuditLog({ type: "ai_reply", phone: contact.phone, summary: `Gancho ${gancho.id}: ${gancho.nome}` });
+    }
     const isMeetingRequested = /meet\.google\.com|reunião|15 min/i.test(rawText);
     return { replyText: rawText, aiAvailable: true, transferToHuman, transferReason, isMeetingRequested };
   } catch (err) {
