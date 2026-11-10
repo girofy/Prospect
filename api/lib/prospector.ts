@@ -37,10 +37,10 @@ function bahiaNow(d = new Date()) {
 }
 
 const fmtH = (h: number) => `${Math.floor(h)}h${Math.round((h % 1) * 60) ? String(Math.round((h % 1) * 60)).padStart(2, '0') : ''}`;
-function inWindowNow(endHour = WINDOW_END): boolean {
+function inWindowNow(endHour = WINDOW_END, startHour = WINDOW_START): boolean {
   const n = bahiaNow();
   if (SKIP_SUNDAY && n.sunday) return false;
-  return n.at >= WINDOW_START && n.at < Math.min(endHour, WINDOW_END);
+  return n.at >= startHour && n.at < Math.min(endHour, WINDOW_END);
 }
 
 const rand = (min: number, max: number) => min + Math.random() * (max - min);
@@ -163,7 +163,8 @@ async function tick() {
     const camp = activeCampaign(await getCampaigns());
     if (!camp) return;
     const endHour = Math.min(camp.endHour, WINDOW_END);
-    if (!inWindowNow(endHour)) return;
+    const startHour = Math.max(WINDOW_START, camp.startHour ?? WINDOW_START);
+    if (!inWindowNow(endHour, startHour)) return;
     const sentToday = cfg.prospectDay === day ? cfg.prospectSentToday || 0 : 0;
     if (sentToday >= camp.dailyCap) return;
     const keys = new Set(camp.phones.map(last8));
@@ -225,11 +226,13 @@ async function tick() {
     // Ritmo calculado: espalha o que falta enviar até a hora de parar, com sorteio em volta da média.
     const left = Math.max(1, Math.min(queue.length - 1, camp.dailyCap - (sentToday + 1)));
     const meanGap = Math.max(0, (endHour - at) * 3600) / left;
-    let gap = Math.min(1500, Math.max(MIN_GAP_S, meanGap * rand(0.7, 1.3)));
+    const lo = camp.minGapS ?? MIN_GAP_S;
+    const hi = Math.max(lo, camp.maxGapS ?? MAX_GAP_S);
+    let gap = Math.min(hi, Math.max(lo, meanGap * rand(0.7, 1.3)));
     // Turbo: recupera atraso com intervalos de 2 a 5 minutos nos próximos envios, depois volta ao ritmo normal.
     const boost = cfg.prospectorBoost || 0;
     if (boost > 0) {
-      gap = rand(120, 300);
+      gap = Math.min(hi, rand(120, 300));
       await db.saveConfig({ prospectorBoost: boost - 1 });
     }
     nextAt = Date.now() + gap * 1000;

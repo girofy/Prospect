@@ -13,6 +13,9 @@ export interface Campaign {
   phones: string[];
   dailyCap: number;
   endHour: number; // hora decimal em que a campanha para (ex.: 18.5 = 18h30)
+  startHour?: number; // hora decimal em que começa o dia (padrão 8)
+  minGapS?: number; // intervalo mínimo entre envios, em segundos (padrão 240)
+  maxGapS?: number; // intervalo máximo entre envios, em segundos (padrão 540)
   createdAt: string;
 }
 

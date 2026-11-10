@@ -117,6 +117,9 @@ function Detail({ id, onBack }: { id: string; onBack: () => void }) {
   const [mission, setMission] = useState('');
   const [objective, setObjective] = useState('');
   const [endHour, setEndHour] = useState(18);
+  const [startHour, setStartHour] = useState(8);
+  const [minGap, setMinGap] = useState(240);
+  const [maxGap, setMaxGap] = useState(540);
   const [cap, setCap] = useState(40);
   const [filtro, setFiltro] = useState('todos');
   const [extra, setExtra] = useState<Row[]>([]);
@@ -124,7 +127,7 @@ function Detail({ id, onBack }: { id: string; onBack: () => void }) {
 
   const load = async (first = false) => {
     const r = await api(undefined, `?id=${id}`);
-    if (r.ok) { setD(r.j); if (first) { setMission(r.j.campaign.mission); setObjective(r.j.campaign.objective); setEndHour(r.j.campaign.endHour); setCap(r.j.campaign.dailyCap); } }
+    if (r.ok) { setD(r.j); if (first) { setMission(r.j.campaign.mission); setObjective(r.j.campaign.objective); setEndHour(r.j.campaign.endHour); setCap(r.j.campaign.dailyCap); setStartHour(r.j.campaign.startHour ?? 8); setMinGap(r.j.campaign.minGapS ?? 240); setMaxGap(r.j.campaign.maxGapS ?? 540); } }
     const s = await api(undefined, '');
     if (s.ok) setStats((s.j.campaigns as Camp[]).find(c => c.id === id) || null);
   };
@@ -205,14 +208,31 @@ function Detail({ id, onBack }: { id: string; onBack: () => void }) {
         <div className="flex flex-wrap gap-1.5 mb-2">{MISSOES.map(x => <button key={x.t} onClick={() => { setMission(x.m); setObjective(x.o); }} className={`px-3 py-1.5 rounded-full text-xs font-semibold ${mission === x.m ? 'bg-[#1D1D1F] text-white' : 'bg-black/[0.06] text-[#1D1D1F]'}`}>{x.t}</button>)}</div>
         <textarea value={mission} onChange={e => setMission(e.target.value)} rows={4} className="w-full px-4 py-3 rounded-2xl bg-[#F5F5F7] text-sm" />
         <input value={objective} onChange={e => setObjective(e.target.value)} placeholder="Objetivo em uma frase" className="w-full mt-2 px-4 py-3 rounded-2xl bg-[#F5F5F7] text-sm" />
-        <div className="grid grid-cols-2 gap-3 mt-2">
-          <label className="text-xs font-bold text-[#6e6e73]">Parar às<select value={endHour} onChange={e => setEndHour(Number(e.target.value))} className="w-full mt-1 px-3 py-3 rounded-2xl bg-[#F5F5F7] text-sm text-[#1D1D1F]">{[12, 14, 16, 17, 18, 19].map(h => <option key={h} value={h}>{h}h</option>)}</select></label>
-          <label className="text-xs font-bold text-[#6e6e73]">Máximo por dia<input type="number" min={1} max={100} value={cap} onChange={e => setCap(Number(e.target.value))} className="w-full mt-1 px-3 py-3 rounded-2xl bg-[#F5F5F7] text-sm text-[#1D1D1F]" /></label>
-        </div>
-        <button disabled={busy} onClick={() => run({ action: 'update', mission, objective, endHour, dailyCap: cap }, 'Salvo.')} className="mt-3 w-full py-3 rounded-2xl bg-[#0071E3] text-white text-sm font-bold">Salvar</button>
+        <AgendaFields {...{ startHour, setStartHour, endHour, setEndHour, minGap, setMinGap, maxGap, setMaxGap, cap, setCap }} />
+        <button disabled={busy} onClick={() => run({ action: 'update', mission, objective, endHour, dailyCap: cap, startHour, minGapS: minGap, maxGapS: maxGap }, 'Salvo.')} className="mt-3 w-full py-3 rounded-2xl bg-[#0071E3] text-white text-sm font-bold">Salvar</button>
         {c.status !== 'ativa' && <button disabled={busy} onClick={async () => { if (await run({ action: 'remove' }, 'Campanha apagada.')) onBack(); }} className="mt-2 w-full py-2.5 rounded-2xl bg-black/[0.06] text-[#FF3B30] text-sm font-semibold">Apagar campanha</button>}
       </Card>
       {prof && <Profile phone={prof} onClose={() => setProf(null)} />}
+    </div>
+  );
+}
+
+// Agenda editável: horário de início, parar, e intervalo mínimo/máximo entre envios (segundos).
+function AgendaFields({ startHour, setStartHour, endHour, setEndHour, minGap, setMinGap, maxGap, setMaxGap, cap, setCap }: any) {
+  const minutos = (s: number) => Math.round(s / 60 * 10) / 10;
+  const horas = (h: number) => [h, h].length && h;
+  return (
+    <div className="space-y-3 mt-3">
+      <div className="grid grid-cols-3 gap-3">
+        <label className="text-xs font-bold text-[#6e6e73]">Começa às<select value={startHour} onChange={e => setStartHour(Number(e.target.value))} className="w-full mt-1 px-3 py-3 rounded-2xl bg-[#F5F5F7] text-sm text-[#1D1D1F]">{[7, 8, 9, 10, 11].map(h => <option key={h} value={h}>{h}h</option>)}</select></label>
+        <label className="text-xs font-bold text-[#6e6e73]">Para às<select value={endHour} onChange={e => setEndHour(Number(e.target.value))} className="w-full mt-1 px-3 py-3 rounded-2xl bg-[#F5F5F7] text-sm text-[#1D1D1F]">{[12, 14, 16, 17, 18, 19].map(h => <option key={h} value={h}>{h}h</option>)}</select></label>
+        <label className="text-xs font-bold text-[#6e6e73]">Máximo por dia<input type="number" min={1} max={100} value={cap} onChange={e => setCap(Number(e.target.value))} className="w-full mt-1 px-3 py-3 rounded-2xl bg-[#F5F5F7] text-sm text-[#1D1D1F]" /></label>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="text-xs font-bold text-[#6e6e73]">Intervalo mínimo (min)<input type="number" min={1} max={30} step={0.5} value={minutos(minGap)} onChange={e => setMinGap(Math.round(Number(e.target.value) * 60))} className="w-full mt-1 px-3 py-3 rounded-2xl bg-[#F5F5F7] text-sm text-[#1D1D1F]" /></label>
+        <label className="text-xs font-bold text-[#6e6e73]">Intervalo máximo (min)<input type="number" min={1} max={60} step={0.5} value={minutos(maxGap)} onChange={e => setMaxGap(Math.round(Number(e.target.value) * 60))} className="w-full mt-1 px-3 py-3 rounded-2xl bg-[#F5F5F7] text-sm text-[#1D1D1F]" /></label>
+      </div>
+      <p className="text-xs text-[#6e6e73]">Cada envio sai com um intervalo sorteado entre o mínimo e o máximo, só dentro do horário. Ex.: 2 a 5 min.</p>
     </div>
   );
 }
@@ -227,6 +247,9 @@ export default function CampaignsTab() {
   const [mission, setMission] = useState(MISSOES[0].m);
   const [objective, setObjective] = useState(MISSOES[0].o);
   const [endHour, setEndHour] = useState(18);
+  const [startHour, setStartHour] = useState(8);
+  const [minGap, setMinGap] = useState(240);
+  const [maxGap, setMaxGap] = useState(540);
   const [cap, setCap] = useState(40);
   const [rows, setRows] = useState<Row[]>([]);
   const [label, setLabel] = useState('');
@@ -238,7 +261,7 @@ export default function CampaignsTab() {
 
   const create = async () => {
     setBusy(true); setMsg('');
-    const r = await api({ action: 'create', name: name || label.replace(/\.[^.]+$/, '') || 'Nova campanha', mission, objective, endHour, dailyCap: cap, rows });
+    const r = await api({ action: 'create', name: name || label.replace(/\.[^.]+$/, '') || 'Nova campanha', mission, objective, endHour, dailyCap: cap, startHour, minGapS: minGap, maxGapS: maxGap, rows });
     setBusy(false);
     if (!r.ok) { setMsg(r.j.error || 'Não deu certo.'); return; }
     setOpen(false); setRows([]); setName(''); setLabel('');
@@ -259,10 +282,7 @@ export default function CampaignsTab() {
               <textarea value={mission} onChange={e => setMission(e.target.value)} rows={4} className="w-full px-4 py-3 rounded-2xl bg-[#F5F5F7] text-sm" />
               <input value={objective} onChange={e => setObjective(e.target.value)} placeholder="Objetivo em uma frase" className="w-full mt-2 px-4 py-3 rounded-2xl bg-[#F5F5F7] text-sm" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="text-xs font-bold text-[#6e6e73]">Parar às<select value={endHour} onChange={e => setEndHour(Number(e.target.value))} className="w-full mt-1 px-3 py-3 rounded-2xl bg-[#F5F5F7] text-sm text-[#1D1D1F]">{[12, 14, 16, 17, 18, 19].map(h => <option key={h} value={h}>{h}h</option>)}</select></label>
-              <label className="text-xs font-bold text-[#6e6e73]">Máximo por dia<input type="number" min={1} max={100} value={cap} onChange={e => setCap(Number(e.target.value))} className="w-full mt-1 px-3 py-3 rounded-2xl bg-[#F5F5F7] text-sm text-[#1D1D1F]" /></label>
-            </div>
+            <AgendaFields {...{ startHour, setStartHour, endHour, setEndHour, minGap, setMinGap, maxGap, setMaxGap, cap, setCap }} />
             <p className="text-xs text-[#6e6e73]">Os envios se espalham de forma aleatória até a hora de parar. Quem já tem conversa ou abordagem é pulado.</p>
             <button disabled={busy} onClick={create} className="w-full py-3 rounded-2xl bg-[#1D1D1F] text-white text-sm font-bold disabled:opacity-50">{busy ? 'Criando...' : rows.length ? `Criar com ${rows.length} empresas` : 'Criar campanha vazia'}</button>
           </div>
