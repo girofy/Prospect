@@ -77,6 +77,9 @@ async function handleUpsert(d: any) {
       metaMessageId: msgId,
       status: 'sent',
     } as ChatMessage);
+    // Você entrou na conversa: o robô se cala neste contato para os dois não falarem juntos.
+    const mine = await db.getContactByPhone(phone);
+    if (mine && mine.agentState === 'ai_active') await db.saveContact({ ...mine, agentState: 'human_takeover' });
     return;
   }
 
@@ -171,7 +174,7 @@ function looksAutomatic(text: string, history: ChatMessage[]): boolean {
   const ours = history.filter(m => m.from === 'bot' || m.from === 'operator');
   const theirs = history.filter(m => m.from === 'lead');
   const last = ours[ours.length - 1];
-  return !!last && ours.length === 1 && theirs.length === 0 && Date.now() - Date.parse(last.timestamp) < 20_000 && text.length > 80;
+  return !!last && ours.length === 1 && theirs.length === 0 && Date.now() - Date.parse(last.timestamp) < 45_000; // resposta em segundos ao primeiro contato = saudação automática, qualquer tamanho
 }
 
 async function respond(phone: string, media?: { mimeType: string; data: string }): Promise<void> {

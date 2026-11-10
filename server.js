@@ -438,7 +438,7 @@ function last8(phone) {
 
 // api/lib/campaigns.ts
 var PRICE_RE = /(quanto (custa|fica|sai|é|e)\b|pre[cç]o|valor|or[cç]amento|pr[eé]via|quero (ver|fechar|contratar)|manda (ver|a[ií])|pode (mandar|montar))/i;
-var AUTO_RE = /(mensagem autom[aá]tica|resposta autom[aá]tica|no momento (n[aã]o|estamos)|estamos (descansando|fora|ausentes)|fora do (nosso )?hor[aá]rio|hor[aá]rio de (atendimento|funcionamento)|responderemos (assim|em breve|o mais)|retornaremos|retornamos|agradecemos (a |sua |o seu |pelo |pela )?(sua )?(mensagem|contato)|seja (muito )?bem[- ]?vind|obrigad[oa] por (entrar em contato|sua mensagem|nos contatar|escolher)|n[aã]o estamos dispon[ií]veis|logo (te )?responderemos|em breve (retornaremos|responderemos|daremos|um de nossos)|assistente virtual|sou (a|o) [^,.\n]{2,25},? (assistente|atendente|secret[aá]ri)|vou (te )?(conduzir|atender)|\*[A-ZÀ-Ú][\wÀ-ú ]{1,20}:\*|atendimento (automatizado|inicial)|repassar para a equipe)/i;
+var AUTO_RE = /(agradece (o |a )?(seu|sua) (contato|mensagem)|em (alguns|poucos) minutos|assim que (poss[ií]vel|eu estiver|estiver)|mensagem autom[aá]tica|resposta autom[aá]tica|no momento (n[aã]o|estamos)|estamos (descansando|fora|ausentes)|fora do (nosso )?hor[aá]rio|hor[aá]rio de (atendimento|funcionamento)|responderemos (assim|em breve|o mais)|retornaremos|retornamos|agradecemos (a |sua |o seu |pelo |pela )?(sua )?(mensagem|contato)|seja (muito )?bem[- ]?vind|obrigad[oa] por (entrar em contato|sua mensagem|nos contatar|escolher)|n[aã]o estamos dispon[ií]veis|logo (te )?responderemos|em breve (retornaremos|responderemos|daremos|um de nossos)|assistente virtual|sou (a|o) [^,.\n]{2,25},? (assistente|atendente|secret[aá]ri)|vou (te )?(conduzir|atender)|\*[A-ZÀ-Ú][\wÀ-ú ]{1,20}:\*|atendimento (automatizado|inicial)|repassar para a equipe)/i;
 var CLOSING_RE = /(obrigad[oa]|at[eé] mais|at[eé] logo|tenha (uma )?([oó]tim|boa|excelente)|igualmente|combinado|sucesso|fico no aguardo|boa semana|abra[cç]o)/i;
 function isClosing(text) {
   const t = (text || "").trim();
@@ -634,6 +634,9 @@ COMO VOC\xCA FALA
 - Espelhe o jeito do lead: se ele escreve "blz", voc\xEA pode ser mais solto; se ele \xE9 formal, seja formal.
 
 LEITURA DE COMPORTAMENTO
+- Se perguntarem "quem \xE9?", "o que deseja?", "como conseguiu meu contato?" ou pedirem para ser direto: responda TUDO em uma mensagem curta, sem pergunta de volta antes: "Sou da Girofy, fa\xE7o sites pra profissionais como voc\xEA. Achei seu contato no Google. Fica 290 e eu monto uma pr\xE9via gr\xE1tis antes. Quer ver?". Nunca diga "assistente comercial" nem a cidade da Girofy.
+- No m\xE1ximo UMA pergunta de sondagem antes de dizer a que veio. Se a pessoa respondeu uma, diga logo o que voc\xEA faz.
+- "N\xE3o", "n\xE3o, obrigada", "agrade\xE7o": encerre com uma frase gentil e pare. Nunca pergunte o que faria ela mudar de ideia.
 - Resposta educada ("bom dia", "oi", "tudo bem") \xE9 gentileza, n\xE3o interesse. S\xF3 trate como interesse quando ela perguntar algo, pedir algo ou aceitar algo.
 - Leia o tom: curto e seco = seja breve; animado = acompanhe; desconfiado = diga a desconfian\xE7a antes. Se a mensagem dela n\xE3o faz sentido para a sua \xFAltima pergunta, n\xE3o force: pe\xE7a uma coisa simples ou deixe quieto.
 - Nunca fa\xE7a pergunta que ela j\xE1 respondeu, nem pergunte o que voc\xEA pode ver no hist\xF3rico ou nas notas da empresa.
@@ -2979,6 +2982,8 @@ async function handleUpsert(d) {
       metaMessageId: msgId,
       status: "sent"
     });
+    const mine = await db.getContactByPhone(phone);
+    if (mine && mine.agentState === "ai_active") await db.saveContact({ ...mine, agentState: "human_takeover" });
     return;
   }
   let media;
@@ -3057,7 +3062,7 @@ function looksAutomatic(text, history) {
   const ours = history.filter((m) => m.from === "bot" || m.from === "operator");
   const theirs = history.filter((m) => m.from === "lead");
   const last = ours[ours.length - 1];
-  return !!last && ours.length === 1 && theirs.length === 0 && Date.now() - Date.parse(last.timestamp) < 2e4 && text.length > 80;
+  return !!last && ours.length === 1 && theirs.length === 0 && Date.now() - Date.parse(last.timestamp) < 45e3;
 }
 async function respond(phone, media) {
   busy.add(phone);
@@ -3655,7 +3660,10 @@ async function handler16(req, res) {
       allRows2("messages", 'contact_phone, "from", type, text, "timestamp"')
     ]);
     const byPhone = new Map(contacts.map((c) => [c.phone, c]));
-    const rows = messages.sort((a, b) => a.timestamp < b.timestamp ? -1 : 1).map((m) => {
+    const since = url.searchParams.get("since");
+    const sinceMs = since ? Date.parse(`${since}T00:00:00-03:00`) : 0;
+    const scoped = sinceMs ? messages.filter((m) => Date.parse(m.timestamp) >= sinceMs) : messages;
+    const rows = scoped.sort((a, b) => a.timestamp < b.timestamp ? -1 : 1).map((m) => {
       const c = byPhone.get(m.contact_phone) || {};
       return {
         contato: c.name || "",
@@ -3669,7 +3677,7 @@ async function handler16(req, res) {
         texto: m.text || ""
       };
     });
-    const stamp = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    const stamp = since ? `${since}` : (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     if (format === "json") {
       res.setHeader("Content-Type", "application/json; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="conversas-girofy-${stamp}.json"`);
