@@ -1,6 +1,16 @@
 import { getCampaigns, saveCampaigns, campaignStats, campaignDetail, companyProfile, importRows, Campaign } from '../lib/campaigns';
 import { db } from '../lib/db';
 
+// Agenda da campanha: início, fim, intervalo mínimo e máximo entre envios (segundos). Limites seguros.
+function schedule(b: any, cur?: Partial<Campaign>) {
+  const pick = (k: string, fb: number | undefined) => (b[k] != null && b[k] !== '' ? Number(b[k]) : fb);
+  const startHour = Math.max(6, Math.min(12, pick('startHour', cur?.startHour ?? 8) as number));
+  let minGapS = Math.max(60, Math.min(1800, pick('minGapS', cur?.minGapS ?? 240) as number));
+  let maxGapS = Math.max(60, Math.min(3600, pick('maxGapS', cur?.maxGapS ?? 540) as number));
+  if (maxGapS < minGapS) maxGapS = minGapS;
+  return { startHour, minGapS, maxGapS };
+}
+
 // Painel de campanhas. Protegido pelo login (ver api/index.ts).
 export default async function handler(req: any, res: any) {
   try {
@@ -33,6 +43,7 @@ export default async function handler(req: any, res: any) {
         phones: [],
         dailyCap: Math.max(1, Math.min(100, Number(b.dailyCap) || 40)),
         endHour: Math.max(8, Math.min(21, Number(b.endHour) || 18)),
+        ...schedule(b),
         createdAt: new Date().toISOString(),
       };
       const result = Array.isArray(b.rows) && b.rows.length ? await importRows(camp, b.rows) : { added: 0, skipped: [] };
@@ -55,6 +66,7 @@ export default async function handler(req: any, res: any) {
       if (b.objective != null) camp.objective = String(b.objective).slice(0, 200);
       if (b.dailyCap != null) camp.dailyCap = Math.max(1, Math.min(100, Number(b.dailyCap) || 40));
       if (b.endHour != null) camp.endHour = Math.max(8, Math.min(21, Number(b.endHour) || 18));
+      Object.assign(camp, schedule(b, camp));
       await saveCampaigns(list);
       return res.status(200).json({ ok: true });
     }
