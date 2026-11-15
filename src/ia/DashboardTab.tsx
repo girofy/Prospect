@@ -1,7 +1,6 @@
 import { useEffect, useState, ReactNode } from 'react';
 import { Users, MessageCircle, Reply, Clock, Mic, Image as ImageIcon, ShieldOff, Download, Wifi, WifiOff, Bot, Send } from 'lucide-react';
 import { Card, SectionTitle, Pill, Dot, Ring, Btn, Skeleton, Empty, COLORS } from './ui';
-import PersonalExportCard from './PersonalExportCard';
 
 type Metrics = {
   agente: {
@@ -52,12 +51,12 @@ async function download(format: 'csv' | 'json') {
 function Kpi({ icon, label, value, sub, tone = COLORS.blue }: { icon: ReactNode; label: string; value: string | number; sub?: string; tone?: string }) {
   return (
     <div className="apple-card-sunken p-3.5 min-w-0">
-      <div className="flex items-center gap-1.5 text-[12px] font-semibold text-[#86868B]">
+      <div className="flex items-center gap-1.5 text-[12px] font-semibold text-[#6B6F80]">
         <span style={{ color: tone }} className="shrink-0">{icon}</span>
         <span className="truncate">{label}</span>
       </div>
-      <div className="text-[26px] leading-none font-bold tracking-tight text-[#1D1D1F] mt-2 tabular-nums">{value}</div>
-      {sub && <div className="text-[12px] text-[#86868B] mt-1.5 truncate">{sub}</div>}
+      <div className="text-[26px] leading-none font-bold tracking-tight text-[#0B0B12] mt-2 tabular-nums">{value}</div>
+      {sub && <div className="text-[12px] text-[#6B6F80] mt-1.5 truncate">{sub}</div>}
     </div>
   );
 }
@@ -118,7 +117,6 @@ export default function DashboardTab() {
   return (
     <div className="space-y-4">
       {/* Conectar outro número só para exportar: fica no topo e não mexe no número atual */}
-      <PersonalExportCard />
 
       {/* Estado do agente */}
       <Card>
@@ -127,8 +125,8 @@ export default function DashboardTab() {
             {Math.round(quotaUsed * 100)}%
           </Ring>
           <div className="min-w-0 flex-1">
-            <div className="text-[15px] font-bold text-[#1D1D1F] flex items-center gap-2"><Bot className="w-4 h-4 text-[#0071E3]" /> Agente de IA</div>
-            <div className="text-[13px] text-[#86868B] mt-0.5">Cota de hoje: {a.ia_usadas_hoje} de {a.ia_limite} respostas</div>
+            <div className="text-[15px] font-bold text-[#0B0B12] flex items-center gap-2"><Bot className="w-4 h-4 text-[#1531F5]" /> Agente de IA</div>
+            <div className="text-[13px] text-[#6B6F80] mt-0.5">Cota de hoje: {a.ia_usadas_hoje} de {a.ia_limite} respostas</div>
             <div className="flex flex-wrap gap-2 mt-2.5">
               <Pill tone={wa.tone}>{wa.icon}{wa.text}</Pill>
               <Pill tone={iaTone}><Dot tone={iaTone} />{a.modelos_pausados.length ? `${a.modelos_pausados.length} modelo(s) sem cota` : 'Modelos disponíveis'}</Pill>
@@ -155,7 +153,7 @@ export default function DashboardTab() {
           <Kpi icon={<ImageIcon className="w-4 h-4" />} label="Imagens" value={r.imagens_recebidas} sub="o agente enxerga" tone="#5E5CE6" />
         </div>
         {r.iniciadas_pelo_agente === 0 && (
-          <p className="text-[12.5px] text-[#86868B] mt-3 leading-snug">
+          <p className="text-[12.5px] text-[#6B6F80] mt-3 leading-snug">
             Todas as conversas até aqui foram começadas por você, à mão. A taxa do agente aparece sozinha quando ele começar a prospectar.
           </p>
         )}
@@ -171,8 +169,8 @@ export default function DashboardTab() {
             return (
               <div key={f.label}>
                 <div className="flex items-baseline justify-between text-[13px] mb-1.5">
-                  <span className="font-semibold text-[#1D1D1F]">{f.label}</span>
-                  <span className="tabular-nums text-[#1D1D1F] font-bold">{f.value}{pct !== null && <span className="text-[#86868B] font-medium ml-1.5">{pct}%</span>}</span>
+                  <span className="font-semibold text-[#0B0B12]">{f.label}</span>
+                  <span className="tabular-nums text-[#0B0B12] font-bold">{f.value}{pct !== null && <span className="text-[#6B6F80] font-medium ml-1.5">{pct}%</span>}</span>
                 </div>
                 <div className="h-3 rounded-full bg-black/[0.06] overflow-hidden">
                   <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.max(2, (f.value / topFunil) * 100)}%`, background: f.color }} />
@@ -201,7 +199,7 @@ export default function DashboardTab() {
                 </div>
               ))}
             </div>
-            <div className="flex justify-between text-[11px] text-[#86868B] mt-2 tabular-nums"><span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>23h</span></div>
+            <div className="flex justify-between text-[11px] text-[#6B6F80] mt-2 tabular-nums"><span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>23h</span></div>
           </>
         ) : <Empty title="Sem dados ainda" />}
       </Card>
@@ -209,7 +207,7 @@ export default function DashboardTab() {
       {/* Dias */}
       <Card>
         <SectionTitle title="Últimos 14 dias" right={
-          <div className="flex items-center gap-3 text-[12px] text-[#86868B]">
+          <div className="flex items-center gap-3 text-[12px] text-[#6B6F80]">
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: COLORS.blue }} />Enviadas</span>
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: COLORS.green }} />Respostas</span>
           </div>
@@ -224,7 +222,7 @@ export default function DashboardTab() {
                 </div>
               ))}
             </div>
-            <div className="flex justify-between text-[11px] text-[#86868B] mt-2 tabular-nums">
+            <div className="flex justify-between text-[11px] text-[#6B6F80] mt-2 tabular-nums">
               <span>{dias[0].dia.slice(8)}/{dias[0].dia.slice(5, 7)}</span>
               <span>{dias[dias.length - 1].dia.slice(8)}/{dias[dias.length - 1].dia.slice(5, 7)}</span>
             </div>
@@ -243,7 +241,7 @@ export default function DashboardTab() {
         <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 mt-4">
           {stEntries.map(([k, v]) => (
             <div key={k} className="flex items-center justify-between text-[13.5px]">
-              <span className="flex items-center gap-2 text-[#1D1D1F] min-w-0">
+              <span className="flex items-center gap-2 text-[#0B0B12] min-w-0">
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: STATUS_LABEL[k]?.color || '#C7C7CC' }} />
                 <span className="truncate">{STATUS_LABEL[k]?.label || k}</span>
               </span>
@@ -251,7 +249,7 @@ export default function DashboardTab() {
             </div>
           ))}
         </div>
-        {r.opt_outs > 0 && <div className="mt-4 flex items-center gap-2 text-[12.5px] text-[#86868B]"><ShieldOff className="w-3.5 h-3.5" /> {r.opt_outs} pediram para não receber mais mensagens.</div>}
+        {r.opt_outs > 0 && <div className="mt-4 flex items-center gap-2 text-[12.5px] text-[#6B6F80]"><ShieldOff className="w-3.5 h-3.5" /> {r.opt_outs} pediram para não receber mais mensagens.</div>}
       </Card>
 
       {/* Exportar */}

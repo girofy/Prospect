@@ -1,7 +1,9 @@
+import VialvoLogo from './brand/VialvoLogo';
 import TodayCard from './ia/TodayCard';
 import FocoCard from './ia/FocoCard';
 import IAHub from './ia/IAHub.tsx';
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
+import gsap from 'gsap';
 import { 
   Phone, 
   MessageSquare, 
@@ -52,7 +54,7 @@ import { parseFileForLeads, ExtractedLead, ParseResult } from './utils/fileLeadP
 
 // [LAYOUT ARCHETYPE]: Mobile Modular Widget Hub / iOS Clean Curved Surface
 // [RADIUS & BORDERS]: rounded-2xl (16px), rounded-3xl (24px), border-black/[0.06]
-// [ACCENT LOGIC]: #0071E3 (Apple Blue) & #34C759 (WhatsApp Green)
+// [ACCENT LOGIC]: #1531F5 (Apple Blue) & #34C759 (WhatsApp Green)
 
 export type AppTab = 'conversas' | 'widgets' | 'ia' | 'ajustes';
 
@@ -156,7 +158,17 @@ export default function App() {
     return window.location.pathname || '/';
   });
 
-  const [activeTab, setActiveTab] = useState<AppTab>('conversas');
+  const [activeTab, setActiveTab] = useState<AppTab>('widgets');
+  // Entrada suave de cada tela (GSAP): os blocos sobem e aparecem em sequência.
+  const mainRef = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const el = mainRef.current;
+    if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const ctx = gsap.context(() => {
+      gsap.from(el.querySelectorAll(':scope > * > *, :scope > section > *'), { y: 14, opacity: 0, duration: 0.45, ease: 'power3.out', stagger: 0.05, clearProps: 'all' });
+    }, el);
+    return () => ctx.revert();
+  }, [activeTab]);
   const [timeString, setTimeString] = useState('12:00');
   const [dateFormatted, setDateFormatted] = useState('');
 
@@ -939,11 +951,11 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F7] text-[#1D1D1F] font-sans flex flex-col selection:bg-[#0071E3] selection:text-white pb-24 sm:pb-8">
+    <div className="min-h-screen bg-[#F6F7FB] text-[#0B0B12] font-sans flex flex-col selection:bg-[#1531F5] selection:text-white pb-24 sm:pb-8">
       
       {/* Toast Notification (iOS banner style with soft curves) */}
       {toastMessage && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[#1D1D1F]/95 backdrop-blur-md text-white px-5 py-3 text-sm font-semibold tracking-tight flex items-center gap-2.5 rounded-2xl shadow-xl border border-white/10 animate-in fade-in slide-in-from-top-3">
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[#0B0B12]/95 backdrop-blur-md text-white px-5 py-3 text-sm font-semibold tracking-tight flex items-center gap-2.5 rounded-2xl shadow-xl border border-white/10 animate-in fade-in slide-in-from-top-3">
           <CheckCircle2 className="w-5 h-5 text-[#34C759] shrink-0" />
           <span>{toastMessage}</span>
         </div>
@@ -952,20 +964,7 @@ export default function App() {
       {/* APPLE FROSTED HEADER */}
       <header className="apple-header sticky top-0 z-40 px-4 sm:px-8 py-3.5 flex items-center justify-between gap-3">
         
-        {/* Left: Brand Identity */}
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 bg-[#0071E3] text-white flex items-center justify-center rounded-2xl font-bold text-sm tracking-wide shadow-sm shrink-0">
-            P
-          </div>
-          <div className="flex flex-col min-w-0">
-            <span className="text-base font-bold tracking-tight text-[#1D1D1F] leading-tight">
-              Prospectfy
-            </span>
-            <span className="text-xs text-zinc-500 font-medium leading-tight truncate">
-              Girofy · WhatsApp SDR Oficial
-            </span>
-          </div>
-        </div>
+        <VialvoLogo />
 
         {/* Right: Status Pill & Sync Refresh */}
         <div className="flex items-center gap-2.5 shrink-0">
@@ -974,7 +973,7 @@ export default function App() {
             className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-black/[0.06] text-xs text-zinc-700 hover:border-black/[0.15] transition-all shadow-xs"
             title="Gerenciar conexão do WhatsApp e Pareamento"
           >
-            <span className={`w-2.5 h-2.5 rounded-full ${pairingData.status === 'connected' ? 'bg-[#34C759]' : 'bg-[#FF9500]'} animate-pulse`} />
+            <span className={`w-2.5 h-2.5 rounded-full ${pairingData.status === 'connected' ? 'bg-[#34C759]' : 'bg-[#FF6A00]'} animate-pulse`} />
             <span className="font-semibold text-xs truncate max-w-[130px] sm:max-w-none">
               {pairingData.status === 'connected' 
                 ? (pairingData.activeGateway === 'direct_pairing' ? 'WhatsApp Celular' : 'Meta Oficial') 
@@ -1006,12 +1005,12 @@ export default function App() {
               onClick={() => setActiveTab('conversas')}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
                 activeTab === 'conversas' 
-                  ? 'bg-white text-[#1D1D1F] shadow-sm font-bold' 
+                  ? 'bg-white text-[#0B0B12] shadow-sm font-bold' 
                   : 'text-zinc-600 hover:text-zinc-900'
               }`}
             >
-              <MessageSquare className="w-4 h-4 text-[#0071E3]" />
-              <span>Conversas & CRM</span>
+              <MessageSquare className="w-4 h-4 text-[#1531F5]" />
+              <span>Conversas</span>
               {contacts.length > 0 && (
                 <span className="text-[11px] px-2 py-0.5 bg-zinc-200 text-zinc-700 rounded-full font-bold">
                   {contacts.length}
@@ -1023,49 +1022,45 @@ export default function App() {
               onClick={() => setActiveTab('widgets')}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
                 activeTab === 'widgets' 
-                  ? 'bg-white text-[#1D1D1F] shadow-sm font-bold' 
+                  ? 'bg-white text-[#0B0B12] shadow-sm font-bold' 
                   : 'text-zinc-600 hover:text-zinc-900'
               }`}
             >
               <BarChart3 className="w-4 h-4 text-[#34C759]" />
-              <span>Painel & Métricas</span>
+              <span>Início</span>
             </button>
 
             <button
               onClick={() => setActiveTab('ia')}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
                 activeTab === 'ia' 
-                  ? 'bg-white text-[#1D1D1F] shadow-sm font-bold' 
+                  ? 'bg-white text-[#0B0B12] shadow-sm font-bold' 
                   : 'text-zinc-600 hover:text-zinc-900'
               }`}
             >
-              <Cpu className="w-4 h-4 text-[#0071E3]" />
-              <span>Motor SDR Girofy</span>
+              <Cpu className="w-4 h-4 text-[#1531F5]" />
+              <span>Agente</span>
             </button>
 
             <button
               onClick={() => setActiveTab('ajustes')}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
                 activeTab === 'ajustes' 
-                  ? 'bg-white text-[#1D1D1F] shadow-sm font-bold' 
+                  ? 'bg-white text-[#0B0B12] shadow-sm font-bold' 
                   : 'text-zinc-600 hover:text-zinc-900'
               }`}
             >
               <Settings className="w-4 h-4 text-zinc-700" />
-              <span>Ajustes & Meta API</span>
+              <span>Ajustes</span>
             </button>
           </div>
 
-          <div className="flex items-center gap-3 text-xs text-zinc-500 font-medium">
-            <span className="font-bold text-zinc-800 tabular-nums">{timeString}</span>
-            <span>·</span>
-            <span className="text-zinc-600 capitalize">{dateFormatted}</span>
-          </div>
+
         </div>
       </div>
 
       {/* MAIN VIEWPORT CONTAINER */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-3.5 sm:p-6 flex flex-col gap-4">
+      <main ref={mainRef} className="flex-1 max-w-7xl w-full mx-auto p-3.5 sm:p-6 flex flex-col gap-4">
         
         {/* ========================================================================= */}
         {/* TOP MOBILE HERO & MODULAR 2x2 WIDGET HUB (Inspired by reference photos) */}
@@ -1074,135 +1069,9 @@ export default function App() {
         {activeTab === 'widgets' && (
           <section className="space-y-3.5">
             
-            {/* Big Welcome Card with Clock & Date */}
-            <div className="apple-widget p-5 sm:p-6 bg-gradient-to-br from-white to-[#F9FAFC] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">
-                  <Calendar className="w-3.5 h-3.5 text-[#0071E3]" />
-                  <span className="capitalize">{dateFormatted || 'Hoje'}</span>
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1D1D1F] tracking-tight">
-                  {getDynamicGreeting()}, Girofy!
-                </h1>
-                <p className="text-xs sm:text-sm text-zinc-500 font-medium mt-0.5">
-                  Seu agente de vendas no WhatsApp
-                </p>
-              </div>
-
-            </div>
-
             <TodayCard />
             <FocoCard />
 
-            {/* 2x2 Modular Big Action Widgets (Eliminates boxy/cramped feel) */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              
-              {/* Widget 1: Conversas & CRM */}
-              <div 
-                onClick={() => {
-                  setActiveTab('conversas');
-                  setMobilePane('list');
-                }}
-                className="apple-widget p-4 sm:p-5 flex flex-col justify-between cursor-pointer hover:border-[#0071E3]/40 active:scale-[0.98] transition-all bg-white"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-11 h-11 rounded-2xl bg-[#0071E3]/10 text-[#0071E3] flex items-center justify-center font-bold">
-                    <MessageSquare className="w-5 h-5 stroke-[2]" />
-                  </div>
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#0071E3]/10 text-[#0071E3] tabular-nums">
-                    {metrics.total} leads
-                  </span>
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-[#1D1D1F] leading-snug">
-                    Conversas CRM
-                  </h3>
-                  <p className="text-xs text-zinc-500 font-medium mt-0.5 line-clamp-1">
-                    {metrics.activeAi} ativas com IA
-                  </p>
-                </div>
-              </div>
-
-              {/* Widget 2: IA SDR Autônoma Toggle */}
-              <div className="apple-widget p-4 sm:p-5 flex flex-col justify-between bg-white">
-                <div className="flex items-center justify-between mb-3">
-                  <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold ${
-                    config.autoReplyEnabled ? 'bg-[#34C759]/15 text-[#248A3D]' : 'bg-zinc-100 text-zinc-500'
-                  }`}>
-                    <Zap className="w-5 h-5 stroke-[2]" />
-                  </div>
-                  <button
-                    onClick={handleToggleAutoReply}
-                    className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
-                      config.autoReplyEnabled 
-                        ? 'bg-[#34C759] text-white shadow-xs' 
-                        : 'bg-zinc-200 text-zinc-700'
-                    }`}
-                  >
-                    {config.autoReplyEnabled ? 'Ligada' : 'Pausada'}
-                  </button>
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-[#1D1D1F] leading-snug">
-                    IA Comercial
-                  </h3>
-                  <p className="text-xs text-zinc-500 font-medium mt-0.5">
-                    {config.autoReplyEnabled ? 'Respostas autônomas' : 'Aguardando liberação'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Widget 3: Micro-Disparos Frios (5 a 10 contatos) */}
-              <div 
-                onClick={() => { try { localStorage.setItem('girofy_ia_tab', 'campanhas'); } catch { /* sem storage */ } setActiveTab('ia'); }}
-                className="apple-widget p-4 sm:p-5 flex flex-col justify-between cursor-pointer hover:border-[#FF9500]/40 active:scale-[0.98] transition-all bg-white"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-11 h-11 rounded-2xl bg-[#FF9500]/15 text-[#FF9500] flex items-center justify-center font-bold shadow-xs">
-                    <Send className="w-5 h-5 stroke-[2.2]" />
-                  </div>
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#FF9500]/10 text-[#FF9500] flex items-center gap-1">
-                    Abrir
-                  </span>
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-[#1D1D1F] leading-snug">
-                    Campanhas
-                  </h3>
-                  <p className="text-xs text-zinc-500 font-medium mt-0.5">
-                    Listas, missão e funil
-                  </p>
-                </div>
-              </div>
-
-              {/* Widget 4: WhatsApp Celular / Gateway Duplo */}
-              <div 
-                onClick={() => setShowPairingModal(true)}
-                className="apple-widget p-4 sm:p-5 flex flex-col justify-between cursor-pointer hover:border-[#34C759]/40 active:scale-[0.98] transition-all bg-white"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold ${
-                    pairingData.status === 'connected' ? 'bg-[#34C759]/15 text-[#248A3D]' : 'bg-[#FF9500]/15 text-[#FF9500]'
-                  }`}>
-                    <Smartphone className="w-5 h-5 stroke-[2]" />
-                  </div>
-                  <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                    pairingData.status === 'connected' ? 'bg-[#34C759]/10 text-[#248A3D]' : 'bg-[#FF9500]/10 text-[#FF9500]'
-                  }`}>
-                    {pairingData.status === 'connected' ? 'Pareado' : 'Conectar'}
-                  </span>
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-[#1D1D1F] leading-snug truncate">
-                    {pairingData.activeGateway === 'direct_pairing' ? 'WhatsApp Celular' : 'Meta Cloud API'}
-                  </h3>
-                  <p className="text-xs text-zinc-500 font-mono mt-0.5 truncate">
-                    {pairingData.activeGateway === 'direct_pairing' ? 'Código 8 Dígitos' : config.authorizedBusinessNumber}
-                  </p>
-                </div>
-              </div>
-
-            </div>
           </section>
         )}
 
@@ -1220,7 +1089,7 @@ export default function App() {
               {/* Header inside Contacts Card */}
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <h2 className="text-lg font-extrabold text-[#1D1D1F] tracking-tight">
+                  <h2 className="text-lg font-extrabold text-[#0B0B12] tracking-tight">
                     Leads & Conversas
                   </h2>
                   <p className="text-xs text-zinc-500 font-medium">
@@ -1250,7 +1119,7 @@ export default function App() {
 
                   <button
                     onClick={() => setShowAddContactModal(true)}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-[#0071E3] text-white hover:bg-[#0062C4] shadow-xs transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-[#1531F5] text-white hover:bg-[#0F25C9] shadow-xs transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                     <span className="hidden sm:inline">Novo</span>
@@ -1266,7 +1135,7 @@ export default function App() {
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder="Buscar por nome, telefone ou empresa..."
-                  className="w-full pl-11 pr-4 py-3 text-sm bg-[#F5F5F7] border border-black/[0.06] rounded-2xl text-[#1D1D1F] placeholder-zinc-400 focus:outline-none focus:border-[#0071E3] focus:bg-white transition-all"
+                  className="w-full pl-11 pr-4 py-3 text-sm bg-[#F6F7FB] border border-black/[0.06] rounded-2xl text-[#0B0B12] placeholder-zinc-400 focus:outline-none focus:border-[#1531F5] focus:bg-white transition-all"
                 />
               </div>
 
@@ -1283,7 +1152,7 @@ export default function App() {
                     onClick={() => setStatusFilter(f.id)}
                     className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
                       statusFilter === f.id
-                        ? 'bg-[#1D1D1F] text-white shadow-xs'
+                        ? 'bg-[#0B0B12] text-white shadow-xs'
                         : 'bg-black/[0.04] text-zinc-600 hover:bg-black/[0.08]'
                     }`}
                   >
@@ -1305,7 +1174,7 @@ export default function App() {
                       <FileUp className="w-7 h-7 stroke-[2]" />
                     </div>
                     <div>
-                      <p className="font-extrabold text-[#1D1D1F] text-base">CRM Pronto para Importação</p>
+                      <p className="font-extrabold text-[#0B0B12] text-base">CRM Pronto para Importação</p>
                       <p className="text-xs text-zinc-500 max-w-xs leading-relaxed mt-1">
                         Suba qualquer arquivo (<strong>SVG, PDF, HTML, Planilha, TXT</strong>) para filtrar números, nomes, empresas e links automaticamente.
                       </p>
@@ -1343,7 +1212,7 @@ export default function App() {
                         }}
                         className={`p-3.5 sm:p-4 rounded-2xl cursor-pointer transition-all flex items-center gap-3.5 border ${
                           isSelected 
-                            ? 'bg-[#0071E3]/5 border-[#0071E3] shadow-xs' 
+                            ? 'bg-[#1531F5]/5 border-[#1531F5] shadow-xs' 
                             : 'bg-[#FAFAFC] border-black/[0.04] hover:bg-white hover:border-black/[0.1] hover:shadow-xs'
                         }`}
                       >
@@ -1352,8 +1221,8 @@ export default function App() {
                           isQualified 
                             ? 'bg-[#34C759]/15 text-[#248A3D]' 
                             : isHumanMode 
-                              ? 'bg-[#FF9500]/15 text-[#C97700]' 
-                              : 'bg-[#0071E3]/10 text-[#0071E3]'
+                              ? 'bg-[#FF6A00]/15 text-[#C97700]' 
+                              : 'bg-[#1531F5]/10 text-[#1531F5]'
                         }`}>
                           {contact.name.charAt(0).toUpperCase() || 'L'}
                         </div>
@@ -1361,7 +1230,7 @@ export default function App() {
                         {/* Contact Information */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-1 mb-1">
-                            <h4 className="text-sm sm:text-base font-bold text-[#1D1D1F] truncate leading-tight">
+                            <h4 className="text-sm sm:text-base font-bold text-[#0B0B12] truncate leading-tight">
                               {contact.name}
                             </h4>
                             <span className="text-[11px] text-zinc-400 shrink-0 font-medium tabular-nums">
@@ -1376,11 +1245,11 @@ export default function App() {
                           {/* Status Badge Pills */}
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {isHumanMode ? (
-                              <span className="text-[11px] font-bold text-[#C97700] bg-[#FF9500]/10 px-2.5 py-0.5 rounded-full">
+                              <span className="text-[11px] font-bold text-[#C97700] bg-[#FF6A00]/10 px-2.5 py-0.5 rounded-full">
                                 👤 Humano
                               </span>
                             ) : (
-                              <span className="text-[11px] font-bold text-[#0071E3] bg-[#0071E3]/10 px-2.5 py-0.5 rounded-full">
+                              <span className="text-[11px] font-bold text-[#1531F5] bg-[#1531F5]/10 px-2.5 py-0.5 rounded-full">
                                 ⚡ IA Ativa
                               </span>
                             )}
@@ -1414,7 +1283,7 @@ export default function App() {
                     {/* Back Button (Mobile only) */}
                     <button
                       onClick={() => setMobilePane('list')}
-                      className="md:hidden flex items-center gap-1.5 p-2 -ml-2 text-[#0071E3] hover:bg-black/[0.04] text-sm font-bold rounded-xl transition-colors"
+                      className="md:hidden flex items-center gap-1.5 p-2 -ml-2 text-[#1531F5] hover:bg-black/[0.04] text-sm font-bold rounded-xl transition-colors"
                     >
                       <ChevronLeft className="w-5 h-5" />
                       <span>Voltar</span>
@@ -1422,12 +1291,12 @@ export default function App() {
 
                     {/* Active Contact Identity */}
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-11 h-11 rounded-2xl bg-[#0071E3]/10 text-[#0071E3] flex items-center justify-center font-extrabold text-base shrink-0 shadow-xs">
+                      <div className="w-11 h-11 rounded-2xl bg-[#1531F5]/10 text-[#1531F5] flex items-center justify-center font-extrabold text-base shrink-0 shadow-xs">
                         {activeContact.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <h3 className="text-base font-bold text-[#1D1D1F] truncate leading-tight">
+                          <h3 className="text-base font-bold text-[#0B0B12] truncate leading-tight">
                             {activeContact.name}
                           </h3>
                         </div>
@@ -1452,7 +1321,7 @@ export default function App() {
                       {activeContact.agentState === 'human_takeover' ? (
                         <button
                           onClick={() => handleToggleAgentState('ai_active')}
-                          className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-[#0071E3] text-white hover:bg-[#0062C4] transition-all shadow-xs"
+                          className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-[#1531F5] text-white hover:bg-[#0F25C9] transition-all shadow-xs"
                           title="Reativar agente SDR da Girofy"
                         >
                           <Play className="w-3.5 h-3.5" />
@@ -1461,7 +1330,7 @@ export default function App() {
                       ) : (
                         <button
                           onClick={() => handleToggleAgentState('human_takeover')}
-                          className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-[#FF9500] text-white hover:bg-[#E08500] transition-all shadow-xs"
+                          className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-[#FF6A00] text-white hover:bg-[#E08500] transition-all shadow-xs"
                           title="Pausar IA e assumir o atendimento manualmente"
                         >
                           <Pause className="w-3.5 h-3.5" />
@@ -1472,7 +1341,7 @@ export default function App() {
                   </div>
 
                   {/* Quick Canned Replies Carousel */}
-                  <div className="px-4 py-2.5 bg-[#F5F5F7] border-b border-black/[0.04] flex items-center gap-2 overflow-x-auto scrollbar-none">
+                  <div className="px-4 py-2.5 bg-[#F6F7FB] border-b border-black/[0.04] flex items-center gap-2 overflow-x-auto scrollbar-none">
                     <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider shrink-0">
                       Respostas:
                     </span>
@@ -1480,7 +1349,7 @@ export default function App() {
                       <button
                         key={idx}
                         onClick={() => setInputText(qr.text)}
-                        className="px-3.5 py-1.5 rounded-full bg-white border border-black/[0.08] hover:border-[#0071E3] text-zinc-700 whitespace-nowrap text-xs font-medium transition-all shadow-xs"
+                        className="px-3.5 py-1.5 rounded-full bg-white border border-black/[0.08] hover:border-[#1531F5] text-zinc-700 whitespace-nowrap text-xs font-medium transition-all shadow-xs"
                       >
                         {qr.label}
                       </button>
@@ -1528,10 +1397,10 @@ export default function App() {
                             {/* Bubble */}
                             <div className={`max-w-[88%] sm:max-w-md p-4 rounded-3xl text-sm leading-relaxed whitespace-pre-wrap shadow-xs ${
                               isLead
-                                ? 'bg-white border border-black/[0.08] text-[#1D1D1F]'
+                                ? 'bg-white border border-black/[0.08] text-[#0B0B12]'
                                 : isBot
-                                  ? 'bg-[#0071E3] text-white'
-                                  : 'bg-[#1D1D1F] text-white'
+                                  ? 'bg-[#1531F5] text-white'
+                                  : 'bg-[#0B0B12] text-white'
                             }`}>
                               {msg.text}
 
@@ -1560,7 +1429,7 @@ export default function App() {
                       onChange={e => setInputText(e.target.value)}
                       placeholder={`Responder a ${activeContact.name} no WhatsApp...`}
                       disabled={isSendingMessage}
-                      className="flex-1 px-4 py-3 text-sm bg-[#F5F5F7] border border-black/[0.08] rounded-2xl text-[#1D1D1F] placeholder-zinc-400 focus:outline-none focus:border-[#0071E3] focus:bg-white transition-all"
+                      className="flex-1 px-4 py-3 text-sm bg-[#F6F7FB] border border-black/[0.08] rounded-2xl text-[#0B0B12] placeholder-zinc-400 focus:outline-none focus:border-[#1531F5] focus:bg-white transition-all"
                     />
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button
@@ -1576,7 +1445,7 @@ export default function App() {
                       <button
                         type="submit"
                         disabled={!inputText.trim() || isSendingMessage}
-                        className="px-5 py-3 rounded-2xl bg-[#0071E3] hover:bg-[#0062C4] disabled:opacity-40 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm"
+                        className="px-5 py-3 rounded-2xl bg-[#1531F5] hover:bg-[#0F25C9] disabled:opacity-40 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm"
                         title="Enviar via Gateway/Servidor configurado"
                       >
                         <Send className="w-4 h-4" />
@@ -1618,60 +1487,6 @@ export default function App() {
             {/* Base de conhecimento e aprendizado */}
             <IAHub />
 
-            {/* Sandbox Simulator */}
-            <div className="apple-widget p-5 sm:p-6">
-              <h3 className="text-sm font-bold text-zinc-800 uppercase tracking-tight mb-2 flex items-center gap-2">
-                <Zap className="w-4 h-4 text-[#FF9500]" />
-                Simulador de Mensagem de Lead
-              </h3>
-              <p className="text-xs sm:text-sm text-zinc-500 font-medium mb-4">
-                Envie uma mensagem simulada para verificar como a IA responde dentro da persona da Girofy.
-              </p>
-
-              <div className="space-y-3.5">
-                <textarea
-                  rows={3}
-                  value={simInput}
-                  onChange={e => setSimInput(e.target.value)}
-                  placeholder="Exemplo: Vi sua mensagem. Quanto custa para fazer um site institucional para a minha empresa?"
-                  className="w-full p-4 text-sm bg-[#F5F5F7] border border-black/[0.08] rounded-2xl text-[#1D1D1F] placeholder-zinc-400 focus:outline-none focus:border-[#0071E3] focus:bg-white transition-all"
-                />
-
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {[
-                      'Quanto custa uma Landing Page?',
-                      'Gostaria de falar com um atendente',
-                      'Vocês criam sistemas sob medida?'
-                    ].map((example, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setSimInput(example)}
-                        className="text-xs px-3 py-1.5 rounded-full bg-black/[0.04] text-zinc-600 hover:bg-black/[0.08] font-medium"
-                      >
-                        {example}
-                      </button>
-                    ))}
-                  </div>
-
-                  <button
-                    onClick={handleRunSimulation}
-                    disabled={!simInput.trim() || simLoading}
-                    className="px-5 py-2.5 text-xs font-bold rounded-xl bg-[#0071E3] text-white hover:bg-[#0062C4] disabled:opacity-40 transition-all shadow-xs self-end sm:self-auto"
-                  >
-                    {simLoading ? 'Processando IA...' : 'Testar Resposta'}
-                  </button>
-                </div>
-
-                {simOutput && (
-                  <div className="p-4 bg-[#34C759]/10 border border-[#34C759]/20 rounded-2xl text-xs sm:text-sm text-[#1D1D1F] mt-2">
-                    <span className="font-bold text-[#248A3D] block mb-1">Resultado da Simulação:</span>
-                    <p className="leading-relaxed text-zinc-700">{simOutput}</p>
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
         )}
 
@@ -1684,20 +1499,20 @@ export default function App() {
             {/* Exportar conversas: hoje ou tudo, a qualquer momento */}
             <div className="apple-widget p-5 sm:p-6 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="text-base font-bold text-[#1D1D1F] tracking-tight">Exportar conversas</h3>
-                <p className="text-[13px] text-[#6e6e73]">Baixa um CSV com cada mensagem, empresa e quem falou.</p>
+                <h3 className="text-base font-bold text-[#0B0B12] tracking-tight">Exportar conversas</h3>
+                <p className="text-[13px] text-[#5B5F70]">Baixa um CSV com cada mensagem, empresa e quem falou.</p>
               </div>
               <div className="flex gap-2">
-                <button type="button" onClick={() => baixarExport('hoje')} className="px-4 h-10 rounded-full bg-[#0071E3] text-white text-[14px] font-semibold">Hoje</button>
-                <button type="button" onClick={() => baixarExport('tudo')} className="px-4 h-10 rounded-full bg-black/[0.06] text-[#1D1D1F] text-[14px] font-semibold">Tudo</button>
+                <button type="button" onClick={() => baixarExport('hoje')} className="px-4 h-10 rounded-full bg-[#1531F5] text-white text-[14px] font-semibold">Hoje</button>
+                <button type="button" onClick={() => baixarExport('tudo')} className="px-4 h-10 rounded-full bg-black/[0.06] text-[#0B0B12] text-[14px] font-semibold">Tudo</button>
               </div>
             </div>
 
             {/* Atividade recente */}
             <div className="apple-widget p-5 sm:p-6">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-base font-bold text-[#1D1D1F] tracking-tight">Atividade recente</h3>
-                <button onClick={fetchAuditLogs} className="text-xs text-[#0071E3] font-bold">Atualizar</button>
+                <h3 className="text-base font-bold text-[#0B0B12] tracking-tight">Atividade recente</h3>
+                <button onClick={fetchAuditLogs} className="text-xs text-[#1531F5] font-bold">Atualizar</button>
               </div>
               <ul className="divide-y divide-black/[0.05]">
                 {auditLogs.slice(0, 10).map(log => (
@@ -1719,148 +1534,12 @@ export default function App() {
               className="apple-widget w-full p-4 flex items-center justify-between text-left"
             >
               <span>
-                <span className="block text-sm font-bold text-[#1D1D1F]">Chaves e modelos da IA</span>
+                <span className="block text-sm font-bold text-[#0B0B12]">Chaves e modelos da IA</span>
                 <span className="block text-xs text-zinc-500">Gemini, Groq e ordem dos modelos ficam em IA, Modelos.</span>
               </span>
-              <span className="text-[#0071E3] text-sm font-bold">Abrir</span>
+              <span className="text-[#1531F5] text-sm font-bold">Abrir</span>
             </button>
 
-            {/* Avançado: API oficial da Meta (não é usada hoje) */}
-            <details className="apple-widget p-5 sm:p-6 group">
-              <summary className="cursor-pointer list-none flex items-center justify-between">
-                <span>
-                  <span className="block text-sm font-bold text-[#1D1D1F]">Avançado: API oficial da Meta</span>
-                  <span className="block text-xs text-zinc-500">Não é usada hoje. O envio sai pelo WhatsApp conectado.</span>
-                </span>
-                <span className="text-xs font-bold text-[#0071E3] group-open:hidden">Mostrar</span>
-              </summary>
-              <div className="space-y-4 mt-4">
-            {/* Webhook Endpoint Instructions Card */}
-            <div className="apple-widget p-5 sm:p-6">
-              <h2 className="text-base sm:text-lg font-bold text-[#1D1D1F] tracking-tight mb-1 flex items-center gap-2.5">
-                <Phone className="w-5 h-5 text-[#34C759]" />
-                Configuração do Webhook Oficial da Meta
-              </h2>
-              <p className="text-xs sm:text-sm text-zinc-500 font-medium mb-5">
-                Copie estes dados para configurar o produto WhatsApp no painel Developers da Meta (App: <b>Meuapp</b>).
-              </p>
-
-              <div className="space-y-3.5">
-                {/* Callback URL */}
-                <div className="p-4 bg-[#FBFBFD] border border-black/[0.06] rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <span className="text-xs text-zinc-500 font-semibold block">URL de Retorno de Chamada (Callback URL)</span>
-                    <span className="font-mono text-xs sm:text-sm font-bold text-[#0071E3] select-all">
-                      https://prospectfy.vercel.app/api/webhook
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => copyText('https://prospectfy.vercel.app/api/webhook', 'webhook_url')}
-                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-white border border-black/[0.08] hover:border-black/[0.2] transition-all self-start sm:self-auto shadow-xs"
-                  >
-                    {copiedKey === 'webhook_url' ? <Check className="w-4 h-4 text-[#34C759]" /> : <Copy className="w-4 h-4 text-zinc-600" />}
-                    <span>{copiedKey === 'webhook_url' ? 'Copiado' : 'Copiar URL'}</span>
-                  </button>
-                </div>
-
-                {/* Verify Token */}
-                <div className="p-4 bg-[#FBFBFD] border border-black/[0.06] rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <span className="text-xs text-zinc-500 font-semibold block">Token de Verificação (Verify Token)</span>
-                    <span className="font-mono text-xs sm:text-sm font-bold text-[#1D1D1F] select-all">
-                      {config.webhookVerifyToken || 'impossivel2008'}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => copyText(config.webhookVerifyToken || 'impossivel2008', 'verify_token')}
-                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-white border border-black/[0.08] hover:border-black/[0.2] transition-all self-start sm:self-auto shadow-xs"
-                  >
-                    {copiedKey === 'verify_token' ? <Check className="w-4 h-4 text-[#34C759]" /> : <Copy className="w-4 h-4 text-zinc-600" />}
-                    <span>{copiedKey === 'verify_token' ? 'Copiado' : 'Copiar Token'}</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* In-App Credentials Manager */}
-            <div className="apple-widget p-5 sm:p-6">
-              <h3 className="text-base font-bold text-[#1D1D1F] tracking-tight mb-1 flex items-center gap-2">
-                <Lock className="w-5 h-5 text-[#0071E3]" />
-                Credenciais Seguras no Servidor
-              </h3>
-              <p className="text-xs sm:text-sm text-zinc-500 font-medium mb-5">
-                Tokens e chaves ficam armazenados no backend e nunca são expostos no navegador.
-              </p>
-
-              <form onSubmit={handleSaveSettings} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-700 mb-1.5">
-                      Meta Phone Number ID
-                    </label>
-                    <input
-                      type="text"
-                      value={inputPhoneId}
-                      onChange={e => setInputPhoneId(e.target.value)}
-                      placeholder="1221241567748320"
-                      className="w-full px-4 py-3 text-sm bg-[#F5F5F7] border border-black/[0.08] rounded-2xl text-[#1D1D1F] font-mono focus:outline-none focus:border-[#0071E3]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-700 mb-1.5">
-                      Meta Access Token (Permanente)
-                    </label>
-                    <input
-                      type="password"
-                      value={inputMetaToken}
-                      onChange={e => setInputMetaToken(e.target.value)}
-                      placeholder={config.metaAccessTokenMasked || 'EAAB... (Cole aqui)'}
-                      className="w-full px-4 py-3 text-sm bg-[#F5F5F7] border border-black/[0.08] rounded-2xl text-[#1D1D1F] font-mono focus:outline-none focus:border-[#0071E3]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-700 mb-1.5">
-                      Meta App Secret (Para SHA-256)
-                    </label>
-                    <input
-                      type="password"
-                      value={inputAppSecret}
-                      onChange={e => setInputAppSecret(e.target.value)}
-                      placeholder={config.metaAppSecretMasked || 'Chave secreta do Meuapp'}
-                      className="w-full px-4 py-3 text-sm bg-[#F5F5F7] border border-black/[0.08] rounded-2xl text-[#1D1D1F] font-mono focus:outline-none focus:border-[#0071E3]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-700 mb-1.5">
-                      Google Gemini API Key
-                    </label>
-                    <input
-                      type="password"
-                      value={inputGeminiKey}
-                      onChange={e => setInputGeminiKey(e.target.value)}
-                      placeholder={config.geminiApiKeyMasked || 'AIzaSy... (Motor SDR)'}
-                      className="w-full px-4 py-3 text-sm bg-[#F5F5F7] border border-black/[0.08] rounded-2xl text-[#1D1D1F] font-mono focus:outline-none focus:border-[#0071E3]"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-end gap-3 pt-4 border-t border-black/[0.06]">
-                  <button
-                    type="submit"
-                    disabled={isSavingSettings}
-                    className="px-6 py-3 text-sm font-bold rounded-2xl bg-[#0071E3] text-white hover:bg-[#0062C4] shadow-sm transition-all disabled:opacity-40"
-                  >
-                    {isSavingSettings ? 'Salvando...' : 'Salvar Configurações'}
-                  </button>
-                </div>
-              </form>
-            </div>
-
-              </div>
-            </details>
           </div>
         )}
       </main>
@@ -1877,7 +1556,7 @@ export default function App() {
           }}
           className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all ${
             activeTab === 'conversas' 
-              ? 'text-[#0071E3] font-bold' 
+              ? 'text-[#1531F5] font-bold' 
               : 'text-zinc-500 hover:text-zinc-800 font-medium'
           }`}
         >
@@ -1889,31 +1568,31 @@ export default function App() {
           onClick={() => setActiveTab('widgets')}
           className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all ${
             activeTab === 'widgets' 
-              ? 'text-[#0071E3] font-bold' 
+              ? 'text-[#1531F5] font-bold' 
               : 'text-zinc-500 hover:text-zinc-800 font-medium'
           }`}
         >
           <BarChart3 className="w-6 h-6 stroke-[2]" />
-          <span className="text-[11px] tracking-tight">Métricas</span>
+          <span className="text-[11px] tracking-tight">Início</span>
         </button>
 
         <button
           onClick={() => setActiveTab('ia')}
           className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all ${
             activeTab === 'ia' 
-              ? 'text-[#0071E3] font-bold' 
+              ? 'text-[#1531F5] font-bold' 
               : 'text-zinc-500 hover:text-zinc-800 font-medium'
           }`}
         >
           <Cpu className="w-6 h-6 stroke-[2]" />
-          <span className="text-[11px] tracking-tight">Girofy IA</span>
+          <span className="text-[11px] tracking-tight">Agente</span>
         </button>
 
         <button
           onClick={() => setActiveTab('ajustes')}
           className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all ${
             activeTab === 'ajustes' 
-              ? 'text-[#0071E3] font-bold' 
+              ? 'text-[#1531F5] font-bold' 
               : 'text-zinc-500 hover:text-zinc-800 font-medium'
           }`}
         >
@@ -1926,7 +1605,7 @@ export default function App() {
       {showAddContactModal && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="apple-widget bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-in fade-in zoom-in-95">
-            <h3 className="text-lg font-extrabold text-[#1D1D1F] tracking-tight mb-1">
+            <h3 className="text-lg font-extrabold text-[#0B0B12] tracking-tight mb-1">
               Novo Lead Comercial
             </h3>
             <p className="text-xs text-zinc-500 font-medium mb-5">
@@ -1944,7 +1623,7 @@ export default function App() {
                   value={newContactPhone}
                   onChange={e => setNewContactPhone(e.target.value)}
                   placeholder="Ex: 74988126578"
-                  className="w-full px-4 py-3 text-sm bg-[#F5F5F7] border border-black/[0.08] rounded-2xl text-[#1D1D1F] focus:outline-none focus:border-[#0071E3]"
+                  className="w-full px-4 py-3 text-sm bg-[#F6F7FB] border border-black/[0.08] rounded-2xl text-[#0B0B12] focus:outline-none focus:border-[#1531F5]"
                 />
               </div>
 
@@ -1957,7 +1636,7 @@ export default function App() {
                   value={newContactName}
                   onChange={e => setNewContactName(e.target.value)}
                   placeholder="Ex: Carlos Silva"
-                  className="w-full px-4 py-3 text-sm bg-[#F5F5F7] border border-black/[0.08] rounded-2xl text-[#1D1D1F] focus:outline-none focus:border-[#0071E3]"
+                  className="w-full px-4 py-3 text-sm bg-[#F6F7FB] border border-black/[0.08] rounded-2xl text-[#0B0B12] focus:outline-none focus:border-[#1531F5]"
                 />
               </div>
 
@@ -1970,7 +1649,7 @@ export default function App() {
                   value={newContactCompany}
                   onChange={e => setNewContactCompany(e.target.value)}
                   placeholder="Ex: Imobiliária Silva"
-                  className="w-full px-4 py-3 text-sm bg-[#F5F5F7] border border-black/[0.08] rounded-2xl text-[#1D1D1F] focus:outline-none focus:border-[#0071E3]"
+                  className="w-full px-4 py-3 text-sm bg-[#F6F7FB] border border-black/[0.08] rounded-2xl text-[#0B0B12] focus:outline-none focus:border-[#1531F5]"
                 />
               </div>
 
@@ -1984,7 +1663,7 @@ export default function App() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 text-xs font-bold rounded-xl bg-[#0071E3] text-white hover:bg-[#0062C4] shadow-xs"
+                  className="px-5 py-2.5 text-xs font-bold rounded-xl bg-[#1531F5] text-white hover:bg-[#0F25C9] shadow-xs"
                 >
                   Adicionar Lead
                 </button>
@@ -2006,7 +1685,7 @@ export default function App() {
                   <Smartphone className="w-5 h-5 stroke-[2.2]" />
                 </div>
                 <div>
-                  <h3 className="text-base font-extrabold text-[#1D1D1F] tracking-tight">
+                  <h3 className="text-base font-extrabold text-[#0B0B12] tracking-tight">
                     Conexão WhatsApp
                   </h3>
                   <p className="text-xs text-zinc-500 font-medium">
@@ -2029,7 +1708,7 @@ export default function App() {
                 onClick={() => setPairingModalTab('direct_free')}
                 className={`flex-1 py-2 px-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 ${
                   pairingModalTab === 'direct_free'
-                    ? 'bg-white text-[#1D1D1F] shadow-xs'
+                    ? 'bg-white text-[#0B0B12] shadow-xs'
                     : 'text-zinc-500 hover:text-zinc-800'
                 }`}
               >
@@ -2042,11 +1721,11 @@ export default function App() {
                 onClick={() => setPairingModalTab('cloud_free')}
                 className={`flex-1 py-2 px-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 ${
                   pairingModalTab === 'cloud_free'
-                    ? 'bg-white text-[#1D1D1F] shadow-xs'
+                    ? 'bg-white text-[#0B0B12] shadow-xs'
                     : 'text-zinc-500 hover:text-zinc-800'
                 }`}
               >
-                <span className="w-2 h-2 rounded-full bg-[#0071E3]" />
+                <span className="w-2 h-2 rounded-full bg-[#1531F5]" />
                 <span className="truncate">Nuvem 24h Grátis</span>
               </button>
 
@@ -2055,7 +1734,7 @@ export default function App() {
                 onClick={() => setPairingModalTab('meta_official')}
                 className={`flex-1 py-2 px-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 ${
                   pairingModalTab === 'meta_official'
-                    ? 'bg-white text-[#1D1D1F] shadow-xs'
+                    ? 'bg-white text-[#0B0B12] shadow-xs'
                     : 'text-zinc-500 hover:text-zinc-800'
                 }`}
               >
@@ -2123,7 +1802,7 @@ export default function App() {
                     <div className="flex items-center gap-2.5 min-w-0">
                       <CheckCircle2 className="w-5 h-5 text-[#34C759] shrink-0" />
                       <div className="min-w-0">
-                        <div className="text-xs font-bold text-[#1D1D1F] truncate">
+                        <div className="text-xs font-bold text-[#0B0B12] truncate">
                           Nuvem Conectada ao WhatsApp
                         </div>
                         <div className="text-[11px] text-zinc-600 font-mono">
@@ -2138,8 +1817,8 @@ export default function App() {
                 )}
 
                 {/* Step-by-Step Free Cloud Guide */}
-                <div className="p-3.5 rounded-2xl bg-[#0071E3]/10 border border-[#0071E3]/20 space-y-2">
-                  <div className="text-xs font-bold text-[#0071E3] flex items-center gap-1.5">
+                <div className="p-3.5 rounded-2xl bg-[#1531F5]/10 border border-[#1531F5]/20 space-y-2">
+                  <div className="text-xs font-bold text-[#1531F5] flex items-center gap-1.5">
                     <Cpu className="w-4 h-4" />
                     <span>Como ter seu WhatsApp 24h na Nuvem Grátis (R$ 0,00)</span>
                   </div>
@@ -2148,7 +1827,7 @@ export default function App() {
                   </p>
                   <ol className="text-[11px] text-zinc-600 space-y-1.5 list-decimal pl-4">
                     <li>No <strong>render.com</strong>, toque em <strong>+ New &gt; Web Service &gt; Existing Image</strong>.</li>
-                    <li>Imagem pública oficial: <code className="bg-white/80 px-1.5 py-0.5 rounded font-mono font-bold text-[11px] text-[#0071E3]">evoapicloud/evolution-api:v2.2.0</code></li>
+                    <li>Imagem pública oficial: <code className="bg-white/80 px-1.5 py-0.5 rounded font-mono font-bold text-[11px] text-[#1531F5]">evoapicloud/evolution-api:v2.2.0</code></li>
                     <li>Adicione as variáveis de ambiente:
                       <div className="mt-1 space-y-0.5 font-mono text-[10px] text-zinc-700 bg-white/70 p-1.5 rounded">
                         <div>AUTHENTICATION_API_KEY = (crie uma chave longa e aleatória)</div>
@@ -2171,7 +1850,7 @@ export default function App() {
                       value={inputEvolutionUrl}
                       onChange={e => setInputEvolutionUrl(e.target.value)}
                       placeholder="Ex: https://meu-zap.koyeb.app"
-                      className="w-full px-3 py-2 text-xs font-mono bg-white border border-black/[0.08] rounded-xl text-[#1D1D1F] focus:outline-none focus:border-[#0071E3]"
+                      className="w-full px-3 py-2 text-xs font-mono bg-white border border-black/[0.08] rounded-xl text-[#0B0B12] focus:outline-none focus:border-[#1531F5]"
                     />
                   </div>
 
@@ -2184,7 +1863,7 @@ export default function App() {
                       value={inputEvolutionKey}
                       onChange={e => setInputEvolutionKey(e.target.value)}
                       placeholder="Ex: minhachave123"
-                      className="w-full px-3 py-2 text-xs font-mono bg-white border border-black/[0.08] rounded-xl text-[#1D1D1F] focus:outline-none focus:border-[#0071E3]"
+                      className="w-full px-3 py-2 text-xs font-mono bg-white border border-black/[0.08] rounded-xl text-[#0B0B12] focus:outline-none focus:border-[#1531F5]"
                     />
                   </div>
                 </div>
@@ -2200,13 +1879,13 @@ export default function App() {
                       value={inputPairPhone}
                       onChange={e => setInputPairPhone(e.target.value)}
                       placeholder="Ex: 74988126578"
-                      className="flex-1 px-4 py-3 text-sm font-mono bg-[#F5F5F7] border border-black/[0.08] rounded-2xl text-[#1D1D1F] focus:outline-none focus:border-[#0071E3] focus:bg-white transition-all"
+                      className="flex-1 px-4 py-3 text-sm font-mono bg-[#F6F7FB] border border-black/[0.08] rounded-2xl text-[#0B0B12] focus:outline-none focus:border-[#1531F5] focus:bg-white transition-all"
                     />
                     <button
                       type="button"
                       disabled={isRequestingCode}
                       onClick={() => handleRequestPairingCode()}
-                      className="px-4 py-3 rounded-2xl bg-[#0071E3] text-white text-xs font-bold hover:bg-[#0062C4] transition-all shrink-0 disabled:opacity-50"
+                      className="px-4 py-3 rounded-2xl bg-[#1531F5] text-white text-xs font-bold hover:bg-[#0F25C9] transition-all shrink-0 disabled:opacity-50"
                     >
                       {isRequestingCode ? 'Gerando...' : 'Gerar Código Real'}
                     </button>
@@ -2252,8 +1931,8 @@ export default function App() {
             {/* TAB 3: OFFICIAL META CLOUD API (PRESERVED) */}
             {pairingModalTab === 'meta_official' && (
               <div className="space-y-4">
-                <div className="p-3.5 rounded-2xl bg-[#0071E3]/10 border border-[#0071E3]/20 space-y-2">
-                  <div className="text-xs font-bold text-[#0071E3] flex items-center gap-1.5">
+                <div className="p-3.5 rounded-2xl bg-[#1531F5]/10 border border-[#1531F5]/20 space-y-2">
+                  <div className="text-xs font-bold text-[#1531F5] flex items-center gap-1.5">
                     <ShieldCheck className="w-4 h-4" />
                     <span>Configuração Meta Cloud API Preservada</span>
                   </div>
@@ -2276,7 +1955,7 @@ export default function App() {
                     showToast('Meta Cloud API selecionada como canal de envio.');
                     setShowPairingModal(false);
                   }}
-                  className="w-full py-3.5 rounded-2xl bg-[#0071E3] text-white text-sm font-bold hover:bg-[#0062C4] shadow-sm transition-all"
+                  className="w-full py-3.5 rounded-2xl bg-[#1531F5] text-white text-sm font-bold hover:bg-[#0F25C9] shadow-sm transition-all"
                 >
                   Usar Meta Cloud API
                 </button>
@@ -2295,11 +1974,11 @@ export default function App() {
             {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b border-black/[0.06] mb-4">
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-[#FF9500]/15 text-[#FF9500] flex items-center justify-center font-bold">
+                <div className="w-10 h-10 rounded-2xl bg-[#FF6A00]/15 text-[#FF6A00] flex items-center justify-center font-bold">
                   <Send className="w-5 h-5 stroke-[2.2]" />
                 </div>
                 <div>
-                  <h3 className="text-base font-extrabold text-[#1D1D1F] tracking-tight">
+                  <h3 className="text-base font-extrabold text-[#0B0B12] tracking-tight">
                     Micro-Disparos Frios
                   </h3>
                   <p className="text-xs text-zinc-500 font-medium">
@@ -2328,8 +2007,8 @@ export default function App() {
                     onClick={() => setCampaignCount(5)}
                     className={`py-3 px-4 rounded-2xl text-xs font-bold border transition-all flex flex-col items-center justify-center gap-0.5 ${
                       campaignCount === 5
-                        ? 'border-[#0071E3] bg-[#0071E3]/5 text-[#0071E3]'
-                        : 'border-black/[0.08] bg-[#F5F5F7] text-zinc-600'
+                        ? 'border-[#1531F5] bg-[#1531F5]/5 text-[#1531F5]'
+                        : 'border-black/[0.08] bg-[#F6F7FB] text-zinc-600'
                     }`}
                   >
                     <span className="text-base font-extrabold">5 Contatos</span>
@@ -2341,8 +2020,8 @@ export default function App() {
                     onClick={() => setCampaignCount(10)}
                     className={`py-3 px-4 rounded-2xl text-xs font-bold border transition-all flex flex-col items-center justify-center gap-0.5 ${
                       campaignCount === 10
-                        ? 'border-[#0071E3] bg-[#0071E3]/5 text-[#0071E3]'
-                        : 'border-black/[0.08] bg-[#F5F5F7] text-zinc-600'
+                        ? 'border-[#1531F5] bg-[#1531F5]/5 text-[#1531F5]'
+                        : 'border-black/[0.08] bg-[#F6F7FB] text-zinc-600'
                     }`}
                   >
                     <span className="text-base font-extrabold">10 Contatos</span>
@@ -2360,7 +2039,7 @@ export default function App() {
                   rows={3}
                   value={campaignCustomMsg}
                   onChange={e => setCampaignCustomMsg(e.target.value)}
-                  className="w-full px-4 py-3 text-xs bg-[#F5F5F7] border border-black/[0.08] rounded-2xl text-[#1D1D1F] focus:outline-none focus:border-[#0071E3] focus:bg-white resize-none"
+                  className="w-full px-4 py-3 text-xs bg-[#F6F7FB] border border-black/[0.08] rounded-2xl text-[#0B0B12] focus:outline-none focus:border-[#1531F5] focus:bg-white resize-none"
                 />
                 <span className="text-[11px] text-zinc-400 block mt-1">
                   Variáveis suportadas: <code>{'{nome}'}</code> e <code>{'{empresa}'}</code>.
@@ -2368,8 +2047,8 @@ export default function App() {
               </div>
 
               {/* Human SDR AI Guarantee Note */}
-              <div className="p-3.5 rounded-2xl bg-[#0071E3]/10 border border-[#0071E3]/20 space-y-1">
-                <div className="text-xs font-bold text-[#0071E3] flex items-center gap-1.5">
+              <div className="p-3.5 rounded-2xl bg-[#1531F5]/10 border border-[#1531F5]/20 space-y-1">
+                <div className="text-xs font-bold text-[#1531F5] flex items-center gap-1.5">
                   <Bot className="w-4 h-4" />
                   <span>Respostas Humanas Enxutas (10 a 15 palavras)</span>
                 </div>
@@ -2407,7 +2086,7 @@ export default function App() {
                   type="button"
                   disabled={isDispatchingCampaign}
                   onClick={handleStartMicroCampaign}
-                  className="px-5 py-3 text-xs font-bold rounded-xl bg-[#FF9500] text-white hover:bg-[#E08500] shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
+                  className="px-5 py-3 text-xs font-bold rounded-xl bg-[#FF6A00] text-white hover:bg-[#E08500] shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
                 >
                   <Send className="w-4 h-4" />
                   <span>{isDispatchingCampaign ? 'Disparando...' : `Iniciar Disparo (${campaignCount} Leads)`}</span>
@@ -2431,7 +2110,7 @@ export default function App() {
                   <FileUp className="w-5 h-5 stroke-[2.2]" />
                 </div>
                 <div>
-                  <h3 className="text-base font-extrabold text-[#1D1D1F] tracking-tight">
+                  <h3 className="text-base font-extrabold text-[#0B0B12] tracking-tight">
                     Importar Arquivo para o CRM
                   </h3>
                   <p className="text-xs text-zinc-500 font-medium">
@@ -2452,23 +2131,23 @@ export default function App() {
 
             {/* Upload Area */}
             <div className="space-y-4 flex-1">
-              <label className="border-2 border-dashed border-[#0071E3]/30 hover:border-[#0071E3] hover:bg-[#0071E3]/5 transition-all rounded-3xl p-6 flex flex-col items-center justify-center cursor-pointer text-center bg-[#FAFAFC]">
+              <label className="border-2 border-dashed border-[#1531F5]/30 hover:border-[#1531F5] hover:bg-[#1531F5]/5 transition-all rounded-3xl p-6 flex flex-col items-center justify-center cursor-pointer text-center bg-[#FAFAFC]">
                 <input
                   type="file"
                   accept="*/*"
                   onChange={handleFileUpload}
                   className="hidden"
                 />
-                <div className="w-12 h-12 rounded-2xl bg-[#0071E3]/10 text-[#0071E3] flex items-center justify-center mb-2.5">
+                <div className="w-12 h-12 rounded-2xl bg-[#1531F5]/10 text-[#1531F5] flex items-center justify-center mb-2.5">
                   <Upload className="w-6 h-6 stroke-[2]" />
                 </div>
-                <span className="text-sm font-bold text-[#1D1D1F]">
+                <span className="text-sm font-bold text-[#0B0B12]">
                   {isParsingFile ? 'Lendo e filtrando dados...' : 'Selecione ou solte qualquer arquivo aqui'}
                 </span>
                 <span className="text-xs text-zinc-400 mt-1">
                   Aceita <strong>SVG, PDF, HTML, Planilha, TXT, CSV, JSON</strong>
                 </span>
-                <span className="text-[11px] text-[#0071E3] font-semibold mt-2 px-3 py-1 bg-white rounded-full border border-black/[0.06] shadow-xs">
+                <span className="text-[11px] text-[#1531F5] font-semibold mt-2 px-3 py-1 bg-white rounded-full border border-black/[0.06] shadow-xs">
                   Extração automática de telefones, nomes, empresas e links
                 </span>
               </label>
@@ -2480,7 +2159,7 @@ export default function App() {
                   {/* Results Banner */}
                   <div className="p-3.5 rounded-2xl bg-[#34C759]/10 border border-[#34C759]/20 flex items-center justify-between">
                     <div>
-                      <div className="text-xs font-bold text-[#1D1D1F]">
+                      <div className="text-xs font-bold text-[#0B0B12]">
                         {parsedData.totalFound} {parsedData.totalFound === 1 ? 'Contato Identificado' : 'Contatos Identificados'}
                       </div>
                       <div className="text-[11px] text-zinc-500 truncate max-w-xs">
@@ -2496,7 +2175,7 @@ export default function App() {
                   {parsedData.extractedLinks && parsedData.extractedLinks.length > 0 && (
                     <div className="p-3 bg-zinc-50 rounded-2xl border border-black/[0.06]">
                       <div className="text-[11px] font-bold text-zinc-600 mb-1.5 flex items-center gap-1">
-                        <LinkIcon className="w-3 h-3 text-[#0071E3]" />
+                        <LinkIcon className="w-3 h-3 text-[#1531F5]" />
                         <span>Links e sites extraídos ({parsedData.extractedLinks.length}):</span>
                       </div>
                       <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
@@ -2522,7 +2201,7 @@ export default function App() {
                             parsedData.leads.forEach(l => { newMap[l.phone] = !allSelected; });
                             setSelectedLeadsToImport(newMap);
                           }}
-                          className="text-[#0071E3] hover:underline"
+                          className="text-[#1531F5] hover:underline"
                         >
                           {parsedData.leads.every(l => selectedLeadsToImport[l.phone]) ? 'Desmarcar todos' : 'Marcar todos'}
                         </button>
@@ -2542,17 +2221,17 @@ export default function App() {
                                     [lead.phone]: e.target.checked
                                   }));
                                 }}
-                                className="w-4 h-4 rounded text-[#0071E3] focus:ring-0 cursor-pointer"
+                                className="w-4 h-4 rounded text-[#1531F5] focus:ring-0 cursor-pointer"
                               />
                               <div className="flex-1 min-w-0 text-xs">
-                                <div className="font-bold text-[#1D1D1F] truncate">
+                                <div className="font-bold text-[#0B0B12] truncate">
                                   {lead.name}
                                 </div>
                                 <div className="text-zinc-500 font-mono text-[11px] truncate">
                                   +{lead.phone} {lead.company ? `· ${lead.company}` : ''}
                                 </div>
                                 {lead.link && (
-                                  <div className="text-[10px] text-[#0071E3] truncate">
+                                  <div className="text-[10px] text-[#1531F5] truncate">
                                     {lead.link}
                                   </div>
                                 )}
@@ -2608,7 +2287,7 @@ export default function App() {
             <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mb-3">
               <Trash2 className="w-6 h-6 stroke-[2]" />
             </div>
-            <h3 className="text-base font-extrabold text-[#1D1D1F] tracking-tight mb-1">
+            <h3 className="text-base font-extrabold text-[#0B0B12] tracking-tight mb-1">
               Limpar Todos os Leads do CRM?
             </h3>
             <p className="text-xs text-zinc-500 font-medium mb-5 leading-relaxed">

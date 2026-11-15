@@ -80,38 +80,38 @@ export default function FocoCard() {
     <div className="space-y-4">
       {/* A única coisa */}
       <Card>
-        <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#6e6e73]">A única coisa de hoje</p>
-        <p className="text-[20px] leading-snug font-bold text-[#1D1D1F] mt-1 [text-wrap:balance]">{unica}</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#5B5F70]">A única coisa de hoje</p>
+        <p className="text-[20px] leading-snug font-bold text-[#0B0B12] mt-1 [text-wrap:balance]">{unica}</p>
       </Card>
 
       {/* Checklist */}
       <Card>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-[17px] font-bold text-[#1D1D1F]">Checklist do dia</h2>
-          <span className="text-[13px] font-bold tabular-nums text-[#1D1D1F]">{feitos} de {checks.length}</span>
+          <h2 className="text-[17px] font-bold text-[#0B0B12]">Checklist do dia</h2>
+          <span className="text-[13px] font-bold tabular-nums text-[#0B0B12]">{feitos} de {checks.length}</span>
         </div>
         <ul className="space-y-2">
           {checks.map(c => (
             <li key={c.t} className="flex items-center gap-3">
               <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[13px] font-black transition-colors ${c.ok ? 'bg-[#34C759] text-white' : 'border-2 border-black/15 text-transparent'}`} aria-hidden>✓</span>
-              <span className={`text-[15px] ${c.ok ? 'text-[#1D1D1F] font-semibold' : 'text-[#6e6e73]'}`}>{c.t}</span>
+              <span className={`text-[15px] ${c.ok ? 'text-[#0B0B12] font-semibold' : 'text-[#5B5F70]'}`}>{c.t}</span>
               <span className="sr-only">{c.ok ? 'feito' : 'pendente'}</span>
             </li>
           ))}
         </ul>
-        <p className="text-[12px] text-[#6e6e73] mt-3">Os itens se marcam sozinhos com o que o sistema fez.</p>
+        <p className="text-[12px] text-[#5B5F70] mt-3">Os itens se marcam sozinhos com o que o sistema fez.</p>
       </Card>
 
       {/* Cobrinha + meta da semana */}
       <Card>
         <div className="flex items-end justify-between mb-3">
           <div>
-            <h2 className="text-[17px] font-bold text-[#1D1D1F]">Sequência</h2>
-            <p className="text-[12px] text-[#6e6e73]">Cada quadrado verde é um dia com prospecção.</p>
+            <h2 className="text-[17px] font-bold text-[#0B0B12]">Sequência</h2>
+            <p className="text-[12px] text-[#5B5F70]">Cada quadrado verde é um dia com prospecção.</p>
           </div>
           <div className="text-right">
-            <div className="text-[28px] leading-none font-black tabular-nums text-[#1D1D1F]">{streak}</div>
-            <div className="text-[11px] text-[#6e6e73]">{streak === 1 ? 'dia seguido' : 'dias seguidos'}</div>
+            <div className="text-[28px] leading-none font-black tabular-nums text-[#0B0B12]">{streak}</div>
+            <div className="text-[11px] text-[#5B5F70]">{streak === 1 ? 'dia seguido' : 'dias seguidos'}</div>
           </div>
         </div>
         <div className="grid grid-cols-7 gap-1.5" role="img" aria-label={`Últimos 28 dias, ${streak} dias seguidos com prospecção`}>
@@ -119,17 +119,17 @@ export default function FocoCard() {
             <div
               key={d.k}
               title={`${d.k}: ${d.ab} abordagens, ${d.resp} respostas`}
-              className={`aspect-square rounded-md ${d.ab === 0 ? 'bg-black/[0.06]' : d.resp > 0 ? 'bg-[#34C759]' : 'bg-[#34C759]/45'} ${d.isToday ? 'ring-2 ring-[#0071E3] ring-offset-1' : ''}`}
+              className={`aspect-square rounded-md ${d.ab === 0 ? 'bg-black/[0.06]' : d.resp > 0 ? 'bg-[#34C759]' : 'bg-[#34C759]/45'} ${d.isToday ? 'ring-2 ring-[#1531F5] ring-offset-1' : ''}`}
             />
           ))}
         </div>
         <div className="mt-4">
           <div className="flex items-center justify-between text-[13px]">
-            <span className="font-semibold text-[#1D1D1F]">Meta da semana</span>
-            <span className="tabular-nums text-[#6e6e73]">{abSemana} de {metaSemana} abordagens · {respSemana} respostas</span>
+            <span className="font-semibold text-[#0B0B12]">Meta da semana</span>
+            <span className="tabular-nums text-[#5B5F70]">{abSemana} de {metaSemana} abordagens · {respSemana} respostas</span>
           </div>
           <div className="mt-2 h-2.5 rounded-full bg-black/[0.06] overflow-hidden" role="progressbar" aria-label="Meta da semana" aria-valuenow={pctSemana} aria-valuemin={0} aria-valuemax={100}>
-            <div className="h-full rounded-full bg-[#0071E3] transition-[width] duration-700" style={{ width: `${pctSemana}%` }} />
+            <div className="h-full rounded-full bg-[#1531F5] transition-[width] duration-700" style={{ width: `${pctSemana}%` }} />
           </div>
         </div>
       </Card>
@@ -139,24 +139,24 @@ export default function FocoCard() {
         <div className="flex items-center gap-4">
           <svg viewBox="0 0 64 80" className="w-16 h-20 shrink-0" aria-hidden>
             <rect x="14" y="2" width="36" height="8" rx="3" fill="#C7A27A" />
-            <path d="M10 14 h44 a4 4 0 0 1 4 4 v52 a8 8 0 0 1 -8 8 h-36 a8 8 0 0 1 -8 -8 v-52 a4 4 0 0 1 4 -4z" fill="#EAF4FF" stroke="#0071E3" strokeOpacity=".35" strokeWidth="2" />
+            <path d="M10 14 h44 a4 4 0 0 1 4 4 v52 a8 8 0 0 1 -8 8 h-36 a8 8 0 0 1 -8 -8 v-52 a4 4 0 0 1 4 -4z" fill="#EAF4FF" stroke="#1531F5" strokeOpacity=".35" strokeWidth="2" />
             {Array.from({ length: jar }, (_, i) => {
               const row = Math.floor(i / 5), col = i % 5;
               return <circle key={i} cx={17 + col * 7.5 + (row % 2) * 3} cy={72 - row * 7} r="3.2" fill="#C7843F" />;
             })}
           </svg>
           <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#6e6e73]">Pote de biscoito</p>
-            <div className="text-[28px] leading-none font-black tabular-nums text-[#1D1D1F] mt-1">{m.vitorias_total}</div>
-            <p className="text-[13px] text-[#6e6e73]">pessoas responderam a você. Cada uma é prova de que funciona.</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#5B5F70]">Pote de biscoito</p>
+            <div className="text-[28px] leading-none font-black tabular-nums text-[#0B0B12] mt-1">{m.vitorias_total}</div>
+            <p className="text-[13px] text-[#5B5F70]">pessoas responderam a você. Cada uma é prova de que funciona.</p>
           </div>
         </div>
         {m.vitorias.length > 0 && (
           <ul className="mt-4 divide-y divide-black/[0.05]">
             {m.vitorias.slice(0, 5).map((v, i) => (
               <li key={i} className="py-2 flex items-center justify-between gap-3 text-[14px]">
-                <span className="truncate text-[#1D1D1F]">{v.tipo === 'reuniao' ? 'Reunião: ' : ''}{v.quem}</span>
-                <span className="shrink-0 text-[12px] text-[#6e6e73] capitalize">{shortDay(v.quando)}</span>
+                <span className="truncate text-[#0B0B12]">{v.tipo === 'reuniao' ? 'Reunião: ' : ''}{v.quem}</span>
+                <span className="shrink-0 text-[12px] text-[#5B5F70] capitalize">{shortDay(v.quando)}</span>
               </li>
             ))}
           </ul>

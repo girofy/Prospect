@@ -107,7 +107,7 @@ export const DataDeletion: React.FC<DataDeletionProps> = ({ onBack }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F5F7] text-[#1D1D1F] font-sans p-4 sm:p-8 max-w-3xl mx-auto selection:bg-[#0071E3] selection:text-white">
+    <div className="min-h-screen bg-[#F6F7FB] text-[#0B0B12] font-sans p-4 sm:p-8 max-w-3xl mx-auto selection:bg-[#1531F5] selection:text-white">
       
       {/* Header */}
       <header className="border-b border-black/[0.08] pb-5 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -117,7 +117,7 @@ export const DataDeletion: React.FC<DataDeletionProps> = ({ onBack }) => {
               Direito de Eliminação de Dados (Art. 18 LGPD)
             </span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1D1D1F]">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#0B0B12]">
             Exclusão de Dados — Prospectfy
           </h1>
           <p className="text-xs text-zinc-500 mt-0.5">
@@ -146,7 +146,7 @@ export const DataDeletion: React.FC<DataDeletionProps> = ({ onBack }) => {
             <strong> LGPD (Lei nº 13.709/2018)</strong>, qualquer pessoa física que tenha interagido com o número comercial 
             da Girofy Tecnologia pode solicitar a eliminação imediata dos seus dados cadastrais e mensagens.
           </p>
-          <div className="p-2.5 bg-[#F5F5F7] border border-black/[0.06] rounded text-xs text-zinc-500">
+          <div className="p-2.5 bg-[#F6F7FB] border border-black/[0.06] rounded text-xs text-zinc-500">
             <strong>O que é excluído:</strong> Seu número de telefone, mensagens trocadas, status de qualificação e histórico comercial. 
             A exclusão é irreversível no banco de dados operacional.
           </div>
@@ -154,7 +154,7 @@ export const DataDeletion: React.FC<DataDeletionProps> = ({ onBack }) => {
 
         {/* Form Deletion Card */}
         <div className="p-5 bg-white border border-black/[0.08] rounded shadow-xs">
-          <div className="flex items-center gap-2 text-xs font-bold text-[#1D1D1F] uppercase tracking-wider mb-4">
+          <div className="flex items-center gap-2 text-xs font-bold text-[#0B0B12] uppercase tracking-wider mb-4">
             <Trash2 className="w-4 h-4 text-[#FF3B30]" />
             <span>Solicitar Exclusão Imediata</span>
           </div>
@@ -169,7 +169,7 @@ export const DataDeletion: React.FC<DataDeletionProps> = ({ onBack }) => {
               
               <div className="p-3 bg-white border border-[#34C759]/20 rounded">
                 <span className="text-[11px] text-zinc-500 font-semibold block">Código de Confirmação Oficial:</span>
-                <span className="font-mono text-sm font-bold text-[#0071E3] select-all">
+                <span className="font-mono text-sm font-bold text-[#1531F5] select-all">
                   {result.confirmationCode}
                 </span>
                 <p className="text-[10px] text-zinc-400 mt-1">
@@ -180,7 +180,7 @@ export const DataDeletion: React.FC<DataDeletionProps> = ({ onBack }) => {
               <button
                 type="button"
                 onClick={() => setResult(null)}
-                className="mt-2 px-3 py-1.5 bg-[#1D1D1F] text-white text-xs font-medium rounded hover:bg-zinc-800 transition-colors shadow-xs"
+                className="mt-2 px-3 py-1.5 bg-[#0B0B12] text-white text-xs font-medium rounded hover:bg-zinc-800 transition-colors shadow-xs"
               >
                 Fazer Nova Solicitação
               </button>
@@ -204,7 +204,7 @@ export const DataDeletion: React.FC<DataDeletionProps> = ({ onBack }) => {
                   value={identifier}
                   onChange={e => setIdentifier(e.target.value)}
                   placeholder="Ex: 5574988126578 ou seu@email.com"
-                  className="w-full px-3 py-2 text-xs bg-[#F5F5F7] border border-black/[0.08] rounded text-[#1D1D1F] focus:outline-none focus:border-[#0071E3] focus:bg-white"
+                  className="w-full px-3 py-2 text-xs bg-[#F6F7FB] border border-black/[0.08] rounded text-[#0B0B12] focus:outline-none focus:border-[#1531F5] focus:bg-white"
                 />
               </div>
 
@@ -217,7 +217,7 @@ export const DataDeletion: React.FC<DataDeletionProps> = ({ onBack }) => {
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
                   placeholder="Ex: Não tenho interesse nos serviços ou não desejo mais ser contatado."
-                  className="w-full px-3 py-2 text-xs bg-[#F5F5F7] border border-black/[0.08] rounded text-[#1D1D1F] focus:outline-none focus:border-[#0071E3] focus:bg-white"
+                  className="w-full px-3 py-2 text-xs bg-[#F6F7FB] border border-black/[0.08] rounded text-[#0B0B12] focus:outline-none focus:border-[#1531F5] focus:bg-white"
                 />
               </div>
 
@@ -239,8 +239,8 @@ export const DataDeletion: React.FC<DataDeletionProps> = ({ onBack }) => {
 
         {/* Check Status Card */}
         <div className="p-5 bg-white border border-black/[0.08] rounded shadow-xs">
-          <div className="flex items-center gap-2 text-xs font-bold text-[#1D1D1F] uppercase tracking-wider mb-2">
-            <Key className="w-4 h-4 text-[#0071E3]" />
+          <div className="flex items-center gap-2 text-xs font-bold text-[#0B0B12] uppercase tracking-wider mb-2">
+            <Key className="w-4 h-4 text-[#1531F5]" />
             <span>Consultar Comprovante de Exclusão (Callback Meta)</span>
           </div>
           <p className="text-xs text-zinc-500 mb-3">
@@ -253,13 +253,13 @@ export const DataDeletion: React.FC<DataDeletionProps> = ({ onBack }) => {
               value={searchCode}
               onChange={e => setSearchCode(e.target.value)}
               placeholder="Ex: del-1730389100000-abc12"
-              className="flex-1 px-3 py-2 text-xs font-mono bg-[#F5F5F7] border border-black/[0.08] rounded text-[#1D1D1F] focus:outline-none focus:border-[#0071E3] focus:bg-white"
+              className="flex-1 px-3 py-2 text-xs font-mono bg-[#F6F7FB] border border-black/[0.08] rounded text-[#0B0B12] focus:outline-none focus:border-[#1531F5] focus:bg-white"
             />
             <button
               type="button"
               onClick={() => handleCheckStatus()}
               disabled={checkLoading || !searchCode.trim()}
-              className="px-4 py-2 bg-[#1D1D1F] hover:bg-zinc-800 disabled:opacity-50 text-white text-xs font-semibold rounded flex items-center gap-1.5 shadow-xs"
+              className="px-4 py-2 bg-[#0B0B12] hover:bg-zinc-800 disabled:opacity-50 text-white text-xs font-semibold rounded flex items-center gap-1.5 shadow-xs"
             >
               <Search className="w-3.5 h-3.5" />
               <span>{checkLoading ? 'Consultando...' : 'Consultar'}</span>
@@ -267,13 +267,13 @@ export const DataDeletion: React.FC<DataDeletionProps> = ({ onBack }) => {
           </div>
 
           {statusResult && (
-            <div className="mt-3 p-3 bg-[#F5F5F7] border border-black/[0.06] rounded text-xs space-y-1">
+            <div className="mt-3 p-3 bg-[#F6F7FB] border border-black/[0.06] rounded text-xs space-y-1">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-zinc-700">Status:</span>
                 <span className={`font-mono uppercase px-2 py-0.5 rounded text-[10px] font-bold ${
                   statusResult.status === 'concluido' 
                     ? 'bg-[#34C759]/20 text-[#248A3D]' 
-                    : 'bg-[#FF9500]/20 text-[#C97700]'
+                    : 'bg-[#FF6A00]/20 text-[#C97700]'
                 }`}>
                   {statusResult.status}
                 </span>

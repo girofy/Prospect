@@ -173,7 +173,7 @@ export default function ModelsTab() {
             return (
               <div key={i} className="apple-card-sunken p-3">
                 <div className="flex items-center gap-2.5 mb-2.5">
-                  <span className="w-6 h-6 rounded-full bg-[#0071E3] text-white text-[12px] font-bold flex items-center justify-center shrink-0">{i + 1}</span>
+                  <span className="w-6 h-6 rounded-full bg-[#1531F5] text-white text-[12px] font-bold flex items-center justify-center shrink-0">{i + 1}</span>
                   <select value={it.provider} onChange={e => upd(i, { provider: e.target.value as Item['provider'] })} className={`${inputCls} !py-2 !w-auto`}>
                     <option value="gemini">Gemini</option>
                     <option value="groq">Groq</option>
@@ -194,14 +194,14 @@ export default function ModelsTab() {
         </div>
 
         <div className="mt-3">
-          <div className="text-[12px] font-semibold text-[#86868B] mb-2">Adicionar sugestão</div>
+          <div className="text-[12px] font-semibold text-[#6B6F80] mb-2">Adicionar sugestão</div>
           <div className="flex flex-wrap gap-2">
             {SUGGEST.filter(s => !chain.some(c => c.model === s.model)).map(s => (
-              <button key={s.model} onClick={() => setChain([...chain, { provider: s.provider, model: s.model }])} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-black/[0.05] text-[13px] font-semibold text-[#1D1D1F] active:bg-black/[0.1]">
+              <button key={s.model} onClick={() => setChain([...chain, { provider: s.provider, model: s.model }])} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-black/[0.05] text-[13px] font-semibold text-[#0B0B12] active:bg-black/[0.1]">
                 <Plus className="w-3.5 h-3.5" />{s.model}
               </button>
             ))}
-            <button onClick={() => setChain([...chain, { provider: 'groq', model: '' }])} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-black/[0.2] text-[13px] font-semibold text-[#6e6e73]"><Plus className="w-3.5 h-3.5" />Outro</button>
+            <button onClick={() => setChain([...chain, { provider: 'groq', model: '' }])} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-black/[0.2] text-[13px] font-semibold text-[#5B5F70]"><Plus className="w-3.5 h-3.5" />Outro</button>
           </div>
         </div>
       </Card>
@@ -222,15 +222,15 @@ export default function ModelsTab() {
         <SectionTitle title="Ler chave e descobrir modelos" hint="Eu leio a chave, listo o que ela enxerga e, no Groq, testo uma resposta real em cada candidato." />
         <div className="flex gap-2 mb-3">
           {(['groq', 'gemini'] as const).map(p => (
-            <button key={p} onClick={() => { setReader(p); setReading(null); setReadErr(''); }} className={`flex-1 py-2.5 rounded-xl text-[14px] font-semibold ${reader === p ? 'bg-[#0071E3] text-white' : 'bg-black/[0.05] text-[#1D1D1F]'}`}>{p === 'groq' ? 'Groq' : 'Gemini'}</button>
+            <button key={p} onClick={() => { setReader(p); setReading(null); setReadErr(''); }} className={`flex-1 py-2.5 rounded-xl text-[14px] font-semibold ${reader === p ? 'bg-[#1531F5] text-white' : 'bg-black/[0.05] text-[#0B0B12]'}`}>{p === 'groq' ? 'Groq' : 'Gemini'}</button>
           ))}
         </div>
         <Btn kind="soft" onClick={readKey} disabled={reading_busy}><span className="inline-flex items-center gap-2"><Search className="w-4 h-4" />{reading_busy ? 'Lendo e testando…' : 'Ler chave salva'}</span></Btn>
-        <div className="text-[12px] text-[#86868B] mt-2">{reader === 'groq' && groqKey.trim() ? 'Vai usar a chave que você colou abaixo.' : 'Usa a chave já salva no servidor.'}</div>
+        <div className="text-[12px] text-[#6B6F80] mt-2">{reader === 'groq' && groqKey.trim() ? 'Vai usar a chave que você colou abaixo.' : 'Usa a chave já salva no servidor.'}</div>
         {readErr && <div className="mt-3 rounded-2xl p-3.5 bg-[#FF3B30]/8 text-[14px] text-[#c42b22] font-medium">{readErr}</div>}
         {reading && (
           <div className="mt-4 space-y-2.5">
-            <div className="text-[12.5px] text-[#86868B]">{reading.total} modelos encontrados. {reading.note}</div>
+            <div className="text-[12.5px] text-[#6B6F80]">{reading.total} modelos encontrados. {reading.note}</div>
             {reading.suggested.length > 0 && (
               <Btn onClick={useSuggestion}>Usar a sugestão automática</Btn>
             )}
@@ -250,8 +250,8 @@ export default function ModelsTab() {
                   <button onClick={() => addModel(reading.provider, m.id)} aria-label="Adicionar" className="w-10 h-10 rounded-xl bg-black/[0.05] flex items-center justify-center shrink-0 active:bg-black/[0.1]"><Plus className="w-4 h-4" /></button>
                 </div>
                 {m.probe && (
-                  <div className={`mt-2.5 rounded-xl p-2.5 text-[13px] leading-snug ${m.probe.ok && !m.probe.problem ? 'bg-[#34C759]/10 text-[#1D1D1F]' : 'bg-[#FF9500]/12 text-[#8a5200]'}`}>
-                    {m.probe.ok ? <>“{m.probe.reply}” <span className="text-[#86868B]">· {(m.probe.ms / 1000).toFixed(1)} s{m.probe.problem ? ` · recusada: ${m.probe.problem}` : ''}</span></> : <>Falhou: {m.probe.error || 'sem resposta'}</>}
+                  <div className={`mt-2.5 rounded-xl p-2.5 text-[13px] leading-snug ${m.probe.ok && !m.probe.problem ? 'bg-[#34C759]/10 text-[#0B0B12]' : 'bg-[#FF6A00]/12 text-[#8a5200]'}`}>
+                    {m.probe.ok ? <>“{m.probe.reply}” <span className="text-[#6B6F80]">· {(m.probe.ms / 1000).toFixed(1)} s{m.probe.problem ? ` · recusada: ${m.probe.problem}` : ''}</span></> : <>Falhou: {m.probe.error || 'sem resposta'}</>}
                   </div>
                 )}
               </div>
@@ -268,7 +268,7 @@ export default function ModelsTab() {
             {test.ok ? (
               <>
                 <div className="text-[12px] font-semibold text-[#1f8a3a] mb-1.5">Respondeu em {(test.ms / 1000).toFixed(1)} s</div>
-                <div className="text-[15px] text-[#1D1D1F] leading-snug">“{test.reply}”</div>
+                <div className="text-[15px] text-[#0B0B12] leading-snug">“{test.reply}”</div>
               </>
             ) : (
               <div className="text-[14px] text-[#c42b22] font-medium">

@@ -7,7 +7,7 @@ interface PrivacyPolicyProps {
 
 export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
   return (
-    <div className="min-h-screen bg-[#F5F5F7] text-[#1D1D1F] font-sans p-4 sm:p-8 max-w-4xl mx-auto selection:bg-[#0071E3] selection:text-white">
+    <div className="min-h-screen bg-[#F6F7FB] text-[#0B0B12] font-sans p-4 sm:p-8 max-w-4xl mx-auto selection:bg-[#1531F5] selection:text-white">
       
       {/* Header Bar */}
       <header className="border-b border-black/[0.08] pb-5 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -18,7 +18,7 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
             </span>
             <span className="text-[11px] text-zinc-500">Lei nº 13.709/2018</span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1D1D1F]">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#0B0B12]">
             Política de Privacidade — Prospectfy
           </h1>
           <p className="text-xs text-zinc-500 mt-0.5">
@@ -43,8 +43,8 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
         
         {/* Section 1 */}
         <section className="p-4 bg-white border border-black/[0.08] rounded shadow-xs space-y-2">
-          <div className="flex items-center gap-2 text-xs font-bold text-[#1D1D1F] uppercase tracking-wider">
-            <ShieldCheck className="w-4 h-4 text-[#0071E3]" />
+          <div className="flex items-center gap-2 text-xs font-bold text-[#0B0B12] uppercase tracking-wider">
+            <ShieldCheck className="w-4 h-4 text-[#1531F5]" />
             <span>1. Identificação do Controlador</span>
           </div>
           <p>
@@ -52,7 +52,7 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
             Esta Política de Privacidade tem como objetivo esclarecer de forma transparente como os dados pessoais são coletados, tratados, 
             armazenados e protegidos ao utilizar nossos serviços e ao interagir via WhatsApp comercial.
           </p>
-          <div className="text-xs text-zinc-600 bg-[#F5F5F7] p-3 border border-black/[0.06] rounded space-y-1">
+          <div className="text-xs text-zinc-600 bg-[#F6F7FB] p-3 border border-black/[0.06] rounded space-y-1">
             <div className="flex items-center gap-2">
               <Mail className="w-3.5 h-3.5 text-zinc-500" />
               <span>Canal do Encarregado (DPO / Responsável): <strong>jlzin2603@gmail.com</strong></span>
@@ -66,8 +66,8 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
 
         {/* Section 2 */}
         <section className="p-4 bg-white border border-black/[0.08] rounded shadow-xs space-y-2">
-          <div className="flex items-center gap-2 text-xs font-bold text-[#1D1D1F] uppercase tracking-wider">
-            <FileText className="w-4 h-4 text-[#0071E3]" />
+          <div className="flex items-center gap-2 text-xs font-bold text-[#0B0B12] uppercase tracking-wider">
+            <FileText className="w-4 h-4 text-[#1531F5]" />
             <span>2. Dados Coletados</span>
           </div>
           <p>Tratamos estritamente os dados necessários para o atendimento comercial e qualificação de interesse em soluções digitais:</p>
@@ -81,8 +81,8 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
 
         {/* Section 3 */}
         <section className="p-4 bg-white border border-black/[0.08] rounded shadow-xs space-y-2">
-          <div className="flex items-center gap-2 text-xs font-bold text-[#1D1D1F] uppercase tracking-wider">
-            <Lock className="w-4 h-4 text-[#0071E3]" />
+          <div className="flex items-center gap-2 text-xs font-bold text-[#0B0B12] uppercase tracking-wider">
+            <Lock className="w-4 h-4 text-[#1531F5]" />
             <span>3. Finalidades do Tratamento e Bases Legais</span>
           </div>
           <p>
@@ -97,26 +97,26 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
 
         {/* Section 4 */}
         <section className="p-4 bg-white border border-black/[0.08] rounded shadow-xs space-y-2">
-          <div className="flex items-center gap-2 text-xs font-bold text-[#1D1D1F] uppercase tracking-wider">
-            <ShieldCheck className="w-4 h-4 text-[#0071E3]" />
+          <div className="flex items-center gap-2 text-xs font-bold text-[#0B0B12] uppercase tracking-wider">
+            <ShieldCheck className="w-4 h-4 text-[#1531F5]" />
             <span>4. Subprocessadores e Provedores de Serviço</span>
           </div>
           <p>Para prover a infraestrutura técnica e de inteligência artificial, utilizamos provedores com alto padrão de segurança:</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
-            <div className="p-2.5 bg-[#F5F5F7] border border-black/[0.06] rounded">
-              <strong className="text-[#1D1D1F] block mb-0.5">Meta Platforms Ireland Ltd.</strong>
+            <div className="p-2.5 bg-[#F6F7FB] border border-black/[0.06] rounded">
+              <strong className="text-[#0B0B12] block mb-0.5">Meta Platforms Ireland Ltd.</strong>
               <span>WhatsApp Business Cloud API para transmissão segura e recebimento de mensagens.</span>
             </div>
-            <div className="p-2.5 bg-[#F5F5F7] border border-black/[0.06] rounded">
-              <strong className="text-[#1D1D1F] block mb-0.5">Google Cloud / Gemini API</strong>
+            <div className="p-2.5 bg-[#F6F7FB] border border-black/[0.06] rounded">
+              <strong className="text-[#0B0B12] block mb-0.5">Google Cloud / Gemini API</strong>
               <span>Processamento semântico no backend para compreensão de contexto. Seus dados não são usados para treinar modelos públicos.</span>
             </div>
-            <div className="p-2.5 bg-[#F5F5F7] border border-black/[0.06] rounded">
-              <strong className="text-[#1D1D1F] block mb-0.5">Vercel Inc.</strong>
+            <div className="p-2.5 bg-[#F6F7FB] border border-black/[0.06] rounded">
+              <strong className="text-[#0B0B12] block mb-0.5">Vercel Inc.</strong>
               <span>Hospedagem serverless segura com isolamento de ambiente e variáveis secretas criptografadas.</span>
             </div>
-            <div className="p-2.5 bg-[#F5F5F7] border border-black/[0.06] rounded">
-              <strong className="text-[#1D1D1F] block mb-0.5">SQLite / Firestore</strong>
+            <div className="p-2.5 bg-[#F6F7FB] border border-black/[0.06] rounded">
+              <strong className="text-[#0B0B12] block mb-0.5">SQLite / Firestore</strong>
               <span>Armazenamento isolado de contatos, histórico e status de atendimento com controle de acesso estrito.</span>
             </div>
           </div>
@@ -124,8 +124,8 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
 
         {/* Section 5 */}
         <section className="p-4 bg-white border border-black/[0.08] rounded shadow-xs space-y-2">
-          <div className="flex items-center gap-2 text-xs font-bold text-[#1D1D1F] uppercase tracking-wider">
-            <FileText className="w-4 h-4 text-[#0071E3]" />
+          <div className="flex items-center gap-2 text-xs font-bold text-[#0B0B12] uppercase tracking-wider">
+            <FileText className="w-4 h-4 text-[#1531F5]" />
             <span>5. Direitos do Titular (Art. 18 LGPD)</span>
           </div>
           <p>O titular dos dados tem o direito garantido de solicitar a qualquer momento:</p>
@@ -133,15 +133,15 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
             <li>Confirmação da existência de tratamento e acesso aos dados.</li>
             <li>Correção de dados incompletos, inexatos ou desatualizados.</li>
             <li>Anonimização, bloqueio ou eliminação de dados desnecessários.</li>
-            <li><strong>Eliminação simplificada:</strong> Disponibilizamos uma página pública direta para solicitação de exclusão em <a href="/data-deletion" className="text-[#0071E3] underline">/data-deletion</a>.</li>
+            <li><strong>Eliminação simplificada:</strong> Disponibilizamos uma página pública direta para solicitação de exclusão em <a href="/data-deletion" className="text-[#1531F5] underline">/data-deletion</a>.</li>
             <li>Opt-out imediato por mensagem no próprio WhatsApp comercial enviando palavras como "sair", "parar" ou "descadastrar".</li>
           </ul>
         </section>
 
         {/* Section 6 */}
         <section className="p-4 bg-white border border-black/[0.08] rounded shadow-xs space-y-2">
-          <div className="flex items-center gap-2 text-xs font-bold text-[#1D1D1F] uppercase tracking-wider">
-            <Lock className="w-4 h-4 text-[#0071E3]" />
+          <div className="flex items-center gap-2 text-xs font-bold text-[#0B0B12] uppercase tracking-wider">
+            <Lock className="w-4 h-4 text-[#1531F5]" />
             <span>6. Retenção e Segurança</span>
           </div>
           <p>
