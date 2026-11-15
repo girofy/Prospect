@@ -59,7 +59,7 @@ export default function LearningTab() {
         />
         <div className="flex items-center gap-3 flex-wrap">
           <Btn onClick={analyze} disabled={running}>{running ? 'Analisando…' : 'Analisar mais conversas'}</Btn>
-          <span className="text-[12.5px] text-[#86868B]">Cada análise gasta 1 resposta da cota de IA.</span>
+          <span className="text-[12.5px] text-[#6B6F80]">Cada análise gasta 1 resposta da cota de IA.</span>
         </div>
         {msg && <div className="mt-3 text-[13.5px] text-[#424245] font-medium">{msg}</div>}
         {total > 0 && (
@@ -80,12 +80,12 @@ export default function LearningTab() {
             <div key={i}><Card className="!p-4 sm:!p-5">
               <div className="flex items-center justify-between mb-3">
                 <Pill tone={o.tone}>{o.label}</Pill>
-                <span className="text-[12px] text-[#86868B] tabular-nums">…{l.contact_phone?.slice(-4)}</span>
+                <span className="text-[12px] text-[#6B6F80] tabular-nums">…{l.contact_phone?.slice(-4)}</span>
               </div>
               <div className="space-y-2.5 text-[14px] leading-snug">
                 {clean(l.worked) && <p className="flex gap-2.5"><ThumbsUp className="w-4 h-4 mt-0.5 shrink-0 text-[#34C759]" /><span><b>Funcionou.</b> {clean(l.worked)}</span></p>}
                 {clean(l.failed) && <p className="flex gap-2.5"><ThumbsDown className="w-4 h-4 mt-0.5 shrink-0 text-[#FF3B30]" /><span><b>Travou.</b> {clean(l.failed)}</span></p>}
-                {clean(l.why) && <p className="flex gap-2.5"><HelpCircle className="w-4 h-4 mt-0.5 shrink-0 text-[#86868B]" /><span className="text-[#6e6e73]">{clean(l.why)}</span></p>}
+                {clean(l.why) && <p className="flex gap-2.5"><HelpCircle className="w-4 h-4 mt-0.5 shrink-0 text-[#6B6F80]" /><span className="text-[#5B5F70]">{clean(l.why)}</span></p>}
               </div>
             </Card></div>
           );

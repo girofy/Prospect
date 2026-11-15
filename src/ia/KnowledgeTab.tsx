@@ -114,19 +114,19 @@ export default function KnowledgeTab() {
           onDragOver={e => { e.preventDefault(); setDrag(true); }}
           onDragLeave={() => setDrag(false)}
           onDrop={onDrop}
-          className={`flex flex-col items-center justify-center text-center rounded-2xl border-2 border-dashed px-4 py-8 cursor-pointer transition-colors ${drag ? 'border-[#0071E3] bg-[#0071E3]/5' : 'border-black/[0.12] bg-[#FBFBFD] active:bg-black/[0.03]'}`}
+          className={`flex flex-col items-center justify-center text-center rounded-2xl border-2 border-dashed px-4 py-8 cursor-pointer transition-colors ${drag ? 'border-[#1531F5] bg-[#1531F5]/5' : 'border-black/[0.12] bg-[#FBFBFD] active:bg-black/[0.03]'}`}
         >
           <input ref={fileRef} type="file" accept={ACCEPT} className="hidden" onChange={e => handleFile(e.target.files?.[0])} />
-          <div className="w-12 h-12 rounded-2xl bg-[#0071E3]/10 text-[#0071E3] flex items-center justify-center mb-3">
+          <div className="w-12 h-12 rounded-2xl bg-[#1531F5]/10 text-[#1531F5] flex items-center justify-center mb-3">
             <UploadCloud className="w-6 h-6" />
           </div>
-          <div className="text-[15px] font-bold text-[#1D1D1F]">{reading ? 'Lendo o arquivo…' : 'Toque para escolher um arquivo'}</div>
-          <div className="text-[13px] text-[#86868B] mt-1">PDF, Word, .md, .txt, .csv, .json, .html · até 8 MB</div>
+          <div className="text-[15px] font-bold text-[#0B0B12]">{reading ? 'Lendo o arquivo…' : 'Toque para escolher um arquivo'}</div>
+          <div className="text-[13px] text-[#6B6F80] mt-1">PDF, Word, .md, .txt, .csv, .json, .html · até 8 MB</div>
         </label>
 
         <div className="flex flex-wrap gap-2 mt-4">
           {SUGGESTIONS.map(s => (
-            <button key={s} onClick={() => setTitle(s)} className="px-3 py-1.5 rounded-full text-[12.5px] font-semibold bg-black/[0.05] text-[#1D1D1F] active:bg-black/[0.1]">{s}</button>
+            <button key={s} onClick={() => setTitle(s)} className="px-3 py-1.5 rounded-full text-[12.5px] font-semibold bg-black/[0.05] text-[#0B0B12] active:bg-black/[0.1]">{s}</button>
           ))}
         </div>
 
@@ -135,10 +135,10 @@ export default function KnowledgeTab() {
           <textarea className={`${inputCls} min-h-[150px] resize-y leading-relaxed`} placeholder="Ou cole o texto aqui" value={text} onChange={e => setText(e.target.value)} />
           <div className="flex items-center gap-3 flex-wrap">
             <Btn onClick={save} disabled={saving || !title.trim() || !text.trim()}>{saving ? 'Salvando…' : 'Salvar na base'}</Btn>
-            <span className="text-[12.5px] text-[#86868B] tabular-nums">{text.length.toLocaleString('pt-BR')} caracteres</span>
+            <span className="text-[12.5px] text-[#6B6F80] tabular-nums">{text.length.toLocaleString('pt-BR')} caracteres</span>
           </div>
           {msg && (
-            <div className={`rounded-xl px-3.5 py-2.5 text-[13.5px] font-medium flex items-start gap-2 ${msg.kind === 'ok' ? 'bg-[#34C759]/12 text-[#1f8a3a]' : msg.kind === 'err' ? 'bg-[#FF3B30]/10 text-[#c42b22]' : 'bg-[#0071E3]/8 text-[#0058b0]'}`}>
+            <div className={`rounded-xl px-3.5 py-2.5 text-[13.5px] font-medium flex items-start gap-2 ${msg.kind === 'ok' ? 'bg-[#34C759]/12 text-[#1f8a3a]' : msg.kind === 'err' ? 'bg-[#FF3B30]/10 text-[#c42b22]' : 'bg-[#1531F5]/8 text-[#0058b0]'}`}>
               {msg.kind === 'ok' && <Check className="w-4 h-4 mt-0.5 shrink-0" />}
               <span>{msg.text}</span>
             </div>
@@ -151,7 +151,7 @@ export default function KnowledgeTab() {
         <div className="h-2.5 rounded-full bg-black/[0.06] overflow-hidden mb-1.5">
           <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: barColor }} />
         </div>
-        <div className="text-[12px] text-[#86868B] tabular-nums mb-4">{total.toLocaleString('pt-BR')} de {LIMIT.toLocaleString('pt-BR')} caracteres ativos</div>
+        <div className="text-[12px] text-[#6B6F80] tabular-nums mb-4">{total.toLocaleString('pt-BR')} de {LIMIT.toLocaleString('pt-BR')} caracteres ativos</div>
 
         {docs === null ? <Skeleton className="h-20" /> : docs.length === 0 ? (
           <Empty title="Nenhum documento ainda" hint="Envie um arquivo ou cole um texto acima." />
@@ -160,10 +160,10 @@ export default function KnowledgeTab() {
             {docs.map(d => (
               <div key={d.id} className="py-3 px-1">
                 <div className="flex items-center gap-3">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${d.active ? 'bg-[#0071E3]/10 text-[#0071E3]' : 'bg-black/[0.05] text-[#a1a1a6]'}`}><FileText className="w-[18px] h-[18px]" /></div>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${d.active ? 'bg-[#1531F5]/10 text-[#1531F5]' : 'bg-black/[0.05] text-[#a1a1a6]'}`}><FileText className="w-[18px] h-[18px]" /></div>
                   <button className="min-w-0 flex-1 text-left" onClick={() => setOpen(open === d.id ? null : d.id)}>
-                    <div className={`text-[14.5px] font-semibold leading-snug line-clamp-2 ${d.active ? 'text-[#1D1D1F]' : 'text-[#a1a1a6]'}`}>{d.title}</div>
-                    <div className="text-[12px] text-[#86868B] tabular-nums">{d.content.length.toLocaleString('pt-BR')} caracteres</div>
+                    <div className={`text-[14.5px] font-semibold leading-snug line-clamp-2 ${d.active ? 'text-[#0B0B12]' : 'text-[#a1a1a6]'}`}>{d.title}</div>
+                    <div className="text-[12px] text-[#6B6F80] tabular-nums">{d.content.length.toLocaleString('pt-BR')} caracteres</div>
                   </button>
                   <ChevronDown className={`w-4 h-4 text-[#a1a1a6] transition-transform ${open === d.id ? 'rotate-180' : ''}`} />
                   <Switch on={d.active} onChange={v => toggle(d, v)} label={`Usar "${d.title}"`} />

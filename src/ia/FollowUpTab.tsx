@@ -67,9 +67,9 @@ export default function FollowUpTab() {
           title="Retomar conversas"
           hint="Conversas em que a última mensagem foi nossa e a pessoa não respondeu há mais de 24 horas. A IA prepara o texto, você revisa e envia. Nada sai sozinho."
         />
-        <div className="text-[12.5px] text-[#86868B]">No máximo 3 mensagens seguidas sem resposta. Quem pediu para sair nunca aparece aqui.</div>
+        <div className="text-[12.5px] text-[#6B6F80]">No máximo 3 mensagens seguidas sem resposta. Quem pediu para sair nunca aparece aqui.</div>
         {semNumero > 0 && (
-          <div className="mt-3 rounded-xl bg-[#FF9500]/10 text-[#8a5300] px-3.5 py-2.5 text-[13px] leading-snug font-medium">
+          <div className="mt-3 rounded-xl bg-[#FF6A00]/10 text-[#8a5300] px-3.5 py-2.5 text-[13px] leading-snug font-medium">
             {semNumero} conversas do histórico não têm telefone (o WhatsApp entregou só um identificador interno). A IA estuda essas conversas, mas não dá para escrever para elas.
           </div>
         )}
@@ -86,13 +86,13 @@ export default function FollowUpTab() {
             <Card className="!p-4 sm:!p-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="text-[15px] font-bold text-[#1D1D1F] truncate">{c.name || `Contato …${c.phone.slice(-4)}`}</div>
-                  <div className="text-[12.5px] text-[#86868B] mt-0.5">{ago(c.horas)} · {c.toques} sem resposta{c.toques > 1 ? 's' : ''}</div>
+                  <div className="text-[15px] font-bold text-[#0B0B12] truncate">{c.name || `Contato …${c.phone.slice(-4)}`}</div>
+                  <div className="text-[12.5px] text-[#6B6F80] mt-0.5">{ago(c.horas)} · {c.toques} sem resposta{c.toques > 1 ? 's' : ''}</div>
                 </div>
                 <Pill tone={c.ja_respondeu ? 'blue' : 'gray'}>{c.ja_respondeu ? 'já respondeu antes' : 'nunca respondeu'}</Pill>
               </div>
               <div className="mt-3 rounded-xl bg-[#FBFBFD] border border-black/[0.06] px-3.5 py-2.5 text-[13.5px] text-[#424245] leading-snug">
-                <span className="text-[#86868B]">{c.last_from === 'bot' ? 'Agente: ' : 'Você: '}</span>{c.last_text}
+                <span className="text-[#6B6F80]">{c.last_from === 'bot' ? 'Agente: ' : 'Você: '}</span>{c.last_text}
               </div>
 
               {drafts[c.phone] === undefined ? (
