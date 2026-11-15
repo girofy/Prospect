@@ -1,4 +1,4 @@
-import VialvoLogo from './brand/VialvoLogo';
+import GirofyLogo from './brand/GirofyLogo';
 import TodayCard from './ia/TodayCard';
 import FocoCard from './ia/FocoCard';
 import IAHub from './ia/IAHub.tsx';
@@ -964,7 +964,7 @@ export default function App() {
       {/* APPLE FROSTED HEADER */}
       <header className="apple-header sticky top-0 z-40 px-4 sm:px-8 py-3.5 flex items-center justify-between gap-3">
         
-        <VialvoLogo />
+        <GirofyLogo />
 
         {/* Right: Status Pill & Sync Refresh */}
         <div className="flex items-center gap-2.5 shrink-0">
