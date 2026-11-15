@@ -27,7 +27,7 @@
   }
 }
 
-/* Vialvo: títulos na fonte da marca */
+/* Títulos na fonte da marca */
 h1, h2, h3, .font-display { font-family: "Outfit", "Inter", sans-serif; letter-spacing: -0.02em; }
 
 /* Cartões e superfícies (nomes antigos mantidos para não quebrar telas) */
