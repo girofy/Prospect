@@ -935,7 +935,7 @@ export default function App() {
   // Quick replies
   const QUICK_REPLIES = [
     { label: '📅 Reunião 15 min', text: 'Olá! Podemos agendar uma conversa rápida de 15 minutos via Google Meet para analisar o seu cenário e desenhar a melhor solução?' },
-    { label: '🚀 Site R$ 290', text: 'O site sai por R$ 290. Você vê a prévia antes e só paga depois de aprovar. À vista, entrego no mesmo dia.' },
+    { label: '🚀 Black Friday', text: 'Promoção de Black Friday até 30/11: R$ 490 no Pix ou 2x de R$ 295. Você vê a prévia antes e só paga depois de aprovar.' },
     { label: '⚙️ Sistemas Sob Medida', text: 'Desenvolvemos sistemas web e automações operacionais sob medida para otimizar processos de vendas e gestão da sua empresa.' },
     { label: '👤 Chamar Especialista', text: 'Compreendo perfeitamente. Estou transferindo o atendimento agora para o nosso especialista humano dar sequência.' }
   ];
