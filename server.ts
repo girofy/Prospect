@@ -7,6 +7,8 @@ import { fileURLToPath } from 'url';
 import apiHandler from './api/index';
 import { startProspector } from './api/lib/prospector';
 import { startBackup } from './api/lib/backup';
+import { startConnectionWatch } from './api/lib/alert';
+import { getEvolutionState } from './api/lib/evolution';
 import { startLearning } from './api/lib/learning';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -140,4 +142,5 @@ server.listen(PORT, () => {
   startReminders();
   startLearning();
   startBackup();
+  startConnectionWatch(async () => getEvolutionState());
 });

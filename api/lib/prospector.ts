@@ -1,5 +1,6 @@
 // Agente de prospecção ativa: roda dentro do processo do servidor (sem depender do navegador).
 // Envia abordagem fria só em horário comercial, com intervalo aleatório e teto diário.
+import { pushOwner } from './alert';
 import { db } from './db';
 import { getEvolutionCfg, sendEvolutionText, evolutionHasHistory, getEvolutionState } from './evolution';
 import { Contact } from './types';
@@ -120,7 +121,8 @@ async function notifyOwnerOnce(kind: string, day: string, text: string) {
     const sent = cfg.ownerNotice || {};
     if (sent[kind] === day) return;
     const r = await sendEvolutionText(OWNER, text, 800);
-    if (r.success) await db.saveConfig({ ownerNotice: { ...sent, [kind]: day } });
+    const pushed = await pushOwner('Prospecção', text.slice(0, 200));
+    if (r.success || pushed) await db.saveConfig({ ownerNotice: { ...sent, [kind]: day } });
     await db.addAuditLog({ type: 'status_change', summary: `Aviso ao dono (${kind}): ${text.slice(0, 120)}${r.success ? '' : ' [falhou: ' + r.error + ']'}` });
   } catch (err) {
     console.warn('[Prospector] aviso ao dono falhou:', err);
