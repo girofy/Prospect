@@ -43,7 +43,7 @@ SAÍDA: responda SOMENTE com o texto da mensagem para o WhatsApp. Se precisar de
 `;
 
 // Groq grátis: ~7-8 mil tokens por minuto e por requisição. Acima disso ele recusa (413), então a versão enxuta é curta.
-const GROQ_KNOWLEDGE_CHARS = 12000;
+const GROQ_KNOWLEDGE_CHARS = 9000;
 const GROQ_LESSONS = 2;
 const HISTORY_CHARS_FULL = 9000; // histórico que vai para modelos Gemini
 const HISTORY_CHARS_GROQ = 1500; // histórico que vai para o Groq (limite por minuto)
@@ -167,11 +167,11 @@ function chainFrom(cfg: AppConfig): ChainItem[] {
   const saved = Array.isArray(cfg.aiChain) ? cfg.aiChain : [];
   const valid = saved.filter(x => x && (x.provider === 'gemini' || x.provider === 'groq' || x.provider === 'cf') && typeof x.model === 'string' && x.model.trim() && !/^(gsk_|AIza|AQ\.|sk-)/.test(x.model.trim()));
   const chain: ChainItem[] = valid.length ? valid.map(x => ({ provider: x.provider, model: x.model.trim() })) : defaultChain(cfg);
-  // Cloudflare (Workers AI, grátis) entra sempre antes do Groq: lê a base inteira, sem o corte do Groq.
-  if (!chain.some(x => x.provider === 'cf')) {
-    const i = chain.findIndex(x => x.provider === 'groq');
-    chain.splice(i < 0 ? chain.length : i, 0, { provider: 'cf', model: 'gpt-oss-120b' });
-  }
+  // Cloudflare (Workers AI, grátis) entra sempre, mas no FIM: o modelo dele pensa antes de responder e leva dezenas de segundos.
+  if (!chain.some(x => x.provider === 'cf')) chain.push({ provider: 'cf', model: 'gpt-oss-120b' });
+  // Ordem por velocidade: Groq responde em ~1 s, Gemini em poucos segundos, Cloudflare só como reserva.
+  const rank: Record<string, number> = { groq: 0, gemini: 1, cf: 2 };
+  chain.sort((a, b) => rank[a.provider] - rank[b.provider]);
   return chain;
 }
 
@@ -249,7 +249,7 @@ async function callCf(text: string): Promise<string> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-girofy-key': process.env.IA_KEY! },
     body: JSON.stringify({ messages: [{ role: 'user', content: text }], max_tokens: 2500 }),
-    signal: AbortSignal.timeout(45_000),
+    signal: AbortSignal.timeout(25_000),
   });
   const body = await res.text();
   if (!res.ok) {
@@ -268,7 +268,8 @@ export async function probeModel(
   apiKey: string,
   text = 'Oi, quem é?'
 ): Promise<{ ok: boolean; reply: string; ms: number; problem: string | null; error?: string }> {
-  const prompt = `${SYSTEM_PROMPT}\n\nDADOS DA PESSOA:\n- Nome: não sei o nome\n- Nicho: barbearia\n\nCONVERSA RECENTE:\nVocê: Boa tarde!\n\nNOVA MENSAGEM DA PESSOA:\n"${text}"\n\nResponda só com o texto da próxima mensagem para o WhatsApp.`;
+  const knowledge = (await loadKnowledge()).slice(0, provider === 'groq' ? GROQ_KNOWLEDGE_CHARS : KNOWLEDGE_MAX_CHARS);
+  const prompt = `${SYSTEM_PROMPT}${knowledge ? `\nBASE DE CONHECIMENTO DA GIROFY:\n${knowledge}\n` : ''}\n\nDADOS DA PESSOA:\n- Nome: não sei o nome\n- Nicho: barbearia\n\nCONVERSA RECENTE:\nVocê: Boa tarde!\n\nNOVA MENSAGEM DA PESSOA:\n"${text}"\n\nResponda só com o texto da próxima mensagem para o WhatsApp.`;
   const t0 = Date.now();
   try {
     const reply = provider === 'gemini' ? await callGemini(apiKey, model, prompt) : provider === 'cf' ? await callCf(prompt) : await callGroq(apiKey, model, prompt);
