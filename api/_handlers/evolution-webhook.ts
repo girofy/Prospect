@@ -11,6 +11,7 @@ import { markPending } from '../lib/catchup';
 import { AUTO_RE, isClosing } from '../lib/campaigns';
 import { sendLeadReply } from '../lib/bubbles';
 import { isOwner, handleOwnerMessage, OWNER_PHONE } from '../lib/owner';
+import { alertOwner } from '../lib/alert';
 
 // Aviso para o dono quando um lead mostra interesse de compra (no máximo um aviso a cada 30 min por contato).
 const HOT_RE = /(quanto (custa|fica|sai|e|é)|pre[cç]o|valor|pr[eé]via|or[cç]amento|quero (fechar|contratar|comprar)|fechar (o )?neg[oó]cio|contratar)/i;
@@ -21,7 +22,11 @@ async function alertOwnerIfHot(phone: string, name: string, text: string): Promi
   if (Date.now() - (lastHotAlert.get(phone) || 0) < 30 * 60_000) return;
   lastHotAlert.set(phone, Date.now());
   const who = name && !/^(contato|lead)/i.test(name) ? `${name} (${phone})` : phone;
-  await sendEvolutionText(OWNER_PHONE, `Lead quente: ${who}\nDisse: "${text.slice(0, 200)}"\nPara eu resumir, mande: resumo ${phone.slice(-8)}`, 1000);
+  await alertOwner({
+    title: 'Lead quente',
+    push: `${name && !/^(contato|lead)/i.test(name) ? name : 'Um contato'} pediu preço ou prévia. Abra o painel.`,
+    whatsapp: `Lead quente: ${who}\nDisse: "${text.slice(0, 200)}"\nPara eu resumir, mande: resumo ${phone.slice(-8)}`,
+  });
 }
 import { Contact, ChatMessage } from '../lib/types';
 
@@ -198,7 +203,7 @@ async function respond(phone: string, media?: { mimeType: string; data: string }
     if (recentBot >= 6) {
       await db.saveContact({ ...contact, status: 'aguardando_humano', lastInteractionAt: now });
       await db.addAuditLog({ type: 'status_change', phone, summary: `Conversa longa demais (${recentBot} respostas em 30 min). A IA parou; pode ser outro robô. Aguardando você.` });
-      await sendEvolutionText(OWNER_PHONE, `Parei de responder ${contact.company || phone}: ${recentBot} mensagens em 30 min, parece outro robô. Veja a conversa no painel.`, 800);
+      await alertOwner({ title: 'IA parou numa conversa', push: `${contact.company || 'Um contato'}: ${recentBot} respostas em 30 min, parece outro robô. Veja no painel.`, whatsapp: `Parei de responder ${contact.company || phone}: ${recentBot} mensagens em 30 min, parece outro robô. Veja a conversa no painel.` });
       return;
     }
 
@@ -212,12 +217,14 @@ async function respond(phone: string, media?: { mimeType: string; data: string }
         : ai.unavailableReason === 'no_key' ? 'chave da IA não configurada'
         : 'erro da IA';
       await db.addAuditLog({ type: 'error', phone, summary: `IA não respondeu (${why}). Aguardando você: ${phone}.` });
+      await alertOwner({ title: 'IA não respondeu', push: `${contact.company || 'Um contato'} está sem resposta: ${why}. Abra o painel.`, urgent: true });
       return;
     }
 
     if (ai.transferToHuman) {
       contact = await db.saveContact({ ...contact, agentState: 'human_takeover', status: 'aguardando_humano', lastInteractionAt: now });
       await db.addAuditLog({ type: 'status_change', phone, summary: `Transferido para humano: ${ai.transferReason || 'complexidade da negociação'}` });
+      await alertOwner({ title: 'Precisa de você', push: `${contact.company || contact.name || 'Um contato'}: ${(ai.transferReason || 'atendimento humano').slice(0, 120)}. Abra o painel.`, urgent: true });
     } else if (ai.isMeetingRequested) {
       await db.saveContact({ ...contact, status: 'reuniao_marcada', lastInteractionAt: now });
     }
