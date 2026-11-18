@@ -15,9 +15,14 @@ export default async function handler(req: any, res: any) {
         await db.saveConfig({ retomadaQueue: [], retomadaNextAt: undefined });
         return res.status(200).json({ ok: true, pendentes: 0 });
       }
+      // Telefone brasileiro (55 + DDD + número) ou ID interno do WhatsApp (LID), que vira id@lid no envio.
       const items = (Array.isArray(b.items) ? b.items : [])
-        .map((i: any) => ({ phone: String(i.phone || '').replace(/\D/g, ''), text: String(i.text || '').trim().slice(0, 400), name: String(i.name || '').slice(0, 60) }))
-        .filter((i: any) => /^55\d{10,11}$/.test(i.phone) && i.text);
+        .map((i: any) => {
+          const d = String(i.phone || '').replace(/\D/g, '');
+          const alvo = /^55\d{10,11}$/.test(d) ? d : /^\d{13,16}$/.test(d) ? `${d}@lid` : '';
+          return { phone: alvo, text: String(i.text || '').trim().slice(0, 400), name: String(i.name || '').slice(0, 60) };
+        })
+        .filter((i: any) => i.phone && i.text);
       await db.saveConfig({ retomadaQueue: items });
       return res.status(200).json({ ok: true, colocados: items.length });
     }
