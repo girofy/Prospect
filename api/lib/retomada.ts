@@ -39,7 +39,7 @@ async function tick() {
     if (res.success) {
       await db.saveMessage({
         id: `out-retomada-${res.messageId || Date.now()}`,
-        contactPhone: item.phone,
+        contactPhone: item.phone.split('@')[0],
         from: 'bot',
         text: item.text,
         type: 'text',
