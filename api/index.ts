@@ -1,3 +1,4 @@
+import retomadaHandler from './_handlers/retomada';
 import webhookHandler from './_handlers/webhook';
 import contactsHandler from './_handlers/contacts';
 import messagesHandler from './_handlers/messages';
@@ -46,6 +47,7 @@ const PROTECTED_ROUTES: Record<string, Handler> = {
   '/api/knowledge': knowledgeHandler,
   '/api/metrics': metricsHandler,
   '/api/campaigns': campaignsHandler,
+  '/api/retomada': retomadaHandler,
   '/api/export': exportHandler,
   '/api/ai-test': aiTestHandler,
   '/api/ai-models': aiModelsHandler,

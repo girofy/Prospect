@@ -1,3 +1,4 @@
+import { startRetomada } from './api/lib/retomada';
 import { startCatchup } from './api/lib/catchup';
 import { startReminders } from './api/lib/reminders';
 import http from 'http';
@@ -142,5 +143,6 @@ server.listen(PORT, () => {
   startReminders();
   startLearning();
   startBackup();
+  startRetomada();
   startConnectionWatch(async () => getEvolutionState());
 });
